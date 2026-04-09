@@ -1,35 +1,50 @@
-import { Injectable } from '@nestjs/common';
-import { createClerkClient } from '@clerk/backend';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import * as bcrypt from "bcrypt";
+import { Repository } from "typeorm";
+import { JwtService } from "@nestjs/jwt";
+import { User } from "src/entities/user.entity";
+import { InjectRepository } from "@nestjs/typeorm";
+import { SigninDto, SignupDto } from "./auth.dto";
+import { SessionService } from "../session/session.service";
 
 @Injectable()
 export class AuthService {
-    private clerk = createClerkClient({ secretKey: process.env.CLERK_API_KEY });
+  constructor(
+    @InjectRepository(User)
+    private users: Repository<User>,
+    private jwtService: JwtService,
+    private sessionService: SessionService,
+  ) {}
 
-    async createUser(email: string, password: string) {
-        const user = await this.clerk.users.createUser({
-            emailAddress: [email],
-            password,
-        });
-        return user;
-    }
+  async signup(data: SignupDto) {
+    const existing = await this.users.findOne({ where: { email: data.email } });
+    if (existing) throw new BadRequestException("Email already exists");
+    const hashed = await bcrypt.hash(data.password, 10);
 
-    async authenticateUser(email: string, password: string) {
-        const userResponse = await this.clerk.users.getUserList({ emailAddress: [email] });
-        const user = userResponse[0];
-        if (!user) throw new Error('User not found');
+    const user = this.users.create({
+      email: data.email,
+      name: data.name,
+      password: hashed,
+    });
 
-        const isValid = await this.clerk.users.verifyPassword({
-            userId: user.id,
-            password,
-        });
-        if (!isValid) throw new Error('Invalid credentials');
+    await this.users.save(user);
+    return { message: "User created" };
+  }
 
-        const session = await this.clerk.sessions.createSession({ userId: user.id });
-        return session;
-    }
+  async signin(data: SigninDto) {
+    const user = await this.users.findOne({ where: { email: data.email } });
+    if (!user) throw new UnauthorizedException("Invalid credentials");
 
-    async getUser(userId: string) {
-        const user = await this.clerk.users.getUser(userId);
-        return user;
-    }
+    const isMatch = await bcrypt.compare(data.password, user.password);
+    if (!isMatch) throw new UnauthorizedException("Invalid credentials");
+
+    const token = this.jwtService.sign({ sub: user.id });
+    await this.sessionService.deleteByUser(user.id);
+    await this.sessionService.create(user.id, token);
+    return token;
+  }
 }

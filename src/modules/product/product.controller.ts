@@ -1,20 +1,23 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import { ProductService } from "./product.service";
+import { AuthGuard } from "@nestjs/passport";
+import { ProductDto } from "./product.dto";
 
-@Controller('product')
+@Controller("product")
 export class ProductController {
-    @Get()
-    getAllProducts() {
-        return {
-            message: "Product API working 🚀",
-            data: []
-        };
-    }
+  constructor(private readonly productService: ProductService) {}
 
-    @Get('test')
-    testApi() {
-        return {
-            status: "ok",
-            time: new Date()
-        };
-    }
+  @Get()
+  getProducts() {
+    return {
+      message: "Product API working 🚀",
+      data: [],
+    };
+  }
+
+  @Post("")
+  @UseGuards(AuthGuard("jwt"))
+  createProduct(@Body() body: ProductDto, @Req() req: any) {
+    return this.productService.create(body);
+  }
 }
