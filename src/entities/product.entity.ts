@@ -1,6 +1,7 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -9,6 +10,8 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { Shop } from "./shop.entity";
+import { Brand } from "./brand.entity";
+import { Category } from "./category.entity";
 
 @Entity("products")
 @Index(["shopId", "sku"], { unique: true })
@@ -22,6 +25,22 @@ export class Product {
   @ManyToOne(() => Shop, (shop) => shop.products, { onDelete: "CASCADE" })
   @JoinColumn({ name: "shopId" })
   shop: Shop;
+
+  @Column()
+  brandId: string;
+
+  @ManyToOne(() => Brand, (brand) => brand.products, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "brandId" })
+  brand: Brand;
+
+  @Column()
+  categoryId: string;
+
+  @ManyToOne(() => Category, (category) => category.products, {
+    onDelete: "CASCADE",
+  })
+  @JoinColumn({ name: "categoryId" })
+  category: Category;
 
   @Column()
   name: string;
@@ -46,4 +65,7 @@ export class Product {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

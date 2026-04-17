@@ -30,11 +30,12 @@ export class ShopService {
   }
 
   async update(id: string, data: UpdateShopDto) {
-    const shop = await this.shops.findOne({ where: { id } });
-    if (!shop) throw new NotFoundException("Shop not found");
-
-    Object.assign(shop, data);
-    return this.shops.save(shop);
+    const shop = await this.shops.update(id, data);
+    console.log(shop);
+    if (shop.affected === 0) {
+      throw new NotFoundException("Shop not found");
+    }
+    return { message: "Shop updated successfully" };
   }
 
   async delete(id: string) {

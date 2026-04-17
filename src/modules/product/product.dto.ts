@@ -13,6 +13,14 @@ export class ProductDto {
   @IsNotEmpty()
   shopId: string;
 
+  @IsUUID()
+  @IsNotEmpty()
+  brandId: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  categoryId: string;
+
   @IsNotEmpty()
   @MinLength(3)
   name: string;

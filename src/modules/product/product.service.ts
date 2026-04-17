@@ -24,6 +24,16 @@ export class ProductService {
     return this.products.find();
   }
 
+  async getProductById(id: string) {
+    const product = await this.products.findOne({
+      where: { id },
+      relations: ["shop", "brand", "category"],
+    });
+    if (!product) throw new NotFoundException("Product not found");
+
+    return product;
+  }
+
   async create(data: ProductDto) {
     try {
       const shop = await this.shops.findOne({
@@ -37,6 +47,10 @@ export class ProductService {
       const product = this.products.create(data);
       return await this.products.save(product);
     } catch (error: any) {
+      if (error.code === "23503") {
+        throw new BadRequestException("Shop does not exist");
+      }
+
       if (error.code === "23505") {
         throw new ConflictException(error.detail);
       }
@@ -45,12 +59,16 @@ export class ProductService {
   }
 
   async deleteProduct(id: string) {
-    const result = await this.products.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException("Product not found");
+    try {
+      const result = await this.products.softDelete(id);
+      if (result.affected === 0) {
+        throw new NotFoundException("Product not found");
+      }
+      return {
+        message: "Product deleted successfully",
+      };
+    } catch (error) {
+      throw error;
     }
-    return {
-      message: "Product deleted successfully",
-    };
   }
 }
