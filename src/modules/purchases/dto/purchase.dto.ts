@@ -1,126 +1,153 @@
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
 
 export class CreatePurchaseItemDto {
+  @ApiProperty()
   @IsUUID()
   productId: string;
 
+  @ApiProperty()
   @IsNumber()
   @Min(0.01)
   quantity: number;
 
+  @ApiProperty()
   @IsNumber()
   @Min(0)
   unitCost: number;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   taxRate?: number;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   discountRate?: number;
 
-  @IsOptional()
+  @ApiPropertyOptional()
   @IsString()
   notes?: string;
 }
 
 export class CreatePurchaseDto {
+  @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
   supplierId?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   expectedDate?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   shippingCost?: number;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   @Min(0)
   discountAmount?: number;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   attachment?: string;
 
+  @ApiProperty({ type: [CreatePurchaseItemDto] })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreatePurchaseItemDto)
   items: CreatePurchaseItemDto[];
 }
 
-export class UpdatePurchaseDto extends CreatePurchaseDto {}
+export class UpdatePurchaseDto extends PartialType(CreatePurchaseDto) {}
 
 export class ReceivePurchaseDto {
+  @ApiProperty({ description: 'Array of {productId, receivedQuantity}' })
   @IsArray()
   receivedItems: { purchaseItemId: string; receivedQuantity: number }[];
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;
 }
 
 export class CreatePurchaseReturnDto {
+  @ApiProperty()
   @IsUUID()
   purchaseId: string;
 
+  @ApiProperty({ description: 'Array of {productId, quantity, unitCost, reason}' })
   @IsArray()
   items: { productId: string; quantity: number; unitCost: number; reason?: string }[];
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   reason?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;
 }
 
 export class CreateSupplierDto {
+  @ApiProperty()
   @IsString()
   @IsNotEmpty()
   name: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   contactPerson?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   phone?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   email?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   address?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   taxNumber?: string;
 
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;
 }
 
-export class UpdateSupplierDto extends CreateSupplierDto {}
+export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {}
 
 export class RecordPaymentDto {
+  @ApiProperty()
   @IsNumber()
   @Min(0.01)
   amount: number;

@@ -16,15 +16,38 @@ export class InventoryService {
   ) {}
 
   async getInventory(shopId: string, page = 1, limit = 20) {
-    const [data, total] = await this.inventoryRepository.findAndCount({
+    const [rawData, total] = await this.inventoryRepository.findAndCount({
       where: { shopId },
-      // relations: ['product', 'product.brand', 'product.category', 'product.unit'],
+      relations: ['product', 'product.brand', 'product.category', 'product.unit'],
       skip: (page - 1) * limit,
       take: limit,
       order: { createdAt: 'DESC' },
     });
+
+    const data = rawData.map((p) => ({
+      id: p.id,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+      shopId: p.shopId,
+      productId: p.productId,
+      quantityOnHand: p.quantityOnHand,
+      quantityReserved: p.quantityReserved,
+      quantityAvailable: p.quantityAvailable,
+      minStockLevel: p.product.minStockLevel,
+      maxStockLevel: p.product.maxStockLevel,
+      product: {
+        name: p.product.name,
+        sku: p.product.sku,
+        barcode: p.product.barcode,
+        brand: p.product.brand?.name,
+        category: p.product.category?.name,
+        unit: p.product.unit?.symbol,
+      },
+    }));
+
     return {
       data,
+      message: 'Inventory retrieved successfully',
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }

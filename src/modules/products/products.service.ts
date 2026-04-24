@@ -43,14 +43,46 @@ export class ProductsService {
     }
 
     const total = await qb.getCount();
-    const data = await qb
+    const rawData = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('p.createdAt', 'DESC')
       .getMany();
 
+    const data = rawData.map((p) => ({
+      id: p.id,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+      shopId: p.shopId,
+      name: p.name,
+      sku: p.sku,
+      barcode: p.barcode,
+      description: p.description,
+      image: p.image,
+      status: p.status,
+      type: p.type,
+      brandId: p.brandId,
+      categoryId: p.categoryId,
+      unitId: p.unitId,
+      taxRate: p.taxRate,
+      minStockLevel: p.minStockLevel,
+      maxStockLevel: p.maxStockLevel,
+      brand: p.brand?.name,
+      category: p.category?.name,
+      unit: p.unit?.symbol,
+      price: p.prices?.[0]?.price || null,
+      inventory: p.inventoryItems?.[0]
+        ? {
+            quantityOnHand: p.inventoryItems[0].quantityOnHand,
+            quantityReserved: p.inventoryItems[0].quantityReserved,
+            quantityAvailable: p.inventoryItems[0].quantityAvailable,
+          }
+        : null,
+    }));
+
     return {
       data,
+      message: 'Products retrieved successfully',
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -79,10 +111,15 @@ export class ProductsService {
   }
 
   async getPriceHistory(productId: string, shopId: string) {
-    return this.priceRepository.find({
+    const priceHistory = await this.priceRepository.find({
       where: { productId, shopId },
       order: { createdAt: 'DESC' },
     });
+
+    return {
+      data: priceHistory,
+      message: 'Price history retrieved successfully',
+    };
   }
 
   async getCurrentPrice(productId: string, priceType: PriceType, shopId: string): Promise<number> {
@@ -144,16 +181,19 @@ export class ProductsService {
       // Create inventory item
       if (dto.type !== 'service' && dto.type !== 'digital') {
         await queryRunner.manager.save(InventoryItem, {
-          productId: saved.id,
           shopId,
-          quantityOnHand: 0,
-          quantityAvailable: 0,
+          productId: saved.id,
+          quantityOnHand: dto.initialQuantity || 0,
+          quantityAvailable: dto.initialQuantity || 0,
           quantityReserved: 0,
         });
       }
 
       await queryRunner.commitTransaction();
-      return this.findOne(saved.id, shopId);
+      return {
+        data: await this.findOne(saved.id, shopId),
+        message: 'Product created successfully',
+      };
     } catch (error: any) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -164,9 +204,11 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto, shopId: string) {
     const product = await this.findOne(id, shopId);
-    console.log(product, dto);
     Object.assign(product, dto);
-    return this.productRepository.save(product);
+    return {
+      data: await this.productRepository.save(product),
+      message: 'Product updated successfully',
+    };
   }
 
   async updatePrice(productId: string, dto: UpdateProductPriceDto, shopId: string, userId: string) {
@@ -196,7 +238,10 @@ export class ProductsService {
       await queryRunner.manager.save(ProductPrice, newPrice);
       await queryRunner.commitTransaction();
 
-      return newPrice;
+      return {
+        data: newPrice,
+        message: 'Product price updated successfully',
+      };
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -209,6 +254,7 @@ export class ProductsService {
     const product = await this.findOne(id, shopId);
     if (!product) throw new NotFoundException('Product not found');
     await this.productRepository.softDelete(id);
+    await this.inventoryRepository.softDelete({ productId: id });
     return { message: 'Product deleted' };
   }
 }

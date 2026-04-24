@@ -1,8 +1,20 @@
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateUnitDto {
-  @IsString() @IsNotEmpty() name: string;
-  @IsString() @IsNotEmpty() symbol: string;
-  @IsOptional() @IsString() description?: string;
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  symbol: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
-export class UpdateUnitDto extends CreateUnitDto {}
+export class UpdateUnitDto extends PartialType(CreateUnitDto) {}

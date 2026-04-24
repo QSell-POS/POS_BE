@@ -39,6 +39,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard, RolesGuard } from './common/guards/auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -99,6 +100,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
     // IncomeExpenseModule,
     // AnalyticsModule,
   ],
+  controllers: [AppController],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },

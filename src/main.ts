@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 // import { ValidationFilter } from './common/validationFilter';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,9 +16,10 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: '*',
+    origin: true,
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
   });
 
   // Global pipes
@@ -30,9 +32,22 @@ async function bootstrap() {
     }),
   );
 
+  // Global interceptors
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
+  // Swagger
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('POS Backend')
+    .setDescription('POS Backend API documentation')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
+
+  // Run the application
   await app.listen(port);
-  console.log(`\n🚀 POS Backend running at: http://localhost:${port}/${apiPrefix}`);
+  console.log(`\nPOS Backend running at: http://localhost:${port}/${apiPrefix}`);
 }
 bootstrap();
