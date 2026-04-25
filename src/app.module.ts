@@ -90,9 +90,9 @@ import { AppController } from './app.controller';
     // Feature modules
     AuthModule,
     ShopsModule,
+    UnitsModule,
     BrandsModule,
     CategoriesModule,
-    UnitsModule,
     ProductsModule,
     InventoryModule,
     PurchasesModule,
