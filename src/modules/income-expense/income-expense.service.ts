@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IncomeExpense, TransactionType } from './entities/income-expense.entity';
 import { CreateIncomeExpenseDto, UpdateIncomeExpenseDto, IncomeExpenseFilterDto } from './dto/income-expense.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class IncomeExpenseService {
@@ -59,11 +60,14 @@ export class IncomeExpenseService {
 
     return {
       data,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      summary: {
-        totalIncome: Number(totalIncome),
-        totalExpense: Number(totalExpense),
-        netBalance: Number(totalIncome) - Number(totalExpense),
+      message: 'Income & expense records fetched successfully',
+      meta: {
+        ...buildPaginationMeta(total, page, limit),
+        summary: {
+          totalIncome: Number(totalIncome),
+          totalExpense: Number(totalExpense),
+          netBalance: Number(totalIncome) - Number(totalExpense),
+        },
       },
     };
   }

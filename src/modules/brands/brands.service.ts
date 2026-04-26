@@ -2,8 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
+import { BrandFilterDto, CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
 import { Brand } from './entities/brand.entity';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class BrandsService {
@@ -12,13 +13,22 @@ export class BrandsService {
     private brands: Repository<Brand>,
   ) {}
 
-  async findAll(shopId: string, search?: string) {
+  async findAll(shopId: string, filters: BrandFilterDto) {
+    const { search, page = 1, limit = 20 } = filters;
     const qb = this.brands.createQueryBuilder('b').where('b.shopId = :shopId', { shopId });
     if (search) qb.andWhere('b.name ILIKE :search', { search: `%${search}%` });
-    const data = await qb.orderBy('b.name', 'ASC').getMany();
+
+    const total = await qb.getCount();
+    const data = await qb
+      .orderBy('b.name', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
     return {
       data,
       message: 'Brands fetch successful',
+      meta: buildPaginationMeta(total, page, limit),
     };
   }
 

@@ -2,14 +2,32 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Shop } from 'src/modules/shops/entities/shop.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateShopDto, UpdateShopDto } from './dto/shop.dto';
+import { CreateShopDto, ShopFilterDto, UpdateShopDto } from './dto/shop.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class ShopsService {
   constructor(@InjectRepository(Shop) private shops: Repository<Shop>) {}
 
-  findAll() {
-    return this.shops.find({ order: { createdAt: 'DESC' } });
+  async findAll(filters: ShopFilterDto) {
+    const { search, page = 1, limit = 20 } = filters;
+    const qb = this.shops.createQueryBuilder('s');
+    if (search) {
+      qb.where('(s.name ILIKE :search OR s.slug ILIKE :search)', { search: `%${search}%` });
+    }
+
+    const total = await qb.getCount();
+    const data = await qb
+      .orderBy('s.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    return {
+      data,
+      message: 'Shops fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   async findOne(id: string) {

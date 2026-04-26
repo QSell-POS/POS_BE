@@ -5,6 +5,7 @@ import { Sale, SaleItem, SaleStatus, SalePaymentStatus } from './entities/sale.e
 import { SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-return.entity';
 import { Customer } from './entities/customer.entity';
 import { CreateSaleDto, UpdateSaleDto, CreateSaleReturnDto, CreateCustomerDto, UpdateCustomerDto, SaleFilterDto } from './dto/sale.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryMovementType } from '../inventory/entities/inventory-history.entity';
 import { ProductsService } from '../products/products.service';
@@ -48,7 +49,11 @@ export class SalesService {
       .take(limit)
       .orderBy('c.name', 'ASC')
       .getMany();
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      message: 'Customers fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   async getCustomer(id: string, shopId: string) {
@@ -223,7 +228,11 @@ export class SalesService {
       .orderBy('s.createdAt', 'DESC')
       .getMany();
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      message: 'Sales fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   async findOne(id: string, shopId: string) {
@@ -360,7 +369,11 @@ export class SalesService {
       take: limit,
       order: { createdAt: 'DESC' },
     });
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      message: 'Sale returns fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   private async generateInvoiceNumber(shopId: string): Promise<string> {

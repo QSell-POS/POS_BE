@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InventoryItem } from './entities/inventory-item.entity';
 import { InventoryHistory, InventoryMovementType } from './entities/inventory-history.entity';
 import { StockAdjustmentDto } from './dto/inventory.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class InventoryService {
@@ -48,7 +49,7 @@ export class InventoryService {
     return {
       data,
       message: 'Inventory retrieved successfully',
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: buildPaginationMeta(total, page, limit),
     };
   }
 
@@ -61,17 +62,28 @@ export class InventoryService {
     return item;
   }
 
-  async getLowStockProducts(shopId: string) {
-    return this.inventoryRepository
+  async getLowStockProducts(shopId: string, page = 1, limit = 20) {
+    const qb = this.inventoryRepository
       .createQueryBuilder('inv')
       .leftJoinAndSelect('inv.product', 'product')
       .leftJoinAndSelect('product.brand', 'brand')
       .leftJoinAndSelect('product.unit', 'unit')
       .where('inv.shopId = :shopId', { shopId })
       .andWhere('inv.quantityAvailable <= product.minStockLevel')
-      .andWhere('product.trackInventory = true')
+      .andWhere('product.trackInventory = true');
+
+    const total = await qb.getCount();
+    const data = await qb
       .orderBy('inv.quantityAvailable', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
       .getMany();
+
+    return {
+      data,
+      message: 'Low stock products retrieved successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   async adjustStock(dto: StockAdjustmentDto, shopId: string) {
@@ -185,7 +197,8 @@ export class InventoryService {
 
     return {
       data,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      message: 'Inventory history retrieved successfully',
+      meta: buildPaginationMeta(total, page, limit),
     };
   }
 }

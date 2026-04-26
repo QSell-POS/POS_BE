@@ -2,8 +2,11 @@ import {
   CreatePurchaseDto,
   CreatePurchaseReturnDto,
   CreateSupplierDto,
+  PurchaseFilterDto,
+  PurchaseReturnFilterDto,
   ReceivePurchaseDto,
   RecordPaymentDto,
+  SupplierFilterDto,
   UpdateSupplierDto,
 } from './dto/purchase.dto';
 import { PurchasesService } from './purchases.service';
@@ -11,7 +14,7 @@ import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { UserRole } from '../users/entities/user.entity';
 import { UuidParamPipe } from 'src/common/validator';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Purchases')
 @ApiBearerAuth()
@@ -23,9 +26,8 @@ export class PurchasesController {
   // ── Suppliers ─────────────────────────────────────────────
   @Get('suppliers')
   @ApiOperation({ summary: 'Get suppliers list' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by supplier name or contact' })
-  getSuppliers(@Query('search') search: string, @CurrentUser() user: any) {
-    return this.purchasesService.getSuppliers(user.shopId, search);
+  getSuppliers(@Query() filters: SupplierFilterDto, @CurrentUser() user: any) {
+    return this.purchasesService.getSuppliers(user.shopId, filters);
   }
 
   @Post('suppliers')
@@ -45,8 +47,7 @@ export class PurchasesController {
   // ── Purchases ─────────────────────────────────────────────
   @Get()
   @ApiOperation({ summary: 'Get all purchases' })
-  @ApiQuery({ name: 'filters', required: false, description: 'Filters for the query' })
-  findAll(@Query() filters: any, @CurrentUser() user: any) {
+  findAll(@Query() filters: PurchaseFilterDto, @CurrentUser() user: any) {
     return this.purchasesService.findAll(user.shopId, filters);
   }
 
@@ -85,10 +86,8 @@ export class PurchasesController {
   // ── Purchase Returns ───────────────────────────────────────
   @Get('returns/all')
   @ApiOperation({ summary: 'Get all purchase returns' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number for pagination' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of items per page' })
-  getReturns(@Query('page') page: number, @Query('limit') limit: number, @CurrentUser() user: any) {
-    return this.purchasesService.getReturns(user.shopId, page, limit);
+  getReturns(@Query() filters: PurchaseReturnFilterDto, @CurrentUser() user: any) {
+    return this.purchasesService.getReturns(user.shopId, filters);
   }
 
   @Post('returns')

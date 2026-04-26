@@ -1,7 +1,7 @@
 import { UnitsService } from './units.service';
 import { UserRole } from '../users/entities/user.entity';
-import { CreateUnitDto, UpdateUnitDto } from './dto/unit.dto';
-import { Get, Body, Post, Param, UseGuards, Controller, Delete, Put } from '@nestjs/common';
+import { CreateUnitDto, UnitFilterDto, UpdateUnitDto } from './dto/unit.dto';
+import { Get, Body, Post, Param, UseGuards, Controller, Delete, Put, Query } from '@nestjs/common';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -21,8 +21,8 @@ export class UnitsController {
 
   @Get()
   @ApiOperation({ summary: 'Get all units for the current shop' })
-  findAll(@CurrentUser() user: any) {
-    return this.service.findAll(user.shopId);
+  findAll(@Query() filters: UnitFilterDto, @CurrentUser() user: any) {
+    return this.service.findAll(user.shopId, filters);
   }
 
   @Get(':id')

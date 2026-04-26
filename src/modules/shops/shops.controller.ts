@@ -1,7 +1,7 @@
-import { Get, Body, Post, Param, UseGuards, Controller, Put, BadRequestException } from '@nestjs/common';
+import { Get, Body, Post, Param, UseGuards, Controller, Put, BadRequestException, Query } from '@nestjs/common';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
 import { UserRole } from '../users/entities/user.entity';
-import { CreateShopDto, UpdateShopDto } from './dto/shop.dto';
+import { CreateShopDto, ShopFilterDto, UpdateShopDto } from './dto/shop.dto';
 import { ShopsService } from './shops.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
@@ -15,8 +15,8 @@ export class ShopsController {
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get all shops (super admin only)' })
-  findAll() {
-    return this.shopsService.findAll();
+  findAll(@Query() filters: ShopFilterDto) {
+    return this.shopsService.findAll(filters);
   }
 
   @Get('me')

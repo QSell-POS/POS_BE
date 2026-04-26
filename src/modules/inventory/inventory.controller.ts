@@ -3,7 +3,8 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
 import { UserRole } from '../users/entities/user.entity';
 import { AdjustStockDto } from './dto/inventory.dto';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @ApiBearerAuth()
 @ApiTags('Inventory')
@@ -14,17 +15,14 @@ export class InventoryController {
 
   @Get()
   @ApiOperation({ summary: 'Get all inventory items' })
-  @ApiQuery({ name: 'page', required: false, default: 1 })
-  @ApiQuery({ name: 'limit', required: false, default: 20 })
-  getInventory(@Query('page') page: number, @Query('limit') limit: number, @CurrentUser() user: any) {
-    return this.inventoryService.getInventory(user.shopId, page, limit);
+  getInventory(@Query() pagination: PaginationDto, @CurrentUser() user: any) {
+    return this.inventoryService.getInventory(user.shopId, pagination.page, pagination.limit);
   }
 
   @Get('low-stock')
   @ApiOperation({ summary: 'Get low stock products' })
-  async getLowStock(@CurrentUser() user: any) {
-    const lowStocks = await this.inventoryService.getLowStockProducts(user.shopId);
-    return { data: lowStocks, message: 'low stock products' };
+  getLowStock(@Query() pagination: PaginationDto, @CurrentUser() user: any) {
+    return this.inventoryService.getLowStockProducts(user.shopId, pagination.page, pagination.limit);
   }
 
   @Get('history')

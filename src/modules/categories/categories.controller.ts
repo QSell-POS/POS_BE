@@ -3,8 +3,8 @@ import { CategoriesService } from './categories.service';
 import { UserRole } from '../users/entities/user.entity';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
 import { Get, Body, Post, Param, UseGuards, Controller, Delete, Query, Put } from '@nestjs/common';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { CategoryFilterDto, CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiBearerAuth()
 @ApiTags('Categories')
@@ -15,9 +15,8 @@ export class CategoriesController {
 
   @Get()
   @ApiOperation({ summary: 'Get category list' })
-  @ApiQuery({ name: 'search', required: false })
-  getFlat(@Query('search') search: string, @CurrentUser() user: any) {
-    return this.categoryService.findFlat(user.shopId, search);
+  getFlat(@Query() filters: CategoryFilterDto, @CurrentUser() user: any) {
+    return this.categoryService.findFlat(user.shopId, filters);
   }
 
   @Post()

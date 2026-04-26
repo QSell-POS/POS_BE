@@ -6,6 +6,7 @@ import { Product } from 'src/modules/products/entities/product.entity';
 import { PriceType, ProductPrice } from './entities/product-price.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto, UpdateProductPriceDto } from './dto/product.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class ProductsService {
@@ -83,7 +84,7 @@ export class ProductsService {
     return {
       data,
       message: 'Products retrieved successfully',
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: buildPaginationMeta(total, page, limit),
     };
   }
 

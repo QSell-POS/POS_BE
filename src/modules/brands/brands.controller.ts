@@ -1,5 +1,5 @@
 import { BrandsService } from './brands.service';
-import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
+import { BrandFilterDto, CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
 import { Get, Body, Post, Param, UseGuards, Controller, Delete, Query, Put } from '@nestjs/common';
@@ -15,8 +15,8 @@ export class BrandsController {
 
   @Get()
   @ApiOperation({ summary: 'Get all brands' })
-  findAll(@Query('search') search: string, @CurrentUser() user: any) {
-    return this.brandsService.findAll(user.shopId, search);
+  findAll(@Query() filters: BrandFilterDto, @CurrentUser() user: any) {
+    return this.brandsService.findAll(user.shopId, filters);
   }
 
   @Get(':id')

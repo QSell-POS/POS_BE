@@ -2,7 +2,8 @@ import { TreeRepository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Category } from './entities/category.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import { CategoryFilterDto, CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -46,13 +47,25 @@ export class CategoriesService {
     return roots;
   }
 
-  async findFlat(shopId: string, search?: string) {
-    const qb = this.categories.createQueryBuilder('c').leftJoinAndSelect('c.parent', 'parent').where('c.shopId = :shopId', { shopId });
+  async findFlat(shopId: string, filters: CategoryFilterDto) {
+    const { search, page = 1, limit = 20 } = filters;
+    const qb = this.categories
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.parent', 'parent')
+      .where('c.shopId = :shopId', { shopId });
     if (search) qb.andWhere('c.name ILIKE :search', { search: `%${search}%` });
-    const rawData = await qb.orderBy('c.name', 'ASC').getMany();
+
+    const total = await qb.getCount();
+    const data = await qb
+      .orderBy('c.name', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
     return {
-      data: rawData,
+      data,
       message: 'Category list retrieved successfully',
+      meta: buildPaginationMeta(total, page, limit),
     };
   }
 
