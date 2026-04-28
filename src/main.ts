@@ -43,7 +43,7 @@ async function bootstrap() {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", 'https://unpkg.com'],
+          scriptSrc: ["'self'", 'https://unpkg.com', 'http://localhost:*'],
           styleSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
           imgSrc: ["'self'", 'data:', 'https:'],
         },
