@@ -7,7 +7,7 @@ import { Purchase } from '../purchases/entities/purchase.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { Product } from '../products/entities/product.entity';
 import { ProductPrice } from '../products/entities/product-price.entity';
-import { IncomeExpense, TransactionType } from '../income-expense/entities/income-expense.entity';
+import { Expense } from '../expenses/entities/expense.entity';
 
 @Injectable()
 export class AnalyticsService {
@@ -24,8 +24,8 @@ export class AnalyticsService {
     private productRepository: Repository<Product>,
     @InjectRepository(ProductPrice)
     private priceRepository: Repository<ProductPrice>,
-    @InjectRepository(IncomeExpense)
-    private incomeExpenseRepository: Repository<IncomeExpense>,
+    @InjectRepository(Expense)
+    private expenseRepository: Repository<Expense>,
     private dataSource: DataSource,
   ) {}
 
@@ -329,7 +329,7 @@ export class AnalyticsService {
 
   // ── Profit & Loss Report ──────────────────────────────────
   async getProfitLossReport(shopId: string, startDate: string, endDate: string) {
-    const [salesData, incomeExpenseData, purchaseData] = await Promise.all([
+    const [salesData, expenseRows, purchaseData] = await Promise.all([
       this.saleRepository
         .createQueryBuilder('s')
         .select('COALESCE(SUM(s.grandTotal),0)', 'totalRevenue')
@@ -344,17 +344,17 @@ export class AnalyticsService {
         })
         .getRawOne(),
 
-      this.incomeExpenseRepository
-        .createQueryBuilder('ie')
-        .select('ie.transactionType', 'type')
-        .addSelect('ie.category', 'category')
-        .addSelect('COALESCE(SUM(ie.amount),0)', 'total')
-        .where('ie.shopId = :shopId AND ie.transactionDate BETWEEN :startDate AND :endDate', {
+      this.expenseRepository
+        .createQueryBuilder('e')
+        .leftJoin('e.expenseType', 'type')
+        .select("COALESCE(type.name, 'uncategorized')", 'category')
+        .addSelect('COALESCE(SUM(e.amount),0)', 'total')
+        .where('e.shopId = :shopId AND e.transactionDate BETWEEN :startDate AND :endDate', {
           shopId,
           startDate,
           endDate,
         })
-        .groupBy('ie.transactionType, ie.category')
+        .groupBy('type.name')
         .getRawMany(),
 
       this.purchaseRepository
@@ -372,15 +372,13 @@ export class AnalyticsService {
     const grossProfit = Number(salesData.grossProfit);
     const totalPurchases = Number(purchaseData.totalPurchases);
 
-    const expenses = incomeExpenseData
-      .filter((r) => r.type === TransactionType.EXPENSE)
-      .reduce(
-        (acc, r) => {
-          acc[r.category] = Number(r.total);
-          return acc;
-        },
-        {} as Record<string, number>,
-      );
+    const expenses = expenseRows.reduce(
+      (acc, r) => {
+        acc[r.category] = Number(r.total);
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     const totalOperatingExpenses = Number(Object.values(expenses).reduce((a: any, b: any) => a + b, 0));
     const netProfit = grossProfit - totalOperatingExpenses;

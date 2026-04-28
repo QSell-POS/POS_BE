@@ -21,8 +21,7 @@ import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryMovementType } from '../inventory/entities/inventory-history.entity';
 import { PurchaseItem } from './entities/purchase-item.entity';
 import { PaymentStatus, Purchase, PurchaseStatus } from './entities/purchase.entity';
-import { IncomeExpenseService } from '../income-expense/income-expense.service';
-import { IncomeExpenseCategory, TransactionType } from '../income-expense/entities/income-expense.entity';
+import { ExpensesService } from '../expenses/expenses.service';
 
 @Injectable()
 export class PurchasesService {
@@ -39,7 +38,7 @@ export class PurchasesService {
     private supplierRepository: Repository<Supplier>,
     private inventoryService: InventoryService,
     private productsService: ProductsService,
-    private incomeExpenseService: IncomeExpenseService,
+    private expensesService: ExpensesService,
     private dataSource: DataSource,
   ) {}
 
@@ -237,10 +236,9 @@ export class PurchasesService {
       });
 
       // Record expense
-      await this.incomeExpenseService.create(
+      await this.expensesService.recordSystemExpense(
         {
-          transactionType: TransactionType.EXPENSE,
-          category: IncomeExpenseCategory.PURCHASE,
+          typeName: 'Purchase',
           title: `Purchase received: ${purchase.referenceNumber}`,
           amount: purchase.grandTotal,
           referenceId: purchase.id,

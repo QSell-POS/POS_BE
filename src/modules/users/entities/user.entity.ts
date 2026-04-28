@@ -2,7 +2,7 @@ import { Entity, Column, BeforeInsert, BeforeUpdate, OneToMany, Index } from 'ty
 import { BaseEntity } from 'src/common/entities/base.entity';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
-import { IncomeExpense } from 'src/modules/income-expense/entities/income-expense.entity';
+import { Expense } from 'src/modules/expenses/entities/expense.entity';
 
 export enum UserRole {
   SUPER_ADMIN = 'super_admin',
@@ -78,8 +78,8 @@ export class User extends BaseEntity {
   @Exclude()
   refreshToken: string;
 
-  @OneToMany(() => IncomeExpense, (transaction) => transaction.recordedByUser)
-  transactions: IncomeExpense[];
+  @OneToMany(() => Expense, (expense) => expense.recordedByUser)
+  expenses: Expense[];
 
   @BeforeInsert()
   @BeforeUpdate()

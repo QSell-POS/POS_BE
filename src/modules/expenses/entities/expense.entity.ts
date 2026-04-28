@@ -1,39 +1,20 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { User } from 'src/modules/users/entities/user.entity';
+import { ExpenseType } from './expense-type.entity';
 
-export enum TransactionType {
-  INCOME = 'income',
-  EXPENSE = 'expense',
-}
+@Entity('expenses')
+@Index(['shopId', 'transactionDate'])
+@Index(['shopId', 'expenseTypeId'])
+export class Expense extends TenantBaseEntity {
+  @ApiProperty()
+  @Column({ name: 'expense_type_id', nullable: true })
+  expenseTypeId: string;
 
-export enum IncomeExpenseCategory {
-  // Income
-  SALES_REVENUE = 'sales_revenue',
-  RETURN_INCOME = 'return_income',
-  OTHER_INCOME = 'other_income',
-  // Expense
-  PURCHASE = 'purchase',
-  SALARIES = 'salaries',
-  RENT = 'rent',
-  UTILITIES = 'utilities',
-  MAINTENANCE = 'maintenance',
-  MARKETING = 'marketing',
-  TRANSPORT = 'transport',
-  TAX = 'tax',
-  OTHER_EXPENSE = 'other_expense',
-}
-
-@Entity('income_expenses')
-export class IncomeExpense extends TenantBaseEntity {
-  @ApiProperty({ enum: TransactionType })
-  @Column({ type: 'enum', enum: TransactionType, name: 'transaction_type' })
-  transactionType: TransactionType;
-
-  @ApiProperty({ enum: IncomeExpenseCategory })
-  @Column({ type: 'enum', enum: IncomeExpenseCategory })
-  category: IncomeExpenseCategory;
+  @ManyToOne(() => ExpenseType)
+  @JoinColumn({ name: 'expense_type_id' })
+  expenseType: ExpenseType;
 
   @ApiProperty()
   @Column({ length: 200 })
@@ -71,7 +52,7 @@ export class IncomeExpense extends TenantBaseEntity {
   @Column({ name: 'recorded_by' })
   recordedBy: string;
 
-  @ManyToOne(() => User, (user) => user.transactions)
+  @ManyToOne(() => User, (user) => user.expenses)
   @JoinColumn({ name: 'recorded_by' })
   recordedByUser: User;
 }
