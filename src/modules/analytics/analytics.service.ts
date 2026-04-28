@@ -31,115 +31,131 @@ export class AnalyticsService {
 
   // ── Dashboard Overview ────────────────────────────────────
   async getDashboardStats(shopId: string) {
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
 
-    const [todaySales, monthSales, lastMonthSales, totalProducts, lowStockCount, pendingPurchases] = await Promise.all([
+    const salesAgg = (start: Date) =>
       this.saleRepository
         .createQueryBuilder('s')
-        .select('COALESCE(SUM(s.grandTotal),0)', 'total')
-        .addSelect('COUNT(*)', 'count')
+        .select('COALESCE(SUM(s.grandTotal),0)', 'revenue')
+        .addSelect('COUNT(*)', 'orders')
         .where('s.shopId = :shopId AND s.saleDate BETWEEN :start AND :end AND s.status != :cancelled', {
           shopId,
-          start: startOfDay,
-          end: endOfDay,
+          start,
+          end: now,
           cancelled: SaleStatus.CANCELLED,
         })
-        .getRawOne(),
+        .getRawOne();
 
-      this.saleRepository
-        .createQueryBuilder('s')
-        .select('COALESCE(SUM(s.grandTotal),0)', 'total')
-        .addSelect('COALESCE(SUM(s.profit),0)', 'profit')
-        .addSelect('COUNT(*)', 'count')
-        .where('s.shopId = :shopId AND s.saleDate >= :start AND s.status != :cancelled', {
-          shopId,
-          start: startOfMonth,
-          cancelled: SaleStatus.CANCELLED,
-        })
-        .getRawOne(),
-
-      this.saleRepository
-        .createQueryBuilder('s')
-        .select('COALESCE(SUM(s.grandTotal),0)', 'total')
-        .addSelect('COALESCE(SUM(s.profit),0)', 'profit')
+    const itemsAgg = (start: Date) =>
+      this.saleItemRepository
+        .createQueryBuilder('si')
+        .innerJoin('si.sale', 's')
+        .select('COALESCE(SUM(si.quantity),0)', 'qty')
         .where('s.shopId = :shopId AND s.saleDate BETWEEN :start AND :end AND s.status != :cancelled', {
           shopId,
-          start: startOfLastMonth,
-          end: endOfLastMonth,
+          start,
+          end: now,
           cancelled: SaleStatus.CANCELLED,
         })
-        .getRawOne(),
+        .getRawOne();
 
+    const [todaySales, monthSales, todayItems, monthItems, totalProducts, lowStockCount] = await Promise.all([
+      salesAgg(startOfDay),
+      salesAgg(startOfMonth),
+      itemsAgg(startOfDay),
+      itemsAgg(startOfMonth),
       this.productRepository.count({ where: { shopId } }),
-
       this.inventoryRepository
         .createQueryBuilder('inv')
         .innerJoin('inv.product', 'p')
         .where('inv.shopId = :shopId AND inv.quantityAvailable <= p.minStockLevel AND p.trackInventory = true', { shopId })
         .getCount(),
-
-      this.purchaseRepository.count({
-        where: { shopId, status: 'ordered' as any },
-      }),
     ]);
 
-    const salesGrowth =
-      Number(lastMonthSales.total) > 0
-        ? ((Number(monthSales.total) - Number(lastMonthSales.total)) / Number(lastMonthSales.total)) * 100
-        : 0;
-    const profitGrowth =
-      Number(lastMonthSales.profit) > 0
-        ? ((Number(monthSales.profit) - Number(lastMonthSales.profit)) / Number(lastMonthSales.profit)) * 100
-        : 0;
-
     return {
-      today: {
-        sales: Number(todaySales.total),
-        transactions: Number(todaySales.count),
+      revenue: {
+        today: Number(todaySales.revenue),
+        thisMonth: Number(monthSales.revenue),
       },
-      thisMonth: {
-        sales: Number(monthSales.total),
-        profit: Number(monthSales.profit),
-        transactions: Number(monthSales.count),
-        salesGrowth: Math.round(salesGrowth * 100) / 100,
-        profitGrowth: Math.round(profitGrowth * 100) / 100,
+      orders: {
+        today: Number(todaySales.orders),
+        thisMonth: Number(monthSales.orders),
+      },
+      itemsSold: {
+        today: Number(todayItems.qty),
+        thisMonth: Number(monthItems.qty),
       },
       inventory: { totalProducts, lowStockCount },
-      pendingPurchases,
     };
   }
 
-  // ── Sales Chart (daily/weekly/monthly) ───────────────────
-  async getSalesChart(shopId: string, period: 'daily' | 'weekly' | 'monthly', startDate: string, endDate: string) {
-    const truncate = period === 'daily' ? 'day' : period === 'weekly' ? 'week' : 'month';
+  // ── Sales Chart (weekly = 7 days, monthly = 12 months) ───
+  async getSalesChart(shopId: string, period: 'weekly' | 'monthly' = 'weekly') {
+    const now = new Date();
+    const isWeekly = period === 'weekly';
+
+    const startWindow = isWeekly
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
+      : new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0);
+    const endWindow = isWeekly
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const truncate = isWeekly ? 'day' : 'month';
 
     const rows = await this.saleRepository
       .createQueryBuilder('s')
-      .select(`DATE_TRUNC('${truncate}', s.saleDate)`, 'period')
+      .select(`DATE_TRUNC('${truncate}', s.saleDate)`, 'bucket')
       .addSelect('COALESCE(SUM(s.grandTotal),0)', 'revenue')
-      .addSelect('COALESCE(SUM(s.profit),0)', 'profit')
-      .addSelect('COUNT(*)', 'transactions')
-      .where('s.shopId = :shopId AND s.saleDate BETWEEN :startDate AND :endDate AND s.status != :cancelled', {
+      .addSelect('COUNT(*)', 'orders')
+      .where('s.shopId = :shopId AND s.saleDate BETWEEN :start AND :end AND s.status != :cancelled', {
         shopId,
-        startDate,
-        endDate,
+        start: startWindow,
+        end: endWindow,
         cancelled: SaleStatus.CANCELLED,
       })
       .groupBy(`DATE_TRUNC('${truncate}', s.saleDate)`)
-      .orderBy('period', 'ASC')
       .getRawMany();
 
-    return rows.map((r) => ({
-      period: r.period,
-      revenue: Number(r.revenue),
-      profit: Number(r.profit),
-      transactions: Number(r.transactions),
-    }));
+    const map = new Map<string, { revenue: number; orders: number }>();
+    for (const r of rows) {
+      const d = new Date(r.bucket);
+      const key = isWeekly
+        ? d.toISOString().split('T')[0]
+        : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      map.set(key, { revenue: Number(r.revenue), orders: Number(r.orders) });
+    }
+
+    const data = [];
+    if (isWeekly) {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+        const key = d.toISOString().split('T')[0];
+        const entry = map.get(key) ?? { revenue: 0, orders: 0 };
+        data.push({
+          date: key,
+          label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+          revenue: entry.revenue,
+          orders: entry.orders,
+        });
+      }
+    } else {
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const entry = map.get(key) ?? { revenue: 0, orders: 0 };
+        data.push({
+          date: key,
+          label: d.toLocaleDateString('en-US', { month: 'short' }),
+          revenue: entry.revenue,
+          orders: entry.orders,
+        });
+      }
+    }
+
+    return data;
   }
 
   // ── Price Fluctuation Chart ───────────────────────────────
