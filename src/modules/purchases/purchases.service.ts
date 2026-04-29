@@ -215,7 +215,7 @@ export class PurchasesService {
             quantity: received.receivedQuantity,
             movementType: InventoryMovementType.PURCHASE,
             unitCost: Number(item.unitCost),
-            referenceId: purchase.referenceNumber,
+            referenceId: dto.supplierBillNumber || purchase.referenceNumber,
             referenceType: 'purchase',
             notes: dto.notes,
             performedBy: userId,
@@ -233,6 +233,7 @@ export class PurchasesService {
 
       await queryRunner.manager.update(Purchase, id, {
         status: allReceived ? PurchaseStatus.RECEIVED : anyReceived ? PurchaseStatus.PARTIAL : purchase.status,
+        ...(dto.supplierBillNumber ? { supplierBillNumber: dto.supplierBillNumber } : {}),
       });
 
       // Record expense

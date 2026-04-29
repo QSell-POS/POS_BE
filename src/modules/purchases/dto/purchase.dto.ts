@@ -83,6 +83,11 @@ export class ReceivePurchaseDto {
   @IsArray()
   receivedItems: { purchaseItemId: string; receivedQuantity: number }[];
 
+  @ApiPropertyOptional({ description: "Supplier's bill/invoice number" })
+  @IsOptional()
+  @IsString()
+  supplierBillNumber?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
