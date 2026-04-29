@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Sale, SaleItem, SaleStatus, SalePaymentStatus } from './entities/sale.entity';
-import { SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-return.entity';
+import { RefundMethod, RefundStatus, SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-return.entity';
 import { Customer } from './entities/customer.entity';
 import { CreateSaleDto, UpdateSaleDto, CreateSaleReturnDto, CreateCustomerDto, UpdateCustomerDto, SaleFilterDto } from './dto/sale.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
@@ -296,36 +296,55 @@ export class SalesService {
 
     const totalAmount = dto.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
+    // Resolve refund split — default to full cash refund if nothing provided
+    const refundedAmount = dto.refundedAmount ?? (dto.appliedToDueAmount === undefined && dto.storeCreditIssued === undefined ? totalAmount : 0);
+    const appliedToDueAmount = dto.appliedToDueAmount ?? 0;
+    const storeCreditIssued = dto.storeCreditIssued ?? 0;
+
+    const splitSum = refundedAmount + appliedToDueAmount + storeCreditIssued;
+    if (Math.abs(splitSum - totalAmount) > 0.01) {
+      throw new BadRequestException(`Refund split (${splitSum}) must equal total return amount (${totalAmount})`);
+    }
+
+    if (appliedToDueAmount > 0 && Number(sale.dueAmount) < appliedToDueAmount) {
+      throw new BadRequestException(`Applied-to-due amount (${appliedToDueAmount}) exceeds sale outstanding balance (${sale.dueAmount})`);
+    }
+
     const refNum = await this.generateReturnNumber(shopId);
-    const ret = this.returnRepository.create({
-      referenceNumber: refNum,
-      saleId: dto.saleId,
-      customerId: sale.customerId,
-      refundMethod: dto.refundMethod as any,
-      status: SaleReturnStatus.COMPLETED,
-      totalAmount,
-      reason: dto.reason,
-      notes: dto.notes,
-      createdBy: userId,
-      shopId,
-    });
-
-    const savedReturn = await this.returnRepository.save(ret);
-
-    const items = dto.items.map((item) =>
-      this.returnItemRepository.create({
-        saleReturnId: savedReturn.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        subtotal: item.quantity * item.unitPrice,
-        reason: item.reason,
+    const savedReturn = await this.returnRepository.save(
+      this.returnRepository.create({
+        referenceNumber: refNum,
+        saleId: dto.saleId,
+        customerId: sale.customerId,
+        refundMethod: dto.refundMethod ?? RefundMethod.CASH,
+        refundStatus: RefundStatus.COMPLETED,
+        status: SaleReturnStatus.COMPLETED,
+        totalAmount,
+        refundedAmount,
+        appliedToDueAmount,
+        storeCreditIssued,
+        reason: dto.reason,
+        notes: dto.notes,
+        createdBy: userId,
         shopId,
       }),
     );
-    await this.returnItemRepository.save(items);
 
-    // Return stock
+    await this.returnItemRepository.save(
+      dto.items.map((item) =>
+        this.returnItemRepository.create({
+          saleReturnId: savedReturn.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subtotal: item.quantity * item.unitPrice,
+          reason: item.reason,
+          shopId,
+        }),
+      ),
+    );
+
+    // Restore inventory
     for (const item of dto.items) {
       await this.inventoryService.adjustStock(
         {
@@ -340,23 +359,45 @@ export class SalesService {
       );
     }
 
-    // Update sale status
-    await this.saleRepository.update(dto.saleId, {
-      status: SaleStatus.PARTIAL_REFUND,
-    });
+    // Determine new sale status (full refund vs partial)
+    const totalReturned = totalAmount; // this return only; could sum all returns for accuracy
+    const newSaleStatus = totalReturned >= Number(sale.grandTotal) ? SaleStatus.REFUNDED : SaleStatus.PARTIAL_REFUND;
+    const saleUpdates: Partial<Sale> = { status: newSaleStatus };
 
-    // Record expense for refund outflow
-    await this.expensesService.recordSystemExpense(
-      {
-        typeName: 'Sale Return',
-        title: `Sale Return: ${refNum}`,
-        amount: totalAmount,
-        referenceId: savedReturn.id,
-        referenceType: 'sale_return',
-      },
-      shopId,
-      userId,
-    );
+    // Apply-to-due: reduce outstanding balance on sale
+    if (appliedToDueAmount > 0) {
+      const newDue = Math.max(0, Number(sale.dueAmount) - appliedToDueAmount);
+      saleUpdates.dueAmount = newDue;
+      saleUpdates.paymentStatus = newDue === 0 ? SalePaymentStatus.PAID : SalePaymentStatus.PARTIAL;
+    }
+
+    await this.saleRepository.update(dto.saleId, saleUpdates);
+
+    // Customer updates
+    if (sale.customerId) {
+      await this.customerRepository.decrement({ id: sale.customerId }, 'totalPurchased', totalAmount);
+      if (appliedToDueAmount > 0) {
+        await this.customerRepository.decrement({ id: sale.customerId }, 'totalDue', appliedToDueAmount);
+      }
+      if (storeCreditIssued > 0) {
+        await this.customerRepository.increment({ id: sale.customerId }, 'storeCredit', storeCreditIssued);
+      }
+    }
+
+    // Expense only for the cash actually paid out
+    if (refundedAmount > 0) {
+      await this.expensesService.recordSystemExpense(
+        {
+          typeName: 'Sale Return',
+          title: `Sale Return: ${refNum}`,
+          amount: refundedAmount,
+          referenceId: savedReturn.id,
+          referenceType: 'sale_return',
+        },
+        shopId,
+        userId,
+      );
+    }
 
     return savedReturn;
   }

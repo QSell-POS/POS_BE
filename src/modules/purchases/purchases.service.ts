@@ -6,7 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Supplier } from './entities/supplier.entity';
 import { ProductsService } from '../products/products.service';
 import { InventoryService } from '../inventory/inventory.service';
-import { PurchaseReturn, PurchaseReturnItem, PurchaseReturnStatus } from './entities/purchase-return.entity';
+import { PurchaseRefundMethod, PurchaseRefundStatus, PurchaseReturn, PurchaseReturnItem, PurchaseReturnStatus } from './entities/purchase-return.entity';
 import {
   CreatePurchaseDto,
   CreatePurchaseReturnDto,
@@ -280,32 +280,53 @@ export class PurchasesService {
 
     const totalAmount = dto.items.reduce((s, i) => s + i.quantity * i.unitCost, 0);
 
-    const refNum = await this.generateReferenceNumber('PRN', shopId);
-    const ret = this.returnRepository.create({
-      referenceNumber: refNum,
-      purchaseId: dto.purchaseId,
-      supplierId: purchase.supplierId,
-      status: PurchaseReturnStatus.CONFIRMED,
-      totalAmount,
-      reason: dto.reason,
-      notes: dto.notes,
-      createdBy: userId,
-      shopId,
-    });
-    const savedReturn = await this.returnRepository.save(ret);
+    // Resolve refund split — default to full cash refund if nothing provided
+    const refundedAmount = dto.refundedAmount ?? (dto.appliedToDueAmount === undefined && dto.supplierCreditIssued === undefined ? totalAmount : 0);
+    const appliedToDueAmount = dto.appliedToDueAmount ?? 0;
+    const supplierCreditIssued = dto.supplierCreditIssued ?? 0;
 
-    const items = dto.items.map((item) =>
-      this.returnItemRepository.create({
-        purchaseReturnId: savedReturn.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        unitCost: item.unitCost,
-        subtotal: item.quantity * item.unitCost,
-        reason: item.reason,
+    const splitSum = refundedAmount + appliedToDueAmount + supplierCreditIssued;
+    if (Math.abs(splitSum - totalAmount) > 0.01) {
+      throw new BadRequestException(`Refund split (${splitSum}) must equal total return amount (${totalAmount})`);
+    }
+
+    if (appliedToDueAmount > 0 && Number(purchase.dueAmount) < appliedToDueAmount) {
+      throw new BadRequestException(`Applied-to-due amount (${appliedToDueAmount}) exceeds purchase outstanding balance (${purchase.dueAmount})`);
+    }
+
+    const refNum = await this.generateReferenceNumber('PRN', shopId);
+    const savedReturn = await this.returnRepository.save(
+      this.returnRepository.create({
+        referenceNumber: refNum,
+        purchaseId: dto.purchaseId,
+        supplierId: purchase.supplierId,
+        status: PurchaseReturnStatus.COMPLETED,
+        refundMethod: (dto.refundMethod as PurchaseRefundMethod) ?? PurchaseRefundMethod.CASH,
+        refundStatus: PurchaseRefundStatus.COMPLETED,
+        totalAmount,
+        refundedAmount,
+        appliedToDueAmount,
+        supplierCreditIssued,
+        reason: dto.reason,
+        notes: dto.notes,
+        createdBy: userId,
         shopId,
       }),
     );
-    await this.returnItemRepository.save(items);
+
+    await this.returnItemRepository.save(
+      dto.items.map((item) =>
+        this.returnItemRepository.create({
+          purchaseReturnId: savedReturn.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+          subtotal: item.quantity * item.unitCost,
+          reason: item.reason,
+          shopId,
+        }),
+      ),
+    );
 
     // Deduct from inventory
     for (const item of dto.items) {
@@ -321,6 +342,18 @@ export class PurchasesService {
         },
         shopId,
       );
+    }
+
+    // Apply-to-due: reduce what we owe supplier
+    if (appliedToDueAmount > 0) {
+      const newDue = Math.max(0, Number(purchase.dueAmount) - appliedToDueAmount);
+      await this.purchaseRepository.update(dto.purchaseId, { dueAmount: newDue });
+      await this.supplierRepository.decrement({ id: purchase.supplierId }, 'totalDue', appliedToDueAmount);
+    }
+
+    // Supplier credit: supplier owes us future credit
+    if (supplierCreditIssued > 0) {
+      await this.supplierRepository.increment({ id: purchase.supplierId }, 'creditBalance', supplierCreditIssued);
     }
 
     return savedReturn;

@@ -99,6 +99,29 @@ export class CreatePurchaseReturnDto {
   @IsUUID()
   purchaseId: string;
 
+  @ApiPropertyOptional({ description: 'cash | bank_transfer | supplier_credit | applied_to_due' })
+  @IsOptional()
+  @IsString()
+  refundMethod?: string;
+
+  @ApiPropertyOptional({ description: 'Actual cash received back from supplier. Defaults to totalAmount if no split provided.' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  refundedAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Amount applied to reduce outstanding purchase due (no cash movement).' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  appliedToDueAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Supplier credit issued for future purchases from this supplier.' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  supplierCreditIssued?: number;
+
   @ApiProperty({ description: 'Array of {productId, quantity, unitCost, reason}' })
   @IsArray()
   items: { productId: string; quantity: number; unitCost: number; reason?: string }[];

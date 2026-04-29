@@ -1,6 +1,7 @@
 import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../entities/sale.entity';
+import { RefundMethod } from '../entities/sale-return.entity';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class CreateSaleItemDto {
@@ -68,10 +69,28 @@ export class CreateSaleReturnDto {
   @IsUUID()
   saleId: string;
 
-  @ApiPropertyOptional({ enum: PaymentMethod })
+  @ApiPropertyOptional({ enum: RefundMethod })
   @IsOptional()
-  @IsEnum(PaymentMethod)
-  refundMethod?: string;
+  @IsEnum(RefundMethod)
+  refundMethod?: RefundMethod;
+
+  @ApiPropertyOptional({ description: 'Cash/card actually paid back to customer. Defaults to totalAmount if no split provided.' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  refundedAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Amount applied to reduce outstanding sale balance (no cash movement).' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  appliedToDueAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Store credit issued to customer for future purchases.' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  storeCreditIssued?: number;
 
   @ApiProperty()
   @IsArray()
