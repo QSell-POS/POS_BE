@@ -3,6 +3,7 @@ import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { InventoryItem } from './inventory-item.entity';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
+import { User } from 'src/modules/users/entities/user.entity';
 
 export enum InventoryMovementType {
   PURCHASE = 'purchase',
@@ -51,7 +52,11 @@ export class InventoryHistory extends TenantBaseEntity {
   notes: string;
 
   @Column({ name: 'performed_by', nullable: true })
-  performedBy: string; // userId
+  performedByUserId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'performed_by' })
+  performedByUser: User;
 
   @ManyToOne(() => InventoryItem, (item) => item.history)
   @JoinColumn({ name: 'inventory_item_id' })
