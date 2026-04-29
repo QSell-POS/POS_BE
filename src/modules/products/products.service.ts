@@ -6,6 +6,7 @@ import { Product } from 'src/modules/products/entities/product.entity';
 import { PriceType, ProductPrice } from './entities/product-price.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto, UpdateProductPriceDto } from './dto/product.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
 export class ProductsService {
@@ -83,7 +84,7 @@ export class ProductsService {
     return {
       data,
       message: 'Products retrieved successfully',
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: buildPaginationMeta(total, page, limit),
     };
   }
 
@@ -129,7 +130,21 @@ export class ProductsService {
     return price?.price ?? 0;
   }
 
+  private generateSku(name: string, shopId: string): string {
+    const prefix = name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4).padEnd(4, 'X');
+    const suffix = Date.now().toString(36).toUpperCase().slice(-5);
+    return `${prefix}-${suffix}`;
+  }
+
+  private generateBarcode(): string {
+    const ts = Date.now().toString();
+    const rand = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    return ts.slice(-8) + rand;
+  }
+
   async create(dto: CreateProductDto, shopId: string, userId: string) {
+    if (!dto.sku) dto.sku = this.generateSku(dto.name, shopId);
+    if (!dto.barcode) dto.barcode = this.generateBarcode();
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -256,5 +271,13 @@ export class ProductsService {
     await this.productRepository.softDelete(id);
     await this.inventoryRepository.softDelete({ productId: id });
     return { message: 'Product deleted' };
+  }
+
+  async restore(id: string, shopId: string) {
+    const product = await this.productRepository.findOne({ where: { id, shopId }, withDeleted: true });
+    if (!product) throw new NotFoundException('Product not found');
+    await this.productRepository.restore(id);
+    await this.inventoryRepository.restore({ productId: id });
+    return { message: 'Product restored' };
   }
 }

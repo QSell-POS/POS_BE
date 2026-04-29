@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { Unit } from 'src/modules/units/entities/unit.entity';
 import { Brand } from 'src/modules/brands/entities/brand.entity';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
@@ -20,6 +20,11 @@ export enum ProductType {
 }
 
 @Entity('products')
+@Index(['shopId', 'status'])
+@Index(['shopId', 'categoryId'])
+@Index(['shopId', 'brandId'])
+@Index(['barcode'])
+@Index(['sku'])
 export class Product extends TenantBaseEntity {
   @Column({ length: 150 })
   name: string;

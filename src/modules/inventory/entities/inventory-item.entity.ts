@@ -1,10 +1,12 @@
-import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Product } from '../../products/entities/product.entity';
 import { InventoryHistory } from './inventory-history.entity';
 
 @Entity('inventory_items')
+@Index(['shopId', 'productId'], { unique: true })
+@Index(['shopId', 'quantityAvailable'])
 export class InventoryItem extends TenantBaseEntity {
   @Column({ name: 'product_id' })
   productId: string;

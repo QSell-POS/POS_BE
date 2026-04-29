@@ -7,12 +7,21 @@ import { Supplier } from './entities/supplier.entity';
 import { ProductsService } from '../products/products.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { PurchaseReturn, PurchaseReturnItem, PurchaseReturnStatus } from './entities/purchase-return.entity';
-import { CreatePurchaseDto, CreatePurchaseReturnDto, CreateSupplierDto, ReceivePurchaseDto, UpdateSupplierDto } from './dto/purchase.dto';
+import {
+  CreatePurchaseDto,
+  CreatePurchaseReturnDto,
+  CreateSupplierDto,
+  PurchaseFilterDto,
+  PurchaseReturnFilterDto,
+  ReceivePurchaseDto,
+  SupplierFilterDto,
+  UpdateSupplierDto,
+} from './dto/purchase.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryMovementType } from '../inventory/entities/inventory-history.entity';
 import { PurchaseItem } from './entities/purchase-item.entity';
 import { PaymentStatus, Purchase, PurchaseStatus } from './entities/purchase.entity';
-import { IncomeExpenseService } from '../income-expense/income-expense.service';
-import { IncomeExpenseCategory, TransactionType } from '../income-expense/entities/income-expense.entity';
+import { ExpensesService } from '../expenses/expenses.service';
 
 @Injectable()
 export class PurchasesService {
@@ -29,7 +38,7 @@ export class PurchasesService {
     private supplierRepository: Repository<Supplier>,
     private inventoryService: InventoryService,
     private productsService: ProductsService,
-    private incomeExpenseService: IncomeExpenseService,
+    private expensesService: ExpensesService,
     private dataSource: DataSource,
   ) {}
 
@@ -39,13 +48,22 @@ export class PurchasesService {
     return this.supplierRepository.save(supplier);
   }
 
-  async getSuppliers(shopId: string, search?: string) {
+  async getSuppliers(shopId: string, filters: SupplierFilterDto) {
+    const { search, page = 1, limit = 20 } = filters;
     const qb = this.supplierRepository.createQueryBuilder('s').where('s.shopId = :shopId', { shopId });
-    if (search) qb.andWhere('s.name ILIKE :search', { search: `%${search}%` });
-    const suppliers = await qb.orderBy('s.name', 'ASC').getMany();
+    if (search) qb.andWhere('(s.name ILIKE :search OR s.contactPerson ILIKE :search OR s.phone ILIKE :search)', { search: `%${search}%` });
+
+    const total = await qb.getCount();
+    const data = await qb
+      .orderBy('s.name', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
     return {
-      data: suppliers,
-      message: 'suppliers data',
+      data,
+      message: 'Suppliers fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
     };
   }
 
@@ -130,18 +148,7 @@ export class PurchasesService {
     }
   }
 
-  async findAll(
-    shopId: string,
-    filters: {
-      search?: string;
-      status?: string;
-      supplierId?: string;
-      startDate?: string;
-      endDate?: string;
-      page?: number;
-      limit?: number;
-    },
-  ) {
+  async findAll(shopId: string, filters: PurchaseFilterDto) {
     const { search, status, supplierId, startDate, endDate, page = 1, limit = 20 } = filters;
     const qb = this.purchaseRepository
       .createQueryBuilder('p')
@@ -161,7 +168,11 @@ export class PurchasesService {
       .orderBy('p.createdAt', 'DESC')
       .getMany();
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      message: 'Purchases fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   async findOne(id: string, shopId: string) {
@@ -225,10 +236,9 @@ export class PurchasesService {
       });
 
       // Record expense
-      await this.incomeExpenseService.create(
+      await this.expensesService.recordSystemExpense(
         {
-          transactionType: TransactionType.EXPENSE,
-          category: IncomeExpenseCategory.PURCHASE,
+          typeName: 'Purchase',
           title: `Purchase received: ${purchase.referenceNumber}`,
           amount: purchase.grandTotal,
           referenceId: purchase.id,
@@ -315,7 +325,8 @@ export class PurchasesService {
     return savedReturn;
   }
 
-  async getReturns(shopId: string, page = 1, limit = 20) {
+  async getReturns(shopId: string, filters: PurchaseReturnFilterDto) {
+    const { page = 1, limit = 20 } = filters;
     const [data, total] = await this.returnRepository.findAndCount({
       where: { shopId },
       relations: ['supplier', 'purchase'],
@@ -323,7 +334,11 @@ export class PurchasesService {
       take: limit,
       order: { createdAt: 'DESC' },
     });
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      message: 'Purchase returns fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   private async generateReferenceNumber(prefix: string, shopId: string): Promise<string> {

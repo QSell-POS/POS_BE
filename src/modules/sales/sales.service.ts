@@ -5,12 +5,12 @@ import { Sale, SaleItem, SaleStatus, SalePaymentStatus } from './entities/sale.e
 import { SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-return.entity';
 import { Customer } from './entities/customer.entity';
 import { CreateSaleDto, UpdateSaleDto, CreateSaleReturnDto, CreateCustomerDto, UpdateCustomerDto, SaleFilterDto } from './dto/sale.dto';
+import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryMovementType } from '../inventory/entities/inventory-history.entity';
 import { ProductsService } from '../products/products.service';
 import { PriceType } from '../products/entities/product-price.entity';
-import { IncomeExpenseService } from '../income-expense/income-expense.service';
-import { TransactionType, IncomeExpenseCategory } from '../income-expense/entities/income-expense.entity';
+import { ExpensesService } from '../expenses/expenses.service';
 
 @Injectable()
 export class SalesService {
@@ -27,7 +27,7 @@ export class SalesService {
     private customerRepository: Repository<Customer>,
     private inventoryService: InventoryService,
     private productsService: ProductsService,
-    private incomeExpenseService: IncomeExpenseService,
+    private expensesService: ExpensesService,
     private dataSource: DataSource,
   ) {}
 
@@ -48,7 +48,11 @@ export class SalesService {
       .take(limit)
       .orderBy('c.name', 'ASC')
       .getMany();
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      message: 'Customers fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   async getCustomer(id: string, shopId: string) {
@@ -178,20 +182,6 @@ export class SalesService {
         }
       }
 
-      // Record income
-      await this.incomeExpenseService.create(
-        {
-          transactionType: TransactionType.INCOME,
-          category: IncomeExpenseCategory.SALES_REVENUE,
-          title: `Sale: ${invoiceNumber}`,
-          amount: grandTotal,
-          referenceId: savedSale.id,
-          referenceType: 'sale',
-        },
-        shopId,
-        userId,
-      );
-
       return this.findOne(savedSale.id, shopId);
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -223,7 +213,11 @@ export class SalesService {
       .orderBy('s.createdAt', 'DESC')
       .getMany();
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      message: 'Sales fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   async findOne(id: string, shopId: string) {
@@ -335,11 +329,10 @@ export class SalesService {
       status: SaleStatus.PARTIAL_REFUND,
     });
 
-    // Record income reduction
-    await this.incomeExpenseService.create(
+    // Record expense for refund outflow
+    await this.expensesService.recordSystemExpense(
       {
-        transactionType: TransactionType.EXPENSE,
-        category: IncomeExpenseCategory.RETURN_INCOME,
+        typeName: 'Sale Return',
         title: `Sale Return: ${refNum}`,
         amount: totalAmount,
         referenceId: savedReturn.id,
@@ -360,7 +353,11 @@ export class SalesService {
       take: limit,
       order: { createdAt: 'DESC' },
     });
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      message: 'Sale returns fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   private async generateInvoiceNumber(shopId: string): Promise<string> {

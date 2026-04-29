@@ -68,4 +68,11 @@ export class ProductsController {
   remove(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
     return this.productsService.remove(id, user.shopId);
   }
+
+  @Put(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted product' })
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  restore(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
+    return this.productsService.restore(id, user.shopId);
+  }
 }

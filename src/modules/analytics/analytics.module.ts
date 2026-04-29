@@ -5,7 +5,7 @@ import { Purchase } from '../purchases/entities/purchase.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { Product } from '../products/entities/product.entity';
 import { ProductPrice } from '../products/entities/product-price.entity';
-import { IncomeExpense } from '../income-expense/entities/income-expense.entity';
+import { Expense } from '../expenses/entities/expense.entity';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsController } from './analytics.controller';
 
@@ -18,7 +18,7 @@ import { AnalyticsController } from './analytics.controller';
       InventoryItem,
       Product,
       ProductPrice,
-      IncomeExpense,
+      Expense,
     ]),
   ],
   controllers: [AnalyticsController],

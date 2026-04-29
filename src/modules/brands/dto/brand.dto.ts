@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 export class CreateBrandDto {
   @ApiProperty() @IsString() @IsNotEmpty() name: string;
@@ -9,3 +10,10 @@ export class CreateBrandDto {
 }
 
 export class UpdateBrandDto extends CreateBrandDto {}
+
+export class BrandFilterDto extends PaginationDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  search?: string;
+}

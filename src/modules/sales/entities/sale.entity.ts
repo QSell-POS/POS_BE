@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Customer } from './customer.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
@@ -29,6 +29,10 @@ export enum SalePaymentStatus {
 }
 
 @Entity('sales')
+@Index(['shopId', 'saleDate'])
+@Index(['shopId', 'status'])
+@Index(['shopId', 'paymentStatus'])
+@Index(['invoiceNumber'])
 export class Sale extends TenantBaseEntity {
   @Column({ name: 'invoice_number', length: 50 })
   invoiceNumber: string;

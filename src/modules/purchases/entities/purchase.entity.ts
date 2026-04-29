@@ -1,7 +1,7 @@
 import { Supplier } from './supplier.entity';
 import { PurchaseItem } from './purchase-item.entity';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
-import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 
 export enum PurchaseStatus {
   DRAFT = 'draft',
@@ -19,6 +19,9 @@ export enum PaymentStatus {
 }
 
 @Entity('purchases')
+@Index(['shopId', 'status'])
+@Index(['shopId', 'supplierId'])
+@Index(['referenceNumber'])
 export class Purchase extends TenantBaseEntity {
   @Column({ name: 'reference_number', unique: false, length: 50 })
   referenceNumber: string;

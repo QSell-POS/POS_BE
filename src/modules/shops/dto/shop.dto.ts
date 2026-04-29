@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 export class CreateShopDto {
   @ApiProperty()
@@ -39,3 +40,10 @@ export class CreateShopDto {
 }
 
 export class UpdateShopDto extends PartialType(CreateShopDto) {}
+
+export class ShopFilterDto extends PaginationDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  search?: string;
+}

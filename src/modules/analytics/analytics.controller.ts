@@ -17,17 +17,10 @@ export class AnalyticsController {
   }
 
   @Get('sales-chart')
-  @ApiOperation({ summary: 'Revenue & profit over time (daily/weekly/monthly)' })
-  @ApiQuery({ name: 'period', enum: ['daily', 'weekly', 'monthly'] })
-  @ApiQuery({ name: 'startDate', required: true })
-  @ApiQuery({ name: 'endDate', required: true })
-  getSalesChart(
-    @Query('period') period: 'daily' | 'weekly' | 'monthly',
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
-    @CurrentUser() user: any,
-  ) {
-    return this.analyticsService.getSalesChart(user.shopId, period || 'daily', startDate, endDate);
+  @ApiOperation({ summary: 'Revenue & order count: weekly (7 days) or monthly (12 months) ending now' })
+  @ApiQuery({ name: 'period', enum: ['weekly', 'monthly'], required: false })
+  getSalesChart(@Query('period') period: 'weekly' | 'monthly', @CurrentUser() user: any) {
+    return this.analyticsService.getSalesChart(user.shopId, period || 'weekly');
   }
 
   @Get('price-fluctuation/:productId')

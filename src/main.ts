@@ -4,6 +4,8 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 // import { ValidationFilter } from './common/validationFilter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
+import * as pinoHttp from 'pino-http';
 
 const docsDescription = `
 Welcome to the API docs!
@@ -35,6 +37,23 @@ async function bootstrap() {
   const port = configService.get<number>('app.port', 3000);
   const apiPrefix = configService.get<string>('app.apiPrefix', 'api/v1');
 
+  // Security
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", 'https://unpkg.com', 'http://localhost:*'],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
+          imgSrc: ["'self'", 'data:', 'https:'],
+        },
+      },
+    }),
+  );
+
+  // Request logging
+  app.use(pinoHttp.default({ level: process.env.LOG_LEVEL || 'info' }));
+
   // Global prefix
   app.setGlobalPrefix(apiPrefix);
 
@@ -58,6 +77,9 @@ async function bootstrap() {
 
   // Global interceptors
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+
+  // Graceful shutdown
+  app.enableShutdownHooks();
 
   // Swagger
   const swaggerConfig = new DocumentBuilder()
