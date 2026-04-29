@@ -52,7 +52,21 @@ async function bootstrap() {
   );
 
   // Request logging
-  app.use(pinoHttp.default({ level: process.env.LOG_LEVEL || 'info' }));
+  app.use(
+    pinoHttp.default({
+      level: process.env.LOG_LEVEL || 'info',
+      transport: {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'HH:MM:ss',
+          ignore: 'pid,hostname,req.headers,req.remoteAddress,req.remotePort',
+          messageFormat: '{req.method} {req.url} → {res.statusCode} ({responseTime}ms)',
+          levelFirst: false,
+        },
+      },
+    }),
+  );
 
   // Global prefix
   app.setGlobalPrefix(apiPrefix);
