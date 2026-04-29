@@ -229,14 +229,20 @@ export class SalesService {
   async findOne(id: string, shopId: string) {
     const sale = await this.saleRepository.findOne({
       where: { id, shopId },
-      relations: ['customer', 'items', 'servedByUser'],
+      relations: ['customer', 'items', 'items.product', 'servedByUser'],
     });
     if (!sale) throw new NotFoundException('Sale not found');
-    const { servedByUser, ...rest } = sale;
+    const { servedByUser, items, ...rest } = sale;
+    const mappedItems = items.map(({ product, ...item }) => ({
+      ...item,
+      productName: product?.name ?? null,
+      productSku: product?.sku ?? null,
+    }));
     return {
       ...rest,
+      items: mappedItems,
       servedBy: servedByUser ? `${servedByUser.firstName} ${servedByUser.lastName}` : null,
-    } as Sale & { servedBy: string | null };
+    };
   }
 
   async recordPayment(id: string, amount: number, shopId: string) {
