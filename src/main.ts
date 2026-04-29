@@ -7,6 +7,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import * as pinoHttp from 'pino-http';
 
+process.env.TZ = process.env.TZ || 'Asia/Kathmandu';
+
 const docsDescription = `
 Welcome to the API docs!
 
