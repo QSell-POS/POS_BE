@@ -43,7 +43,7 @@ export class InventoryHistory extends TenantBaseEntity {
   unitCost: number;
 
   @Column({ nullable: true, name: 'reference_id' })
-  referenceId: string; // purchase_id, sale_id, return_id, etc.
+  referenceId: string; // invoice/reference number (e.g. INV-..., PO-..., SRN-..., TRF-...)
 
   @Column({ nullable: true, name: 'reference_type', length: 50 })
   referenceType: string;
