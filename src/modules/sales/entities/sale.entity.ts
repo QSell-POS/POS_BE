@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Customer } from './customer.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
+import { User } from 'src/modules/users/entities/user.entity';
 
 export enum SaleStatus {
   DRAFT = 'draft',
@@ -80,7 +81,7 @@ export class Sale extends TenantBaseEntity {
   profit: number;
 
   @Column({ name: 'served_by', nullable: true })
-  servedBy: string;
+  servedByUserId: string;
 
   @Column({ nullable: true, type: 'text' })
   notes: string;
@@ -88,6 +89,10 @@ export class Sale extends TenantBaseEntity {
   @ManyToOne(() => Customer)
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'served_by' })
+  servedByUser: User;
 
   @OneToMany(() => SaleItem, (item) => item.sale, { cascade: true })
   items: SaleItem[];

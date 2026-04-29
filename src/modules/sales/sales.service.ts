@@ -139,7 +139,7 @@ export class SalesService {
         profit: totalProfitFinal,
         status: SaleStatus.COMPLETED,
         paymentStatus: dueAmount > 0 ? SalePaymentStatus.PARTIAL : SalePaymentStatus.PAID,
-        servedBy: userId,
+        servedByUserId: userId,
         notes: dto.notes,
         shopId,
       });
@@ -197,6 +197,7 @@ export class SalesService {
     const qb = this.saleRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.customer', 'customer')
+      .leftJoinAndSelect('s.servedByUser', 'servedByUser')
       .where('s.shopId = :shopId', { shopId });
 
     if (search) qb.andWhere('s.invoiceNumber ILIKE :search', { search: `%${search}%` });
@@ -207,11 +208,16 @@ export class SalesService {
     if (endDate) qb.andWhere('s.saleDate <= :endDate', { endDate });
 
     const total = await qb.getCount();
-    const data = await qb
+    const rawData = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('s.createdAt', 'DESC')
       .getMany();
+
+    const data = rawData.map(({ servedByUser, ...sale }) => ({
+      ...sale,
+      servedBy: servedByUser ? `${servedByUser.firstName} ${servedByUser.lastName}` : null,
+    }));
 
     return {
       data,
@@ -223,10 +229,14 @@ export class SalesService {
   async findOne(id: string, shopId: string) {
     const sale = await this.saleRepository.findOne({
       where: { id, shopId },
-      relations: ['customer', 'items'],
+      relations: ['customer', 'items', 'servedByUser'],
     });
     if (!sale) throw new NotFoundException('Sale not found');
-    return sale;
+    const { servedByUser, ...rest } = sale;
+    return {
+      ...rest,
+      servedBy: servedByUser ? `${servedByUser.firstName} ${servedByUser.lastName}` : null,
+    } as Sale & { servedBy: string | null };
   }
 
   async recordPayment(id: string, amount: number, shopId: string) {
