@@ -60,8 +60,8 @@ async function bootstrap() {
         options: {
           colorize: true,
           translateTime: 'HH:MM:ss',
-          ignore: 'pid,hostname,req,res',
-          messageFormat: '{req.method} {req.url} → {res.statusCode} ({responseTime}ms)',
+          ignore: 'pid,hostname,req,res,responseTime',
+          messageFormat: '{req.method} {req.url} = {res.statusCode} ({responseTime}ms)',
           levelFirst: false,
         },
       },
