@@ -2,7 +2,7 @@ import { SalesService } from './sales.service';
 import { UserRole } from '../users/entities/user.entity';
 import { JwtAuthGuard, CurrentUser, Roles, RolesGuard } from 'src/common/guards/auth.guard';
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, HttpCode, HttpStatus, Patch } from '@nestjs/common';
-import { CreateSaleDto, CreateSaleReturnDto, CreateCustomerDto, UpdateCustomerDto, SaleFilterDto, RecordPaymentDto } from './dto/sale.dto';
+import { CreateSaleDto, CreateSaleReturnDto, CreateCustomerDto, UpdateCustomerDto, SaleFilterDto, CreateCustomerPaymentDto } from './dto/sale.dto';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Sales')
@@ -15,9 +15,6 @@ export class SalesController {
   // ── Customers ─────────────────────────────────────────────
   @Get('customers')
   @ApiOperation({ summary: 'Get customers list' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by customer name, phone, or email' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of items per page' })
   getCustomers(@Query('search') search: string, @Query('page') page: number, @Query('limit') limit: number, @CurrentUser() user: any) {
     return this.salesService.getCustomers(user.shopId, search, page, limit);
   }
@@ -25,8 +22,7 @@ export class SalesController {
   @Get('customers/:id')
   @ApiOperation({ summary: 'Get customer by ID' })
   async getCustomer(@Param('id') id: string, @CurrentUser() user: any) {
-    const customer = await this.salesService.getCustomer(id, user.shopId);
-    return { data: customer };
+    return { data: await this.salesService.getCustomer(id, user.shopId) };
   }
 
   @Post('customers')
@@ -41,10 +37,28 @@ export class SalesController {
     return this.salesService.updateCustomer(id, dto, user.shopId);
   }
 
+  @Get('customers/:id/ledger')
+  @ApiOperation({ summary: "Get customer's ledger (credit history)" })
+  getCustomerLedger(@Param('id') id: string, @Query('page') page: number, @Query('limit') limit: number, @CurrentUser() user: any) {
+    return this.salesService.getCustomerLedger(id, user.shopId, page, limit);
+  }
+
+  @Get('customers/:id/statement')
+  @ApiOperation({ summary: "Get customer's full statement with balance" })
+  getCustomerStatement(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.salesService.getCustomerStatement(id, user.shopId);
+  }
+
+  @Post('customers/payments')
+  @ApiOperation({ summary: 'Record a customer payment to settle their credit balance' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.SUPER_ADMIN)
+  recordCustomerPayment(@Body() dto: CreateCustomerPaymentDto, @CurrentUser() user: any) {
+    return this.salesService.recordCustomerPayment(dto, user.shopId, user.id);
+  }
+
   // ── Sales ──────────────────────────────────────────────────
   @Get()
   @ApiOperation({ summary: 'List sales with filters' })
-  @ApiQuery({ name: 'filters', type: SaleFilterDto, description: 'Filter parameters for sales listing' })
   findAll(@Query() filters: SaleFilterDto, @CurrentUser() user: any) {
     return this.salesService.findAll(filters, user.shopId);
   }
@@ -52,21 +66,13 @@ export class SalesController {
   @Get(':id')
   @ApiOperation({ summary: 'Get sale details by ID' })
   async findOne(@Param('id') id: string, @CurrentUser() user: any) {
-    const sale = await this.salesService.findOne(id, user.shopId);
-    return { data: sale };
+    return { data: await this.salesService.findOne(id, user.shopId) };
   }
 
   @Post()
   @ApiOperation({ summary: 'Create a new sale (POS transaction)' })
   create(@Body() dto: CreateSaleDto, @CurrentUser() user: any) {
     return this.salesService.create(dto, user.shopId, user.id);
-  }
-
-  @Post(':id/payment')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Record a payment for a sale' })
-  recordPayment(@Param('id') id: string, @Body() dto: RecordPaymentDto, @CurrentUser() user: any) {
-    return this.salesService.recordPayment(id, dto.amount, user.shopId);
   }
 
   @Patch(':id/cancel')
@@ -78,7 +84,7 @@ export class SalesController {
 
   // ── Sale Returns ───────────────────────────────────────────
   @Post('returns')
-  @ApiOperation({ summary: 'Create a sale return / refund' })
+  @ApiOperation({ summary: 'Create a sale return' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   createReturn(@Body() dto: CreateSaleReturnDto, @CurrentUser() user: any) {
     return this.salesService.createReturn(dto, user.shopId, user.id);
@@ -86,8 +92,6 @@ export class SalesController {
 
   @Get('returns/all')
   @ApiOperation({ summary: 'List all sale returns' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Number of items per page' })
   getReturns(@Query('page') page: number, @Query('limit') limit: number, @CurrentUser() user: any) {
     return this.salesService.getReturns(user.shopId, page, limit);
   }

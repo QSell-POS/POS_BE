@@ -4,18 +4,8 @@ import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 
 export enum PurchaseStatus {
-  DRAFT = 'draft',
-  ORDERED = 'ordered',
-  PARTIAL = 'partial',
-  RECEIVED = 'received',
+  COMPLETED = 'completed',
   CANCELLED = 'cancelled',
-}
-
-export enum PaymentStatus {
-  PAID = 'paid',
-  PENDING = 'pending',
-  PARTIAL = 'partial',
-  OVERDUE = 'overdue',
 }
 
 @Entity('purchases')
@@ -29,89 +19,32 @@ export class Purchase extends TenantBaseEntity {
   @Column({ name: 'supplier_id', nullable: true })
   supplierId: string;
 
-  @Column({ type: 'enum', enum: PurchaseStatus, default: PurchaseStatus.DRAFT })
+  @Column({ type: 'enum', enum: PurchaseStatus, default: PurchaseStatus.COMPLETED })
   status: PurchaseStatus;
 
-  @Column({
-    type: 'enum',
-    enum: PaymentStatus,
-    default: PaymentStatus.PENDING,
-    name: 'payment_status',
-  })
-  paymentStatus: PaymentStatus;
+  @Column({ name: 'is_received', default: true })
+  isReceived: boolean;
 
-  @Column({
-    name: 'purchase_date',
-    type: 'timestamp',
-    default: () => 'CURRENT_TIMESTAMP',
-  })
+  @Column({ name: 'purchase_date', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   purchaseDate: Date;
 
-  @Column({ name: 'expected_date', nullable: true, type: 'timestamp' })
-  expectedDate: Date;
-
-  @Column({
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-    name: 'subtotal',
-  })
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'subtotal' })
   subtotal: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-    name: 'tax_amount',
-  })
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'tax_amount' })
   taxAmount: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-    name: 'discount_amount',
-  })
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'discount_amount' })
   discountAmount: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-    name: 'shipping_cost',
-  })
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'shipping_cost' })
   shippingCost: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-    name: 'grand_total',
-  })
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'grand_total' })
   grandTotal: number;
 
-  @Column({
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-    name: 'paid_amount',
-  })
-  paidAmount: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 12,
-    scale: 2,
-    default: 0,
-    name: 'due_amount',
-  })
-  dueAmount: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'credit_amount' })
+  creditAmount: number;
 
   @Column({ name: 'supplier_bill_number', nullable: true, length: 100 })
   supplierBillNumber: string;

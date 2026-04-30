@@ -39,9 +39,6 @@ export class Supplier extends TenantBaseEntity {
   })
   totalDue: number;
 
-  @Column({ type: "decimal", precision: 12, scale: 2, default: 0, name: "credit_balance" })
-  creditBalance: number;
-
   @Column({ default: true, name: "is_active" })
   isActive: boolean;
 

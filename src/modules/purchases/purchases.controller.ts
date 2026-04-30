@@ -2,16 +2,16 @@ import {
   CreatePurchaseDto,
   CreatePurchaseReturnDto,
   CreateSupplierDto,
+  CreateSupplierPaymentDto,
   PurchaseFilterDto,
   PurchaseReturnFilterDto,
   ReceivePurchaseDto,
-  RecordPaymentDto,
   SupplierFilterDto,
   UpdateSupplierDto,
 } from './dto/purchase.dto';
 import { PurchasesService } from './purchases.service';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { UserRole } from '../users/entities/user.entity';
 import { UuidParamPipe } from 'src/common/validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -44,6 +44,25 @@ export class PurchasesController {
     return this.purchasesService.updateSupplier(id, dto, user.shopId);
   }
 
+  @Get('suppliers/:id/ledger')
+  @ApiOperation({ summary: "Get supplier's ledger" })
+  getSupplierLedger(@Param('id', UuidParamPipe) id: string, @Query('page') page: number, @Query('limit') limit: number, @CurrentUser() user: any) {
+    return this.purchasesService.getSupplierLedger(id, user.shopId, page, limit);
+  }
+
+  @Get('suppliers/:id/statement')
+  @ApiOperation({ summary: "Get supplier's full statement with balance" })
+  getSupplierStatement(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
+    return this.purchasesService.getSupplierStatement(id, user.shopId);
+  }
+
+  @Post('suppliers/payments')
+  @ApiOperation({ summary: 'Record a payment to a supplier' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
+  recordSupplierPayment(@Body() dto: CreateSupplierPaymentDto, @CurrentUser() user: any) {
+    return this.purchasesService.recordSupplierPayment(dto, user.shopId, user.id);
+  }
+
   // ── Purchases ─────────────────────────────────────────────
   @Get()
   @ApiOperation({ summary: 'Get all purchases' })
@@ -54,33 +73,22 @@ export class PurchasesController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific purchase' })
   async findOne(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
-    const purchaseOrder = await this.purchasesService.findOne(id, user.shopId);
-    return {
-      data: purchaseOrder,
-    };
+    return { data: await this.purchasesService.findOne(id, user.shopId) };
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a new purchase' })
+  @ApiOperation({ summary: 'Create a new purchase (isReceived=true updates inventory immediately)' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   create(@Body() dto: CreatePurchaseDto, @CurrentUser() user: any) {
     return this.purchasesService.create(dto, user.shopId, user.id);
   }
 
-  @Post(':id/receive')
-  @ApiOperation({ summary: 'Receive a purchase' })
+  @Patch(':id/receive')
+  @ApiOperation({ summary: 'Mark a pending purchase as received and update inventory' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
   receive(@Param('id', UuidParamPipe) id: string, @Body() dto: ReceivePurchaseDto, @CurrentUser() user: any) {
     return this.purchasesService.receivePurchase(id, dto, user.shopId, user.id);
-  }
-
-  @Post(':id/payment')
-  @ApiOperation({ summary: 'Record a payment for a purchase' })
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
-  @HttpCode(HttpStatus.OK)
-  recordPayment(@Param('id', UuidParamPipe) id: string, @Body() dto: RecordPaymentDto, @CurrentUser() user: any) {
-    return this.purchasesService.recordPayment(id, dto.amount, user.shopId);
   }
 
   // ── Purchase Returns ───────────────────────────────────────
