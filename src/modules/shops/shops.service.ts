@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Shop } from 'src/modules/shops/entities/shop.entity';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { CreateShopDto, ShopFilterDto, UpdateShopDto } from './dto/shop.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
@@ -41,8 +41,11 @@ export class ShopsService {
     return this.shops.save(shop);
   }
 
-  async update(id: string, dto: UpdateShopDto) {
+  async update(id: string, dto: UpdateShopDto, requesterId?: string, isSuperAdmin = false) {
     const s = await this.findOne(id);
+    if (!isSuperAdmin && requesterId && s.ownerId !== requesterId) {
+      throw new ForbiddenException('You do not have permission to update this shop');
+    }
     return this.shops.save(Object.assign(s, dto));
   }
 
@@ -50,5 +53,9 @@ export class ShopsService {
     return {
       data: await this.findOne(shopId),
     };
+  }
+
+  async findByOwner(ownerId: string) {
+    return this.shops.find({ where: { ownerId } });
   }
 }
