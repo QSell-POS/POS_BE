@@ -113,6 +113,9 @@ export class Purchase extends TenantBaseEntity {
   })
   dueAmount: number;
 
+  @Column({ name: 'supplier_bill_number', nullable: true, length: 100 })
+  supplierBillNumber: string;
+
   @Column({ name: 'created_by', nullable: true })
   createdBy: string;
 

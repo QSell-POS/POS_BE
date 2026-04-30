@@ -7,6 +7,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import * as pinoHttp from 'pino-http';
 
+process.env.TZ = process.env.TZ || 'Asia/Kathmandu';
+
 const docsDescription = `
 Welcome to the API docs!
 
@@ -52,7 +54,21 @@ async function bootstrap() {
   );
 
   // Request logging
-  app.use(pinoHttp.default({ level: process.env.LOG_LEVEL || 'info' }));
+  app.use(
+    pinoHttp.default({
+      level: process.env.LOG_LEVEL || 'info',
+      transport: {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'HH:MM:ss',
+          ignore: 'pid,hostname,req,res,responseTime',
+          messageFormat: '{req.method} {req.url} = {res.statusCode} ({responseTime}ms)',
+          levelFirst: false,
+        },
+      },
+    }),
+  );
 
   // Global prefix
   app.setGlobalPrefix(apiPrefix);

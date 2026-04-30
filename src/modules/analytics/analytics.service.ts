@@ -3,7 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Sale, SaleStatus } from '../sales/entities/sale.entity';
 import { SaleItem } from '../sales/entities/sale.entity';
+import { SaleReturn } from '../sales/entities/sale-return.entity';
 import { Purchase } from '../purchases/entities/purchase.entity';
+import { PurchaseReturn } from '../purchases/entities/purchase-return.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { Product } from '../products/entities/product.entity';
 import { ProductPrice } from '../products/entities/product-price.entity';
@@ -16,8 +18,12 @@ export class AnalyticsService {
     private saleRepository: Repository<Sale>,
     @InjectRepository(SaleItem)
     private saleItemRepository: Repository<SaleItem>,
+    @InjectRepository(SaleReturn)
+    private saleReturnRepository: Repository<SaleReturn>,
     @InjectRepository(Purchase)
     private purchaseRepository: Repository<Purchase>,
+    @InjectRepository(PurchaseReturn)
+    private purchaseReturnRepository: Repository<PurchaseReturn>,
     @InjectRepository(InventoryItem)
     private inventoryRepository: Repository<InventoryItem>,
     @InjectRepository(Product)
@@ -329,7 +335,7 @@ export class AnalyticsService {
 
   // ── Profit & Loss Report ──────────────────────────────────
   async getProfitLossReport(shopId: string, startDate: string, endDate: string) {
-    const [salesData, expenseRows, purchaseData] = await Promise.all([
+    const [salesData, expenseRows, purchaseData, saleReturnData, purchaseReturnData] = await Promise.all([
       this.saleRepository
         .createQueryBuilder('s')
         .select('COALESCE(SUM(s.grandTotal),0)', 'totalRevenue')
@@ -366,11 +372,41 @@ export class AnalyticsService {
           endDate,
         })
         .getRawOne(),
+
+      this.saleReturnRepository
+        .createQueryBuilder('sr')
+        .select('COALESCE(SUM(sr.totalAmount),0)', 'totalReturned')
+        .addSelect('COALESCE(SUM(sr.refundedAmount),0)', 'totalRefunded')
+        .addSelect('COALESCE(SUM(sr.appliedToDueAmount),0)', 'totalAppliedToDue')
+        .addSelect('COALESCE(SUM(sr.storeCreditIssued),0)', 'totalStoreCredit')
+        .addSelect('COUNT(*)', 'returnCount')
+        .where("sr.shopId = :shopId AND sr.returnDate BETWEEN :startDate AND :endDate AND sr.status != 'cancelled'", {
+          shopId,
+          startDate,
+          endDate,
+        })
+        .getRawOne(),
+
+      this.purchaseReturnRepository
+        .createQueryBuilder('pr')
+        .select('COALESCE(SUM(pr.totalAmount),0)', 'totalReturned')
+        .addSelect('COALESCE(SUM(pr.refundedAmount),0)', 'totalRefunded')
+        .addSelect('COALESCE(SUM(pr.appliedToDueAmount),0)', 'totalAppliedToDue')
+        .addSelect('COALESCE(SUM(pr.supplierCreditIssued),0)', 'totalSupplierCredit')
+        .addSelect('COUNT(*)', 'returnCount')
+        .where("pr.shopId = :shopId AND pr.returnDate BETWEEN :startDate AND :endDate AND pr.status != 'cancelled'", {
+          shopId,
+          startDate,
+          endDate,
+        })
+        .getRawOne(),
     ]);
 
     const totalRevenue = Number(salesData.totalRevenue);
-    const grossProfit = Number(salesData.grossProfit);
-    const totalPurchases = Number(purchaseData.totalPurchases);
+    const saleReturnsTotal = Number(saleReturnData.totalReturned);
+    const netRevenue = totalRevenue - saleReturnsTotal;
+    const grossProfit = Number(salesData.grossProfit) - saleReturnsTotal;
+    const totalPurchases = Number(purchaseData.totalPurchases) - Number(purchaseReturnData.totalReturned);
 
     const expenses = expenseRows.reduce(
       (acc, r) => {
@@ -382,16 +418,32 @@ export class AnalyticsService {
 
     const totalOperatingExpenses = Number(Object.values(expenses).reduce((a: any, b: any) => a + b, 0));
     const netProfit = grossProfit - totalOperatingExpenses;
-    const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-    const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    const grossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+    const netMargin = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0;
 
     return {
       period: { startDate, endDate },
       revenue: {
-        totalRevenue,
+        grossRevenue: totalRevenue,
+        saleReturns: saleReturnsTotal,
+        netRevenue,
         totalDiscount: Number(salesData.totalDiscount),
         totalTax: Number(salesData.totalTax),
         saleCount: Number(salesData.saleCount),
+      },
+      saleReturns: {
+        totalReturned: saleReturnsTotal,
+        totalRefunded: Number(saleReturnData.totalRefunded),
+        totalAppliedToDue: Number(saleReturnData.totalAppliedToDue),
+        totalStoreCredit: Number(saleReturnData.totalStoreCredit),
+        returnCount: Number(saleReturnData.returnCount),
+      },
+      purchaseReturns: {
+        totalReturned: Number(purchaseReturnData.totalReturned),
+        totalRefunded: Number(purchaseReturnData.totalRefunded),
+        totalAppliedToDue: Number(purchaseReturnData.totalAppliedToDue),
+        totalSupplierCredit: Number(purchaseReturnData.totalSupplierCredit),
+        returnCount: Number(purchaseReturnData.returnCount),
       },
       costOfGoodsSold: totalPurchases,
       grossProfit,

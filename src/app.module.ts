@@ -86,6 +86,9 @@ import { AppController } from './app.controller';
         database: config.get('database.database'),
         synchronize: config.get<boolean>('database.synchronize'),
         logging: config.get<boolean>('database.logging'),
+        extra: {
+          options: `-c timezone=${process.env.TZ || 'Asia/Kathmandu'}`,
+        },
         entities: [
           User,
           Shop,

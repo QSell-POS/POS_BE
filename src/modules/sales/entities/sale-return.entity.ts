@@ -4,8 +4,6 @@ import { Customer } from './customer.entity';
 import { Sale } from './sale.entity';
 
 export enum SaleReturnStatus {
-  DRAFT = 'draft',
-  CONFIRMED = 'confirmed',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
 }
@@ -13,8 +11,16 @@ export enum SaleReturnStatus {
 export enum RefundMethod {
   CASH = 'cash',
   CARD = 'card',
+  MOBILE_PAYMENT = 'mobile_payment',
+  BANK_TRANSFER = 'bank_transfer',
   STORE_CREDIT = 'store_credit',
-  ORIGINAL_PAYMENT = 'original_payment',
+  APPLIED_TO_DUE = 'applied_to_due',
+}
+
+export enum RefundStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  REJECTED = 'rejected',
 }
 
 @Entity('sale_returns')
@@ -28,17 +34,29 @@ export class SaleReturn extends TenantBaseEntity {
   @Column({ name: 'customer_id', nullable: true })
   customerId: string;
 
-  @Column({ type: 'enum', enum: SaleReturnStatus, default: SaleReturnStatus.DRAFT })
+  @Column({ type: 'enum', enum: SaleReturnStatus, default: SaleReturnStatus.COMPLETED })
   status: SaleReturnStatus;
 
   @Column({ type: 'enum', enum: RefundMethod, default: RefundMethod.CASH, name: 'refund_method' })
   refundMethod: RefundMethod;
+
+  @Column({ type: 'enum', enum: RefundStatus, default: RefundStatus.COMPLETED, name: 'refund_status' })
+  refundStatus: RefundStatus;
 
   @Column({ name: 'return_date', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   returnDate: Date;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'total_amount' })
   totalAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'refunded_amount' })
+  refundedAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'applied_to_due_amount' })
+  appliedToDueAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'store_credit_issued' })
+  storeCreditIssued: number;
 
   @Column({ nullable: true, type: 'text' })
   reason: string;

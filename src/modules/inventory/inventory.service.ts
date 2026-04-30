@@ -150,7 +150,7 @@ export class InventoryService {
         referenceId: dto.referenceId,
         referenceType: dto.referenceType,
         notes: dto.notes,
-        performedBy: dto.performedBy,
+        performedByUserId: dto.performedBy,
         shopId,
       });
       await queryRunner.manager.save(InventoryHistory, history);
@@ -181,6 +181,7 @@ export class InventoryService {
     const qb = this.historyRepository
       .createQueryBuilder('h')
       .leftJoinAndSelect('h.product', 'product')
+      .leftJoinAndSelect('h.performedByUser', 'performedByUser')
       .where('h.shopId = :shopId', { shopId });
 
     if (productId) qb.andWhere('h.productId = :productId', { productId });
@@ -189,11 +190,16 @@ export class InventoryService {
     if (endDate) qb.andWhere('h.createdAt <= :endDate', { endDate });
 
     const total = await qb.getCount();
-    const data = await qb
+    const rawData = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('h.createdAt', 'DESC')
       .getMany();
+
+    const data = rawData.map(({ performedByUser, ...h }) => ({
+      ...h,
+      performedBy: performedByUser ? `${performedByUser.firstName} ${performedByUser.lastName}` : null,
+    }));
 
     return {
       data,
