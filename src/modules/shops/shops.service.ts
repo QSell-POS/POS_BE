@@ -30,9 +30,12 @@ export class ShopsService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, requesterId?: string, isSuperAdmin = false) {
     const s = await this.shops.findOne({ where: { id } });
     if (!s) throw new NotFoundException('Shop not found');
+    if (!isSuperAdmin && requesterId && s.ownerId !== requesterId) {
+      throw new ForbiddenException('You do not have permission to access this shop');
+    }
     return s;
   }
 

@@ -29,11 +29,11 @@ export class ShopsController {
   }
 
   @Get(':id')
-  @Roles(UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get a shop by ID (super admin only)' })
-  async findOne(@Param('id') id: string) {
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get a shop by ID (super admin: any shop, admin: own shop only)' })
+  async findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return {
-      data: await this.shopsService.findOne(id),
+      data: await this.shopsService.findOne(id, user.id, user.role === UserRole.SUPER_ADMIN),
     };
   }
 
