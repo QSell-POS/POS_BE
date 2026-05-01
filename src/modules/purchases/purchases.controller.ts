@@ -44,6 +44,12 @@ export class PurchasesController {
     return this.purchasesService.updateSupplier(id, dto, user.shopId);
   }
 
+  @Get('suppliers/:id')
+  @ApiOperation({ summary: 'Get a supplier by ID' })
+  getSupplierById(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
+    return this.purchasesService.getSupplierById(id, user.shopId);
+  }
+
   @Get('suppliers/:id/ledger')
   @ApiOperation({ summary: "Get supplier's ledger" })
   getSupplierLedger(@Param('id', UuidParamPipe) id: string, @Query('page') page: number, @Query('limit') limit: number, @CurrentUser() user: any) {

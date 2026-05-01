@@ -67,6 +67,12 @@ export class PurchasesService {
     return { data, message: 'Suppliers fetched successfully', meta: buildPaginationMeta(total, page, limit) };
   }
 
+  async getSupplierById(id: string, shopId: string) {
+    const supplier = await this.supplierRepository.findOne({ where: { id, shopId } });
+    if (!supplier) throw new NotFoundException('Supplier not found');
+    return supplier;
+  }
+
   async updateSupplier(id: string, dto: UpdateSupplierDto, shopId: string) {
     const supplier = await this.supplierRepository.findOne({ where: { id, shopId } });
     if (!supplier) throw new NotFoundException('Supplier not found');
