@@ -33,6 +33,9 @@ export class Customer extends TenantBaseEntity {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'total_due' })
   totalDue: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'loyalty_points' })
+  loyaltyPoints: number;
+
   @Column({ default: true, name: 'is_active' })
   isActive: boolean;
 

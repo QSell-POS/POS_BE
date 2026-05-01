@@ -56,6 +56,15 @@ export class Sale extends TenantBaseEntity {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'credit_amount' })
   creditAmount: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'paid_amount' })
+  paidAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'due_amount' })
+  dueAmount: number;
+
+  @Column({ length: 50, default: 'unpaid', name: 'payment_status' })
+  paymentStatus: string;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'profit' })
   profit: number;
 
