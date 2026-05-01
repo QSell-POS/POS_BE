@@ -59,7 +59,11 @@ export class PurchasesService {
     if (search) qb.andWhere('(s.name ILIKE :search OR s.contactPerson ILIKE :search OR s.phone ILIKE :search)', { search: `%${search}%` });
 
     const total = await qb.getCount();
-    const data = await qb.orderBy('s.name', 'ASC').skip((page - 1) * limit).take(limit).getMany();
+    const data = await qb
+      .orderBy('s.name', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
     return { data, message: 'Suppliers fetched successfully', meta: buildPaginationMeta(total, page, limit) };
   }
 
@@ -160,10 +164,10 @@ export class PurchasesService {
   // ── Purchases ─────────────────────────────────────────────
   async create(dto: CreatePurchaseDto, shopId: string, userId: string) {
     const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
       let subtotal = 0;
       const itemsWithTotals = dto.items.map((item) => {
         const taxAmount = (item.unitCost * item.quantity * (item.taxRate || 0)) / 100;
@@ -227,7 +231,6 @@ export class PurchasesService {
       );
 
       await queryRunner.manager.save(PurchaseItem, items);
-      await queryRunner.commitTransaction();
 
       // Adjust inventory and record expense if received
       if (isReceived) {
@@ -282,7 +285,7 @@ export class PurchasesService {
       if (dto.supplierId) {
         await this.supplierRepository.increment({ id: dto.supplierId }, 'totalPurchased', grandTotal);
       }
-
+      await queryRunner.commitTransaction();
       return this.findOne(saved.id, shopId);
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -351,7 +354,11 @@ export class PurchasesService {
     if (endDate) qb.andWhere('p.purchaseDate <= :endDate', { endDate });
 
     const total = await qb.getCount();
-    const data = await qb.skip((page - 1) * limit).take(limit).orderBy('p.createdAt', 'DESC').getMany();
+    const data = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy('p.createdAt', 'DESC')
+      .getMany();
 
     return { data, message: 'Purchases fetched successfully', meta: buildPaginationMeta(total, page, limit) };
   }
