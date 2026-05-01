@@ -28,7 +28,7 @@ export class ProductsService {
       .leftJoinAndSelect('p.brand', 'brand')
       .leftJoinAndSelect('p.category', 'category')
       .leftJoinAndSelect('p.unit', 'unit')
-      .leftJoinAndSelect('p.prices', 'price', 'price.isCurrent = true AND price.priceType = :retailType', { retailType: PriceType.RETAIL })
+      .leftJoinAndSelect('p.prices', 'price', 'price.isCurrent = true')
       .leftJoinAndSelect('p.inventoryItems', 'inv')
       .where('p.shopId = :shopId', { shopId })
       .andWhere('p.deletedAt IS NULL');
@@ -50,36 +50,44 @@ export class ProductsService {
       .orderBy('p.createdAt', 'DESC')
       .getMany();
 
-    const data = rawData.map((p) => ({
-      id: p.id,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-      shopId: p.shopId,
-      name: p.name,
-      sku: p.sku,
-      barcode: p.barcode,
-      description: p.description,
-      image: p.image,
-      status: p.status,
-      type: p.type,
-      brandId: p.brandId,
-      categoryId: p.categoryId,
-      unitId: p.unitId,
-      taxRate: p.taxRate,
-      minStockLevel: p.minStockLevel,
-      maxStockLevel: p.maxStockLevel,
-      brand: p.brand?.name,
-      category: p.category?.name,
-      unit: p.unit?.symbol,
-      price: p.prices?.[0]?.price || null,
-      inventory: p.inventoryItems?.[0]
-        ? {
-            quantityOnHand: p.inventoryItems[0].quantityOnHand,
-            quantityReserved: p.inventoryItems[0].quantityReserved,
-            quantityAvailable: p.inventoryItems[0].quantityAvailable,
-          }
-        : null,
-    }));
+    const data = rawData.map((p) => {
+      const priceMap = (p.prices || []).reduce(
+        (acc, pr) => { acc[pr.priceType] = Number(pr.price); return acc; },
+        {} as Record<string, number>,
+      );
+      return {
+        id: p.id,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        shopId: p.shopId,
+        name: p.name,
+        sku: p.sku,
+        barcode: p.barcode,
+        description: p.description,
+        image: p.image,
+        status: p.status,
+        type: p.type,
+        brandId: p.brandId,
+        categoryId: p.categoryId,
+        unitId: p.unitId,
+        taxRate: p.taxRate,
+        minStockLevel: p.minStockLevel,
+        maxStockLevel: p.maxStockLevel,
+        brand: p.brand?.name,
+        category: p.category?.name,
+        unit: p.unit?.symbol,
+        purchasePrice: priceMap[PriceType.PURCHASE] ?? null,
+        retailPrice: priceMap[PriceType.RETAIL] ?? null,
+        wholesalePrice: priceMap[PriceType.WHOLESALE] ?? null,
+        inventory: p.inventoryItems?.[0]
+          ? {
+              quantityOnHand: p.inventoryItems[0].quantityOnHand,
+              quantityReserved: p.inventoryItems[0].quantityReserved,
+              quantityAvailable: p.inventoryItems[0].quantityAvailable,
+            }
+          : null,
+      };
+    });
 
     return {
       data,

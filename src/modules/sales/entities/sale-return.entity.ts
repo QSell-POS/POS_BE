@@ -8,21 +8,6 @@ export enum SaleReturnStatus {
   CANCELLED = 'cancelled',
 }
 
-export enum RefundMethod {
-  CASH = 'cash',
-  CARD = 'card',
-  MOBILE_PAYMENT = 'mobile_payment',
-  BANK_TRANSFER = 'bank_transfer',
-  STORE_CREDIT = 'store_credit',
-  APPLIED_TO_DUE = 'applied_to_due',
-}
-
-export enum RefundStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  REJECTED = 'rejected',
-}
-
 @Entity('sale_returns')
 export class SaleReturn extends TenantBaseEntity {
   @Column({ name: 'reference_number', length: 50 })
@@ -37,26 +22,17 @@ export class SaleReturn extends TenantBaseEntity {
   @Column({ type: 'enum', enum: SaleReturnStatus, default: SaleReturnStatus.COMPLETED })
   status: SaleReturnStatus;
 
-  @Column({ type: 'enum', enum: RefundMethod, default: RefundMethod.CASH, name: 'refund_method' })
-  refundMethod: RefundMethod;
-
-  @Column({ type: 'enum', enum: RefundStatus, default: RefundStatus.COMPLETED, name: 'refund_status' })
-  refundStatus: RefundStatus;
-
   @Column({ name: 'return_date', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   returnDate: Date;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'total_amount' })
   totalAmount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'refunded_amount' })
-  refundedAmount: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'amount_paid_to_customer' })
+  amountPaidToCustomer: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'applied_to_due_amount' })
-  appliedToDueAmount: number;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'store_credit_issued' })
-  storeCreditIssued: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'amount_to_account' })
+  amountToAccount: number;
 
   @Column({ nullable: true, type: 'text' })
   reason: string;

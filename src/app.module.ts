@@ -60,6 +60,8 @@ import { JwtAuthGuard, RolesGuard } from './common/guards/auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { AppController } from './app.controller';
+import { SupplierLedger } from './modules/purchases/entities/supplier-ledger.entity';
+import { CustomerLedger } from './modules/sales/entities/customer-ledger.entity';
 
 @Module({
   imports: [
@@ -100,11 +102,13 @@ import { AppController } from './app.controller';
           InventoryItem,
           InventoryHistory,
           Supplier,
+          SupplierLedger,
           Purchase,
           PurchaseItem,
           PurchaseReturn,
           PurchaseReturnItem,
           Customer,
+          CustomerLedger,
           Sale,
           SaleItem,
           SaleReturn,

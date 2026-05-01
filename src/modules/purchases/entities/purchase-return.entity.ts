@@ -8,19 +8,6 @@ export enum PurchaseReturnStatus {
   CANCELLED = 'cancelled',
 }
 
-export enum PurchaseRefundMethod {
-  CASH = 'cash',
-  BANK_TRANSFER = 'bank_transfer',
-  SUPPLIER_CREDIT = 'supplier_credit',
-  APPLIED_TO_DUE = 'applied_to_due',
-}
-
-export enum PurchaseRefundStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  REJECTED = 'rejected',
-}
-
 @Entity('purchase_returns')
 export class PurchaseReturn extends TenantBaseEntity {
   @Column({ name: 'reference_number', length: 50 })
@@ -35,26 +22,17 @@ export class PurchaseReturn extends TenantBaseEntity {
   @Column({ type: 'enum', enum: PurchaseReturnStatus, default: PurchaseReturnStatus.COMPLETED })
   status: PurchaseReturnStatus;
 
-  @Column({ type: 'enum', enum: PurchaseRefundMethod, default: PurchaseRefundMethod.CASH, name: 'refund_method' })
-  refundMethod: PurchaseRefundMethod;
-
-  @Column({ type: 'enum', enum: PurchaseRefundStatus, default: PurchaseRefundStatus.COMPLETED, name: 'refund_status' })
-  refundStatus: PurchaseRefundStatus;
-
   @Column({ name: 'return_date', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   returnDate: Date;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'total_amount' })
   totalAmount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'refunded_amount' })
-  refundedAmount: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'amount_received_from_supplier' })
+  amountReceivedFromSupplier: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'applied_to_due_amount' })
-  appliedToDueAmount: number;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'supplier_credit_issued' })
-  supplierCreditIssued: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'amount_to_account' })
+  amountToAccount: number;
 
   @Column({ nullable: true, type: 'text' })
   reason: string;

@@ -4,7 +4,8 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ChangePasswordDto, LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
-import { User, UserStatus } from 'src/modules/users/entities/user.entity';
+import { User, UserRole, UserStatus } from 'src/modules/users/entities/user.entity';
+import { Shop } from 'src/modules/shops/entities/shop.entity';
 import {
   Injectable,
   UnauthorizedException,
@@ -24,6 +25,8 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private users: Repository<User>,
+    @InjectRepository(Shop)
+    private shops: Repository<Shop>,
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailerService: MailerService,
@@ -33,13 +36,39 @@ export class AuthService {
     const existing = await this.users.findOne({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Email already registered.');
 
-    const user = this.users.create(dto);
+    const user = this.users.create({ ...dto, role: UserRole.ADMIN });
+    await this.users.save(user);
+
+    const shop = await this.createDefaultShop(user);
+    user.shopId = shop.id;
     await this.users.save(user);
 
     const tokens = await this.generateTokens(user);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
-    return { user: this.sanitizeUser(user), ...tokens };
+    return { user: this.sanitizeUser(user), shop, ...tokens };
+  }
+
+  private async createDefaultShop(user: User): Promise<Shop> {
+    const baseName = `${user.firstName}'s Shop`;
+    const baseSlug = `${user.firstName}-${user.lastName}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    const slug = await this.generateUniqueSlug(baseSlug);
+    const shop = this.shops.create({ name: baseName, slug, ownerId: user.id });
+    return this.shops.save(shop);
+  }
+
+  private async generateUniqueSlug(base: string): Promise<string> {
+    let slug = base;
+    let attempt = 0;
+    while (await this.shops.findOne({ where: { slug } })) {
+      attempt++;
+      slug = `${base}-${attempt}`;
+    }
+    return slug;
   }
 
   async login(dto: LoginDto) {

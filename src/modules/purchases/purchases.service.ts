@@ -1,16 +1,17 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-
-import { Repository } from 'typeorm';
-import { DataSource } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Supplier } from './entities/supplier.entity';
 import { ProductsService } from '../products/products.service';
 import { InventoryService } from '../inventory/inventory.service';
-import { PurchaseRefundMethod, PurchaseRefundStatus, PurchaseReturn, PurchaseReturnItem, PurchaseReturnStatus } from './entities/purchase-return.entity';
+import { PurchaseReturn, PurchaseReturnItem, PurchaseReturnStatus } from './entities/purchase-return.entity';
+import { SupplierLedger, SupplierLedgerType } from './entities/supplier-ledger.entity';
+import { SupplierPayment } from './entities/supplier-payment.entity';
 import {
   CreatePurchaseDto,
   CreatePurchaseReturnDto,
   CreateSupplierDto,
+  CreateSupplierPaymentDto,
   PurchaseFilterDto,
   PurchaseReturnFilterDto,
   ReceivePurchaseDto,
@@ -20,7 +21,7 @@ import {
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryMovementType } from '../inventory/entities/inventory-history.entity';
 import { PurchaseItem } from './entities/purchase-item.entity';
-import { PaymentStatus, Purchase, PurchaseStatus } from './entities/purchase.entity';
+import { Purchase, PurchaseStatus } from './entities/purchase.entity';
 import { ExpensesService } from '../expenses/expenses.service';
 
 @Injectable()
@@ -36,6 +37,10 @@ export class PurchasesService {
     private returnItemRepository: Repository<PurchaseReturnItem>,
     @InjectRepository(Supplier)
     private supplierRepository: Repository<Supplier>,
+    @InjectRepository(SupplierLedger)
+    private ledgerRepository: Repository<SupplierLedger>,
+    @InjectRepository(SupplierPayment)
+    private supplierPaymentRepository: Repository<SupplierPayment>,
     private inventoryService: InventoryService,
     private productsService: ProductsService,
     private expensesService: ExpensesService,
@@ -59,12 +64,13 @@ export class PurchasesService {
       .skip((page - 1) * limit)
       .take(limit)
       .getMany();
+    return { data, message: 'Suppliers fetched successfully', meta: buildPaginationMeta(total, page, limit) };
+  }
 
-    return {
-      data,
-      message: 'Suppliers fetched successfully',
-      meta: buildPaginationMeta(total, page, limit),
-    };
+  async getSupplierById(id: string, shopId: string) {
+    const supplier = await this.supplierRepository.findOne({ where: { id, shopId } });
+    if (!supplier) throw new NotFoundException('Supplier not found');
+    return supplier;
   }
 
   async updateSupplier(id: string, dto: UpdateSupplierDto, shopId: string) {
@@ -74,14 +80,100 @@ export class PurchasesService {
     return this.supplierRepository.save(supplier);
   }
 
+  // ── Supplier Ledger ────────────────────────────────────────
+  async getSupplierLedger(supplierId: string, shopId: string, page = 1, limit = 20) {
+    const supplier = await this.supplierRepository.findOne({ where: { id: supplierId, shopId } });
+    if (!supplier) throw new NotFoundException('Supplier not found');
+
+    const [data, total] = await this.ledgerRepository.findAndCount({
+      where: { supplierId, shopId },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, message: 'Supplier ledger fetched successfully', meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  async getSupplierStatement(supplierId: string, shopId: string) {
+    const supplier = await this.supplierRepository.findOne({ where: { id: supplierId, shopId } });
+    if (!supplier) throw new NotFoundException('Supplier not found');
+
+    const ledger = await this.ledgerRepository.find({
+      where: { supplierId, shopId },
+      order: { createdAt: 'ASC' },
+    });
+    const balance = ledger.length > 0 ? Number(ledger[ledger.length - 1].balanceAfter) : 0;
+    return { data: { supplier, balance, transactions: ledger } };
+  }
+
+  async recordSupplierPayment(dto: CreateSupplierPaymentDto, shopId: string, userId: string) {
+    const supplier = await this.supplierRepository.findOne({ where: { id: dto.supplierId, shopId } });
+    if (!supplier) throw new NotFoundException('Supplier not found');
+
+    const balance = await this.getSupplierBalance(dto.supplierId, shopId);
+    if (dto.amount > balance) {
+      throw new BadRequestException(`Payment (${dto.amount}) exceeds outstanding balance (${balance})`);
+    }
+
+    const balanceAfter = balance - dto.amount;
+
+    const payment = await this.supplierPaymentRepository.save(
+      this.supplierPaymentRepository.create({
+        supplierId: dto.supplierId,
+        amount: dto.amount,
+        paymentMethod: dto.paymentMethod ?? 'cash',
+        notes: dto.notes,
+        createdBy: userId,
+        shopId,
+      }),
+    );
+
+    await this.ledgerRepository.save(
+      this.ledgerRepository.create({
+        supplierId: dto.supplierId,
+        type: SupplierLedgerType.PAYMENT_SENT,
+        amount: dto.amount,
+        balanceAfter,
+        referenceType: 'supplier_payment',
+        referenceId: payment.id,
+        description: `Payment to supplier: ${supplier.name}`,
+        createdBy: userId,
+        shopId,
+      }),
+    );
+
+    await this.supplierRepository.update(dto.supplierId, { totalDue: balanceAfter });
+
+    await this.expensesService.recordSystemExpense(
+      {
+        typeName: 'Supplier Payment',
+        title: `Supplier payment: ${supplier.name}`,
+        amount: dto.amount,
+        referenceId: payment.id,
+        referenceType: 'supplier_payment',
+      },
+      shopId,
+      userId,
+    );
+
+    return { data: payment, message: 'Supplier payment recorded successfully' };
+  }
+
+  private async getSupplierBalance(supplierId: string, shopId: string): Promise<number> {
+    const last = await this.ledgerRepository.findOne({
+      where: { supplierId, shopId },
+      order: { createdAt: 'DESC' },
+    });
+    return last ? Number(last.balanceAfter) : 0;
+  }
+
   // ── Purchases ─────────────────────────────────────────────
   async create(dto: CreatePurchaseDto, shopId: string, userId: string) {
     const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
-      // Calculate totals
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
       let subtotal = 0;
       const itemsWithTotals = dto.items.map((item) => {
         const taxAmount = (item.unitCost * item.quantity * (item.taxRate || 0)) / 100;
@@ -95,22 +187,30 @@ export class PurchasesService {
       const shippingCost = dto.shippingCost || 0;
       const discountAmount = dto.discountAmount || 0;
       const grandTotal = subtotal + shippingCost - discountAmount;
+      const creditAmount = dto.creditAmount || 0;
+      const isReceived = dto.isReceived !== false; // default true
+
+      if (creditAmount > grandTotal) {
+        throw new BadRequestException('Credit amount cannot exceed grand total');
+      }
+      if (creditAmount > 0 && !dto.supplierId) {
+        throw new BadRequestException('A supplier must be selected for credit purchases');
+      }
 
       const refNum = await this.generateReferenceNumber('PO', shopId);
 
       const purchase = queryRunner.manager.create(Purchase, {
         referenceNumber: refNum,
         supplierId: dto.supplierId,
-        expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : null,
+        isReceived,
         subtotal,
         taxAmount,
         shippingCost,
         discountAmount,
         grandTotal,
-        dueAmount: grandTotal,
-        paidAmount: 0,
-        status: PurchaseStatus.ORDERED,
-        paymentStatus: PaymentStatus.PENDING,
+        creditAmount,
+        status: PurchaseStatus.COMPLETED,
+        supplierBillNumber: dto.supplierBillNumber,
         createdBy: userId,
         notes: dto.notes,
         attachment: dto.attachment,
@@ -124,7 +224,7 @@ export class PurchasesService {
           purchaseId: saved.id,
           productId: item.productId,
           quantity: item.quantity,
-          receivedQuantity: 0,
+          receivedQuantity: isReceived ? item.quantity : 0,
           unitCost: item.unitCost,
           taxRate: item.taxRate || 0,
           taxAmount: item.taxAmount,
@@ -137,8 +237,61 @@ export class PurchasesService {
       );
 
       await queryRunner.manager.save(PurchaseItem, items);
-      await queryRunner.commitTransaction();
 
+      // Adjust inventory and record expense if received
+      if (isReceived) {
+        for (const item of itemsWithTotals) {
+          await this.inventoryService.adjustStock(
+            {
+              productId: item.productId,
+              quantity: item.quantity,
+              movementType: InventoryMovementType.PURCHASE,
+              unitCost: item.unitCost,
+              referenceId: refNum,
+              referenceType: 'purchase',
+              performedBy: userId,
+            },
+            shopId,
+          );
+        }
+
+        await this.expensesService.recordSystemExpense(
+          {
+            typeName: 'Purchase',
+            title: `Purchase: ${refNum}`,
+            amount: grandTotal,
+            referenceId: saved.id,
+            referenceType: 'purchase',
+          },
+          shopId,
+          userId,
+        );
+      }
+
+      // Supplier ledger for credit portion
+      if (creditAmount > 0 && dto.supplierId) {
+        const prevBalance = await this.getSupplierBalance(dto.supplierId, shopId);
+        const balanceAfter = prevBalance + creditAmount;
+        await this.ledgerRepository.save(
+          this.ledgerRepository.create({
+            supplierId: dto.supplierId,
+            type: SupplierLedgerType.PURCHASE_DEBIT,
+            amount: creditAmount,
+            balanceAfter,
+            referenceType: 'purchase',
+            referenceId: saved.id,
+            description: `Credit purchase: ${refNum}`,
+            createdBy: userId,
+            shopId,
+          }),
+        );
+        await this.supplierRepository.increment({ id: dto.supplierId }, 'totalDue', creditAmount);
+      }
+
+      if (dto.supplierId) {
+        await this.supplierRepository.increment({ id: dto.supplierId }, 'totalPurchased', grandTotal);
+      }
+      await queryRunner.commitTransaction();
       return this.findOne(saved.id, shopId);
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -146,6 +299,51 @@ export class PurchasesService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async receivePurchase(id: string, dto: ReceivePurchaseDto, shopId: string, userId: string) {
+    const purchase = await this.findOne(id, shopId);
+    if (purchase.isReceived) {
+      throw new BadRequestException('Purchase has already been received');
+    }
+    if (purchase.status === PurchaseStatus.CANCELLED) {
+      throw new BadRequestException('Cannot receive a cancelled purchase');
+    }
+
+    for (const item of purchase.items) {
+      await this.inventoryService.adjustStock(
+        {
+          productId: item.productId,
+          quantity: Number(item.quantity),
+          movementType: InventoryMovementType.PURCHASE,
+          unitCost: Number(item.unitCost),
+          referenceId: dto.supplierBillNumber || purchase.referenceNumber,
+          referenceType: 'purchase',
+          notes: dto.notes,
+          performedBy: userId,
+        },
+        shopId,
+      );
+    }
+
+    await this.purchaseRepository.update(id, {
+      isReceived: true,
+      ...(dto.supplierBillNumber ? { supplierBillNumber: dto.supplierBillNumber } : {}),
+    });
+
+    await this.expensesService.recordSystemExpense(
+      {
+        typeName: 'Purchase',
+        title: `Purchase received: ${purchase.referenceNumber}`,
+        amount: Number(purchase.grandTotal),
+        referenceId: purchase.id,
+        referenceType: 'purchase',
+      },
+      shopId,
+      userId,
+    );
+
+    return this.findOne(id, shopId);
   }
 
   async findAll(shopId: string, filters: PurchaseFilterDto) {
@@ -168,11 +366,7 @@ export class PurchasesService {
       .orderBy('p.createdAt', 'DESC')
       .getMany();
 
-    return {
-      data,
-      message: 'Purchases fetched successfully',
-      meta: buildPaginationMeta(total, page, limit),
-    };
+    return { data, message: 'Purchases fetched successfully', meta: buildPaginationMeta(total, page, limit) };
   }
 
   async findOne(id: string, shopId: string) {
@@ -184,114 +378,16 @@ export class PurchasesService {
     return purchase;
   }
 
-  async receivePurchase(id: string, dto: ReceivePurchaseDto, shopId: string, userId: string) {
-    const purchase = await this.findOne(id, shopId);
-    if (purchase.status === PurchaseStatus.CANCELLED) {
-      throw new BadRequestException('Cannot receive a cancelled purchase');
-    }
-
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      for (const received of dto.receivedItems) {
-        const item = purchase.items.find((i) => i.id === received.purchaseItemId);
-        if (!item) continue;
-
-        const newReceived = Number(item.receivedQuantity) + received.receivedQuantity;
-        if (newReceived > Number(item.quantity)) {
-          throw new BadRequestException(`Cannot receive more than ordered for product ${item.productId}`);
-        }
-
-        await queryRunner.manager.update(PurchaseItem, item.id, {
-          receivedQuantity: newReceived,
-        });
-
-        // Update inventory
-        await this.inventoryService.adjustStock(
-          {
-            productId: item.productId,
-            quantity: received.receivedQuantity,
-            movementType: InventoryMovementType.PURCHASE,
-            unitCost: Number(item.unitCost),
-            referenceId: dto.supplierBillNumber || purchase.referenceNumber,
-            referenceType: 'purchase',
-            notes: dto.notes,
-            performedBy: userId,
-          },
-          shopId,
-        );
-      }
-
-      // Update purchase status
-      const updatedItems = await queryRunner.manager.find(PurchaseItem, {
-        where: { purchaseId: id },
-      });
-      const allReceived = updatedItems.every((i) => Number(i.receivedQuantity) >= Number(i.quantity));
-      const anyReceived = updatedItems.some((i) => Number(i.receivedQuantity) > 0);
-
-      await queryRunner.manager.update(Purchase, id, {
-        status: allReceived ? PurchaseStatus.RECEIVED : anyReceived ? PurchaseStatus.PARTIAL : purchase.status,
-        ...(dto.supplierBillNumber ? { supplierBillNumber: dto.supplierBillNumber } : {}),
-      });
-
-      // Record expense
-      await this.expensesService.recordSystemExpense(
-        {
-          typeName: 'Purchase',
-          title: `Purchase received: ${purchase.referenceNumber}`,
-          amount: purchase.grandTotal,
-          referenceId: purchase.id,
-          referenceType: 'purchase',
-        },
-        shopId,
-        userId,
-      );
-
-      await queryRunner.commitTransaction();
-      return this.findOne(id, shopId);
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  async recordPayment(id: string, amount: number, shopId: string) {
-    const purchase = await this.findOne(id, shopId);
-    const newPaid = Number(purchase.paidAmount) + amount;
-    if (newPaid > Number(purchase.grandTotal)) {
-      throw new BadRequestException('Payment exceeds total amount');
-    }
-    const dueAmount = Number(purchase.grandTotal) - newPaid;
-    await this.purchaseRepository.update(id, {
-      paidAmount: newPaid,
-      dueAmount,
-      paymentStatus: dueAmount === 0 ? PaymentStatus.PAID : newPaid > 0 ? PaymentStatus.PARTIAL : PaymentStatus.PENDING,
-    });
-    return this.findOne(id, shopId);
-  }
-
   // ── Purchase Returns ───────────────────────────────────────
   async createReturn(dto: CreatePurchaseReturnDto, shopId: string, userId: string) {
     const purchase = await this.findOne(dto.purchaseId, shopId);
 
     const totalAmount = dto.items.reduce((s, i) => s + i.quantity * i.unitCost, 0);
+    const amountReceivedFromSupplier = dto.amountReceivedFromSupplier ?? totalAmount;
+    const amountToAccount = totalAmount - amountReceivedFromSupplier;
 
-    // Resolve refund split — default to full cash refund if nothing provided
-    const refundedAmount = dto.refundedAmount ?? (dto.appliedToDueAmount === undefined && dto.supplierCreditIssued === undefined ? totalAmount : 0);
-    const appliedToDueAmount = dto.appliedToDueAmount ?? 0;
-    const supplierCreditIssued = dto.supplierCreditIssued ?? 0;
-
-    const splitSum = refundedAmount + appliedToDueAmount + supplierCreditIssued;
-    if (Math.abs(splitSum - totalAmount) > 0.01) {
-      throw new BadRequestException(`Refund split (${splitSum}) must equal total return amount (${totalAmount})`);
-    }
-
-    if (appliedToDueAmount > 0 && Number(purchase.dueAmount) < appliedToDueAmount) {
-      throw new BadRequestException(`Applied-to-due amount (${appliedToDueAmount}) exceeds purchase outstanding balance (${purchase.dueAmount})`);
+    if (amountReceivedFromSupplier > totalAmount) {
+      throw new BadRequestException('Amount received cannot exceed total return amount');
     }
 
     const refNum = await this.generateReferenceNumber('PRN', shopId);
@@ -301,12 +397,9 @@ export class PurchasesService {
         purchaseId: dto.purchaseId,
         supplierId: purchase.supplierId,
         status: PurchaseReturnStatus.COMPLETED,
-        refundMethod: (dto.refundMethod as PurchaseRefundMethod) ?? PurchaseRefundMethod.CASH,
-        refundStatus: PurchaseRefundStatus.COMPLETED,
         totalAmount,
-        refundedAmount,
-        appliedToDueAmount,
-        supplierCreditIssued,
+        amountReceivedFromSupplier,
+        amountToAccount,
         reason: dto.reason,
         notes: dto.notes,
         createdBy: userId,
@@ -344,16 +437,40 @@ export class PurchasesService {
       );
     }
 
-    // Apply-to-due: reduce what we owe supplier
-    if (appliedToDueAmount > 0) {
-      const newDue = Math.max(0, Number(purchase.dueAmount) - appliedToDueAmount);
-      await this.purchaseRepository.update(dto.purchaseId, { dueAmount: newDue });
-      await this.supplierRepository.decrement({ id: purchase.supplierId }, 'totalDue', appliedToDueAmount);
+    // Record cash received from supplier as income
+    if (amountReceivedFromSupplier > 0) {
+      await this.expensesService.recordSystemExpense(
+        {
+          typeName: 'Purchase Return',
+          title: `Purchase Return: ${refNum}`,
+          amount: amountReceivedFromSupplier,
+          referenceId: savedReturn.id,
+          referenceType: 'purchase_return',
+          isIncome: true,
+        },
+        shopId,
+        userId,
+      );
     }
 
-    // Supplier credit: supplier owes us future credit
-    if (supplierCreditIssued > 0) {
-      await this.supplierRepository.increment({ id: purchase.supplierId }, 'creditBalance', supplierCreditIssued);
+    // Credit remainder to supplier account (reduces what we owe)
+    if (amountToAccount > 0 && purchase.supplierId) {
+      const prevBalance = await this.getSupplierBalance(purchase.supplierId, shopId);
+      const balanceAfter = Math.max(0, prevBalance - amountToAccount);
+      await this.ledgerRepository.save(
+        this.ledgerRepository.create({
+          supplierId: purchase.supplierId,
+          type: SupplierLedgerType.PURCHASE_RETURN_CREDIT,
+          amount: amountToAccount,
+          balanceAfter,
+          referenceType: 'purchase_return',
+          referenceId: savedReturn.id,
+          description: `Return credit: ${refNum}`,
+          createdBy: userId,
+          shopId,
+        }),
+      );
+      await this.supplierRepository.decrement({ id: purchase.supplierId }, 'totalDue', amountToAccount);
     }
 
     return savedReturn;
@@ -368,11 +485,7 @@ export class PurchasesService {
       take: limit,
       order: { createdAt: 'DESC' },
     });
-    return {
-      data,
-      message: 'Purchase returns fetched successfully',
-      meta: buildPaginationMeta(total, page, limit),
-    };
+    return { data, message: 'Purchase returns fetched successfully', meta: buildPaginationMeta(total, page, limit) };
   }
 
   private async generateReferenceNumber(prefix: string, shopId: string): Promise<string> {

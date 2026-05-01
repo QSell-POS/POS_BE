@@ -49,6 +49,10 @@ export class Expense extends TenantBaseEntity {
   notes: string;
 
   @ApiProperty()
+  @Column({ name: 'is_income', default: false })
+  isIncome: boolean;
+
+  @ApiProperty()
   @Column({ name: 'recorded_by' })
   recordedBy: string;
 

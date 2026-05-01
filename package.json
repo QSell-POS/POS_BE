@@ -19,11 +19,11 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node -r tsconfig-paths/register --transpile-only src/database/seeds/run-seed.ts",
-    "migration:generate": "TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
+    "migration:generate": "cross-env TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:create": "typeorm-ts-node-commonjs migration:create",
-    "migration:run": "TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
-    "migration:revert": "TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
-    "migration:show": "TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts"
+    "migration:run": "cross-env TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
+    "migration:revert": "cross-env TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
+    "migration:show": "cross-env TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts"
   },
   "dependencies": {
     "@clerk/backend": "^3.2.0",
@@ -75,6 +75,7 @@
     "@types/pdfkit": "^0.17.6",
     "@types/pino": "^7.0.4",
     "@types/supertest": "^6.0.2",
+    "cross-env": "^10.1.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

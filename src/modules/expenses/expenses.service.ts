@@ -32,6 +32,7 @@ export class ExpensesService {
       amount: number;
       referenceId?: string;
       referenceType?: string;
+      isIncome?: boolean;
     },
     shopId: string,
     userId: string,
@@ -43,6 +44,7 @@ export class ExpensesService {
       amount: payload.amount,
       referenceId: payload.referenceId,
       referenceType: payload.referenceType,
+      isIncome: payload.isIncome ?? false,
       transactionDate: new Date(),
       recordedBy: userId,
       shopId,

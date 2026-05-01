@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 export class CreatePurchaseItemDto {
@@ -42,10 +42,10 @@ export class CreatePurchaseDto {
   @IsUUID()
   supplierId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'true = stock already received, inventory updated immediately. false = pending receipt.' })
   @IsOptional()
-  @IsString()
-  expectedDate?: string;
+  @IsBoolean()
+  isReceived?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -58,6 +58,17 @@ export class CreatePurchaseDto {
   @IsNumber()
   @Min(0)
   discountAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Amount owed to supplier (credit purchase). Requires supplierId.' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  creditAmount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  supplierBillNumber?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -79,11 +90,7 @@ export class CreatePurchaseDto {
 export class UpdatePurchaseDto extends PartialType(CreatePurchaseDto) {}
 
 export class ReceivePurchaseDto {
-  @ApiProperty({ description: 'Array of {productId, receivedQuantity}' })
-  @IsArray()
-  receivedItems: { purchaseItemId: string; receivedQuantity: number }[];
-
-  @ApiPropertyOptional({ description: "Supplier's bill/invoice number" })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   supplierBillNumber?: string;
@@ -99,28 +106,11 @@ export class CreatePurchaseReturnDto {
   @IsUUID()
   purchaseId: string;
 
-  @ApiPropertyOptional({ description: 'cash | bank_transfer | supplier_credit | applied_to_due' })
-  @IsOptional()
-  @IsString()
-  refundMethod?: string;
-
-  @ApiPropertyOptional({ description: 'Actual cash received back from supplier. Defaults to totalAmount if no split provided.' })
+  @ApiPropertyOptional({ description: 'Cash actually received back from supplier. Defaults to totalAmount. Remainder goes to supplier account.' })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  refundedAmount?: number;
-
-  @ApiPropertyOptional({ description: 'Amount applied to reduce outstanding purchase due (no cash movement).' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  appliedToDueAmount?: number;
-
-  @ApiPropertyOptional({ description: 'Supplier credit issued for future purchases from this supplier.' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  supplierCreditIssued?: number;
+  amountReceivedFromSupplier?: number;
 
   @ApiProperty({ description: 'Array of {productId, quantity, unitCost, reason}' })
   @IsArray()
@@ -130,6 +120,27 @@ export class CreatePurchaseReturnDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class CreateSupplierPaymentDto {
+  @ApiProperty()
+  @IsUUID()
+  supplierId: string;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -175,13 +186,6 @@ export class CreateSupplierDto {
 }
 
 export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {}
-
-export class RecordPaymentDto {
-  @ApiProperty()
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
-}
 
 export class SupplierFilterDto extends PaginationDto {
   @ApiPropertyOptional()

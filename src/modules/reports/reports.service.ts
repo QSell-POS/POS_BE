@@ -43,9 +43,9 @@ export class ReportsService {
       Tax: Number(s.taxAmount),
       Discount: Number(s.discountAmount),
       'Grand Total': Number(s.grandTotal),
-      Paid: Number(s.paidAmount),
-      Due: Number(s.dueAmount),
-      'Payment Status': s.paymentStatus,
+      Paid: Number(s.grandTotal) - Number(s.creditAmount),
+      Due: Number(s.creditAmount),
+      'Payment Status': Number(s.creditAmount) > 0 ? 'partial' : 'paid',
       Status: s.status,
     }));
 

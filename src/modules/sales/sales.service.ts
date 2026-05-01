@@ -1,16 +1,19 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Sale, SaleItem, SaleStatus, SalePaymentStatus } from './entities/sale.entity';
-import { RefundMethod, RefundStatus, SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-return.entity';
+import { Sale, SaleItem, SaleStatus } from './entities/sale.entity';
+import { SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-return.entity';
 import { Customer } from './entities/customer.entity';
-import { CreateSaleDto, UpdateSaleDto, CreateSaleReturnDto, CreateCustomerDto, UpdateCustomerDto, SaleFilterDto } from './dto/sale.dto';
+import { CustomerLedger, CustomerLedgerType } from './entities/customer-ledger.entity';
+import { CustomerPayment } from './entities/customer-payment.entity';
+import { CreateSaleDto, UpdateSaleDto, CreateSaleReturnDto, CreateCustomerDto, UpdateCustomerDto, SaleFilterDto, CreateCustomerPaymentDto } from './dto/sale.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryMovementType } from '../inventory/entities/inventory-history.entity';
 import { ProductsService } from '../products/products.service';
 import { PriceType } from '../products/entities/product-price.entity';
 import { ExpensesService } from '../expenses/expenses.service';
+import { PaymentMethod } from './entities/sale.entity';
 
 @Injectable()
 export class SalesService {
@@ -25,6 +28,10 @@ export class SalesService {
     private returnItemRepository: Repository<SaleReturnItem>,
     @InjectRepository(Customer)
     private customerRepository: Repository<Customer>,
+    @InjectRepository(CustomerLedger)
+    private ledgerRepository: Repository<CustomerLedger>,
+    @InjectRepository(CustomerPayment)
+    private customerPaymentRepository: Repository<CustomerPayment>,
     private inventoryService: InventoryService,
     private productsService: ProductsService,
     private expensesService: ExpensesService,
@@ -67,6 +74,99 @@ export class SalesService {
     return this.customerRepository.save(customer);
   }
 
+  // ── Customer Ledger ────────────────────────────────────────
+  async getCustomerLedger(customerId: string, shopId: string, page = 1, limit = 20) {
+    await this.getCustomer(customerId, shopId);
+    const [data, total] = await this.ledgerRepository.findAndCount({
+      where: { customerId, shopId },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return {
+      data,
+      message: 'Customer ledger fetched successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
+  }
+
+  async getCustomerStatement(customerId: string, shopId: string) {
+    const customer = await this.getCustomer(customerId, shopId);
+    const ledger = await this.ledgerRepository.find({
+      where: { customerId, shopId },
+      order: { createdAt: 'ASC' },
+    });
+    const balance = ledger.length > 0 ? Number(ledger[ledger.length - 1].balanceAfter) : 0;
+    return {
+      data: {
+        customer,
+        balance,
+        transactions: ledger,
+      },
+    };
+  }
+
+  async recordCustomerPayment(dto: CreateCustomerPaymentDto, shopId: string, userId: string) {
+    const customer = await this.getCustomer(dto.customerId, shopId);
+
+    const balance = await this.getCustomerBalance(dto.customerId, shopId);
+    if (dto.amount > balance) {
+      throw new BadRequestException(`Payment (${dto.amount}) exceeds outstanding balance (${balance})`);
+    }
+
+    const balanceAfter = balance - dto.amount;
+
+    const payment = await this.customerPaymentRepository.save(
+      this.customerPaymentRepository.create({
+        customerId: dto.customerId,
+        amount: dto.amount,
+        paymentMethod: dto.paymentMethod ?? PaymentMethod.CASH,
+        notes: dto.notes,
+        createdBy: userId,
+        shopId,
+      }),
+    );
+
+    await this.ledgerRepository.save(
+      this.ledgerRepository.create({
+        customerId: dto.customerId,
+        type: CustomerLedgerType.PAYMENT_RECEIVED,
+        amount: dto.amount,
+        balanceAfter,
+        referenceType: 'customer_payment',
+        referenceId: payment.id,
+        description: `Payment received`,
+        createdBy: userId,
+        shopId,
+      }),
+    );
+
+    await this.customerRepository.update(dto.customerId, { totalDue: balanceAfter });
+
+    await this.expensesService.recordSystemExpense(
+      {
+        typeName: 'Customer Payment',
+        title: `Customer payment: ${customer.name}`,
+        amount: dto.amount,
+        referenceId: payment.id,
+        referenceType: 'customer_payment',
+        isIncome: true,
+      },
+      shopId,
+      userId,
+    );
+
+    return { data: payment, message: 'Payment recorded successfully' };
+  }
+
+  private async getCustomerBalance(customerId: string, shopId: string): Promise<number> {
+    const last = await this.ledgerRepository.findOne({
+      where: { customerId, shopId },
+      order: { createdAt: 'DESC' },
+    });
+    return last ? Number(last.balanceAfter) : 0;
+  }
+
   // ── Sales ──────────────────────────────────────────────────
   async create(dto: CreateSaleDto, shopId: string, userId: string) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -74,7 +174,6 @@ export class SalesService {
     await queryRunner.startTransaction();
 
     try {
-      // Build items with prices and cost
       let subtotal = 0;
       let totalTax = 0;
       let totalProfit = 0;
@@ -83,7 +182,6 @@ export class SalesService {
       for (const item of dto.items) {
         const product = await this.productsService.findOne(item.productId, shopId);
 
-        // Check stock
         const inv = product.inventoryItems?.[0];
         if (product.trackInventory && inv && Number(inv.quantityAvailable) < item.quantity) {
           throw new BadRequestException(`Insufficient stock for "${product.name}". Available: ${inv.quantityAvailable}`);
@@ -118,10 +216,15 @@ export class SalesService {
 
       const discountAmount = dto.discountAmount || 0;
       const grandTotal = subtotal + totalTax - discountAmount;
-      const paidAmount = dto.paidAmount ?? grandTotal;
-      const changeAmount = Math.max(0, paidAmount - grandTotal);
-      const dueAmount = Math.max(0, grandTotal - paidAmount);
+      const creditAmount = dto.creditAmount || 0;
       const totalProfitFinal = totalProfit - discountAmount;
+
+      if (creditAmount > grandTotal) {
+        throw new BadRequestException('Credit amount cannot exceed grand total');
+      }
+      if (creditAmount > 0 && !dto.customerId) {
+        throw new BadRequestException('A customer must be selected for credit sales');
+      }
 
       const invoiceNumber = await this.generateInvoiceNumber(shopId);
 
@@ -133,12 +236,9 @@ export class SalesService {
         taxAmount: totalTax,
         discountAmount,
         grandTotal,
-        paidAmount,
-        changeAmount,
-        dueAmount,
+        creditAmount,
         profit: totalProfitFinal,
         status: SaleStatus.COMPLETED,
-        paymentStatus: dueAmount > 0 ? SalePaymentStatus.PARTIAL : SalePaymentStatus.PAID,
         servedByUserId: userId,
         notes: dto.notes,
         shopId,
@@ -146,19 +246,14 @@ export class SalesService {
 
       const savedSale = await queryRunner.manager.save(Sale, sale);
 
-      // Save items
       const saleItems = enrichedItems.map((item) =>
-        queryRunner.manager.create(SaleItem, {
-          ...item,
-          saleId: savedSale.id,
-        }),
+        queryRunner.manager.create(SaleItem, { ...item, saleId: savedSale.id }),
       );
       await queryRunner.manager.save(SaleItem, saleItems);
 
-      // Deduct inventory and update customer stats in parallel
       await queryRunner.commitTransaction();
 
-      // Post-commit: adjust inventory
+      // Adjust inventory
       for (const item of enrichedItems) {
         await this.inventoryService.adjustStock(
           {
@@ -174,12 +269,28 @@ export class SalesService {
         );
       }
 
-      // Update customer totals
+      // Customer ledger entry for credit portion
+      if (creditAmount > 0 && dto.customerId) {
+        const prevBalance = await this.getCustomerBalance(dto.customerId, shopId);
+        const balanceAfter = prevBalance + creditAmount;
+        await this.ledgerRepository.save(
+          this.ledgerRepository.create({
+            customerId: dto.customerId,
+            type: CustomerLedgerType.SALE_CREDIT,
+            amount: creditAmount,
+            balanceAfter,
+            referenceType: 'sale',
+            referenceId: savedSale.id,
+            description: `Credit sale: ${invoiceNumber}`,
+            createdBy: userId,
+            shopId,
+          }),
+        );
+        await this.customerRepository.increment({ id: dto.customerId }, 'totalDue', creditAmount);
+      }
+
       if (dto.customerId) {
         await this.customerRepository.increment({ id: dto.customerId }, 'totalPurchased', grandTotal);
-        if (dueAmount > 0) {
-          await this.customerRepository.increment({ id: dto.customerId }, 'totalDue', dueAmount);
-        }
       }
 
       return this.findOne(savedSale.id, shopId);
@@ -192,7 +303,7 @@ export class SalesService {
   }
 
   async findAll(filters: SaleFilterDto, shopId: string) {
-    const { search, customerId, status, paymentStatus, startDate, endDate, page = 1, limit = 20 } = filters;
+    const { search, customerId, status, startDate, endDate, page = 1, limit = 20 } = filters;
 
     const qb = this.saleRepository
       .createQueryBuilder('s')
@@ -203,7 +314,6 @@ export class SalesService {
     if (search) qb.andWhere('s.invoiceNumber ILIKE :search', { search: `%${search}%` });
     if (customerId) qb.andWhere('s.customerId = :customerId', { customerId });
     if (status) qb.andWhere('s.status = :status', { status });
-    if (paymentStatus) qb.andWhere('s.paymentStatus = :paymentStatus', { paymentStatus });
     if (startDate) qb.andWhere('s.saleDate >= :startDate', { startDate });
     if (endDate) qb.andWhere('s.saleDate <= :endDate', { endDate });
 
@@ -245,22 +355,6 @@ export class SalesService {
     };
   }
 
-  async recordPayment(id: string, amount: number, shopId: string) {
-    const sale = await this.findOne(id, shopId);
-    const newPaid = Number(sale.paidAmount) + amount;
-    if (newPaid > Number(sale.grandTotal)) {
-      throw new BadRequestException('Payment exceeds total amount');
-    }
-    const dueAmount = Number(sale.grandTotal) - newPaid;
-    await this.saleRepository.update(id, {
-      paidAmount: newPaid,
-      dueAmount,
-      changeAmount: Math.max(0, newPaid - Number(sale.grandTotal)),
-      paymentStatus: dueAmount === 0 ? SalePaymentStatus.PAID : SalePaymentStatus.PARTIAL,
-    });
-    return this.findOne(id, shopId);
-  }
-
   async cancelSale(id: string, shopId: string, userId: string) {
     const sale = await this.findOne(id, shopId);
     if (sale.status !== SaleStatus.COMPLETED) {
@@ -269,7 +363,6 @@ export class SalesService {
 
     await this.saleRepository.update(id, { status: SaleStatus.CANCELLED });
 
-    // Restore inventory
     for (const item of sale.items) {
       await this.inventoryService.adjustStock(
         {
@@ -284,6 +377,26 @@ export class SalesService {
       );
     }
 
+    // Reverse credit ledger entry if applicable
+    if (Number(sale.creditAmount) > 0 && sale.customerId) {
+      const prevBalance = await this.getCustomerBalance(sale.customerId, shopId);
+      const balanceAfter = Math.max(0, prevBalance - Number(sale.creditAmount));
+      await this.ledgerRepository.save(
+        this.ledgerRepository.create({
+          customerId: sale.customerId,
+          type: CustomerLedgerType.ADJUSTMENT,
+          amount: Number(sale.creditAmount),
+          balanceAfter,
+          referenceType: 'sale_cancel',
+          referenceId: id,
+          description: `Sale cancelled: ${sale.invoiceNumber}`,
+          createdBy: userId,
+          shopId,
+        }),
+      );
+      await this.customerRepository.decrement({ id: sale.customerId }, 'totalDue', Number(sale.creditAmount));
+    }
+
     return this.findOne(id, shopId);
   }
 
@@ -295,19 +408,11 @@ export class SalesService {
     }
 
     const totalAmount = dto.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+    const amountPaidToCustomer = dto.amountPaidToCustomer ?? totalAmount;
+    const amountToAccount = totalAmount - amountPaidToCustomer;
 
-    // Resolve refund split — default to full cash refund if nothing provided
-    const refundedAmount = dto.refundedAmount ?? (dto.appliedToDueAmount === undefined && dto.storeCreditIssued === undefined ? totalAmount : 0);
-    const appliedToDueAmount = dto.appliedToDueAmount ?? 0;
-    const storeCreditIssued = dto.storeCreditIssued ?? 0;
-
-    const splitSum = refundedAmount + appliedToDueAmount + storeCreditIssued;
-    if (Math.abs(splitSum - totalAmount) > 0.01) {
-      throw new BadRequestException(`Refund split (${splitSum}) must equal total return amount (${totalAmount})`);
-    }
-
-    if (appliedToDueAmount > 0 && Number(sale.dueAmount) < appliedToDueAmount) {
-      throw new BadRequestException(`Applied-to-due amount (${appliedToDueAmount}) exceeds sale outstanding balance (${sale.dueAmount})`);
+    if (amountPaidToCustomer > totalAmount) {
+      throw new BadRequestException('Amount paid to customer cannot exceed total return amount');
     }
 
     const refNum = await this.generateReturnNumber(shopId);
@@ -316,13 +421,10 @@ export class SalesService {
         referenceNumber: refNum,
         saleId: dto.saleId,
         customerId: sale.customerId,
-        refundMethod: dto.refundMethod ?? RefundMethod.CASH,
-        refundStatus: RefundStatus.COMPLETED,
         status: SaleReturnStatus.COMPLETED,
         totalAmount,
-        refundedAmount,
-        appliedToDueAmount,
-        storeCreditIssued,
+        amountPaidToCustomer,
+        amountToAccount,
         reason: dto.reason,
         notes: dto.notes,
         createdBy: userId,
@@ -359,44 +461,39 @@ export class SalesService {
       );
     }
 
-    // Determine new sale status (full refund vs partial)
-    const totalReturned = totalAmount; // this return only; could sum all returns for accuracy
-    const newSaleStatus = totalReturned >= Number(sale.grandTotal) ? SaleStatus.REFUNDED : SaleStatus.PARTIAL_REFUND;
-    const saleUpdates: Partial<Sale> = { status: newSaleStatus };
-
-    // Apply-to-due: reduce outstanding balance on sale
-    if (appliedToDueAmount > 0) {
-      const newDue = Math.max(0, Number(sale.dueAmount) - appliedToDueAmount);
-      saleUpdates.dueAmount = newDue;
-      saleUpdates.paymentStatus = newDue === 0 ? SalePaymentStatus.PAID : SalePaymentStatus.PARTIAL;
-    }
-
-    await this.saleRepository.update(dto.saleId, saleUpdates);
-
-    // Customer updates
-    if (sale.customerId) {
-      await this.customerRepository.decrement({ id: sale.customerId }, 'totalPurchased', totalAmount);
-      if (appliedToDueAmount > 0) {
-        await this.customerRepository.decrement({ id: sale.customerId }, 'totalDue', appliedToDueAmount);
-      }
-      if (storeCreditIssued > 0) {
-        await this.customerRepository.increment({ id: sale.customerId }, 'storeCredit', storeCreditIssued);
-      }
-    }
-
-    // Expense only for the cash actually paid out
-    if (refundedAmount > 0) {
+    // Record cash paid out as expense
+    if (amountPaidToCustomer > 0) {
       await this.expensesService.recordSystemExpense(
         {
           typeName: 'Sale Return',
           title: `Sale Return: ${refNum}`,
-          amount: refundedAmount,
+          amount: amountPaidToCustomer,
           referenceId: savedReturn.id,
           referenceType: 'sale_return',
         },
         shopId,
         userId,
       );
+    }
+
+    // Credit remainder to customer account (reduces their balance)
+    if (amountToAccount > 0 && sale.customerId) {
+      const prevBalance = await this.getCustomerBalance(sale.customerId, shopId);
+      const balanceAfter = Math.max(0, prevBalance - amountToAccount);
+      await this.ledgerRepository.save(
+        this.ledgerRepository.create({
+          customerId: sale.customerId,
+          type: CustomerLedgerType.SALE_RETURN_CREDIT,
+          amount: amountToAccount,
+          balanceAfter,
+          referenceType: 'sale_return',
+          referenceId: savedReturn.id,
+          description: `Return credit: ${refNum}`,
+          createdBy: userId,
+          shopId,
+        }),
+      );
+      await this.customerRepository.decrement({ id: sale.customerId }, 'totalDue', amountToAccount);
     }
 
     return savedReturn;
@@ -420,23 +517,13 @@ export class SalesService {
   private async generateInvoiceNumber(shopId: string): Promise<string> {
     const date = new Date();
     const yyyymmdd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-
-    // start of today
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    // end of today
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(); end.setHours(23, 59, 59, 999);
     const count = await this.saleRepository
       .createQueryBuilder('s')
       .where('s.shopId = :shopId', { shopId })
-      .andWhere('s.saleDate BETWEEN :start AND :end', {
-        start,
-        end,
-      })
+      .andWhere('s.saleDate BETWEEN :start AND :end', { start, end })
       .getCount();
-
     return `INV-${yyyymmdd}-${String(count + 1).padStart(5, '0')}`;
   }
 

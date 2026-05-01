@@ -1,8 +1,14 @@
 import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { join } from 'path';
+import { register } from 'tsconfig-paths';
 
 dotenv.config();
+
+register({
+  baseUrl: join(__dirname, '../../'),
+  paths: { 'src/*': ['src/*'] },
+});
 
 export const AppDataSource = new DataSource({
   type: 'postgres',

@@ -5,12 +5,8 @@ import { Product } from 'src/modules/products/entities/product.entity';
 import { User } from 'src/modules/users/entities/user.entity';
 
 export enum SaleStatus {
-  DRAFT = 'draft',
-  CONFIRMED = 'confirmed',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
-  REFUNDED = 'refunded',
-  PARTIAL_REFUND = 'partial_refund',
 }
 
 export enum PaymentMethod {
@@ -22,17 +18,9 @@ export enum PaymentMethod {
   MIXED = 'mixed',
 }
 
-export enum SalePaymentStatus {
-  PAID = 'paid',
-  PENDING = 'pending',
-  PARTIAL = 'partial',
-  OVERDUE = 'overdue',
-}
-
 @Entity('sales')
 @Index(['shopId', 'saleDate'])
 @Index(['shopId', 'status'])
-@Index(['shopId', 'paymentStatus'])
 @Index(['invoiceNumber'])
 export class Sale extends TenantBaseEntity {
   @Column({ name: 'invoice_number', length: 50 })
@@ -41,11 +29,8 @@ export class Sale extends TenantBaseEntity {
   @Column({ name: 'customer_id', nullable: true })
   customerId: string;
 
-  @Column({ type: 'enum', enum: SaleStatus, default: SaleStatus.DRAFT })
+  @Column({ type: 'enum', enum: SaleStatus, default: SaleStatus.COMPLETED })
   status: SaleStatus;
-
-  @Column({ type: 'enum', enum: SalePaymentStatus, default: SalePaymentStatus.PENDING, name: 'payment_status' })
-  paymentStatus: SalePaymentStatus;
 
   @Column({ type: 'enum', enum: PaymentMethod, default: PaymentMethod.CASH, name: 'payment_method' })
   paymentMethod: PaymentMethod;
@@ -68,14 +53,8 @@ export class Sale extends TenantBaseEntity {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'grand_total' })
   grandTotal: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'paid_amount' })
-  paidAmount: number;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'change_amount' })
-  changeAmount: number;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'due_amount' })
-  dueAmount: number;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'credit_amount' })
+  creditAmount: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'profit' })
   profit: number;

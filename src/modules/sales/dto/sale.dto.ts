@@ -1,7 +1,6 @@
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../entities/sale.entity';
-import { RefundMethod } from '../entities/sale-return.entity';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class CreateSaleItemDto {
@@ -44,11 +43,11 @@ export class CreateSaleDto {
   @Min(0)
   discountAmount?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Amount to put on credit (customer account). Requires customerId. Remainder is collected at POS.' })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  paidAmount?: number;
+  creditAmount?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -69,28 +68,11 @@ export class CreateSaleReturnDto {
   @IsUUID()
   saleId: string;
 
-  @ApiPropertyOptional({ enum: RefundMethod })
-  @IsOptional()
-  @IsEnum(RefundMethod)
-  refundMethod?: RefundMethod;
-
-  @ApiPropertyOptional({ description: 'Cash/card actually paid back to customer. Defaults to totalAmount if no split provided.' })
+  @ApiPropertyOptional({ description: 'Cash/card actually paid back to customer. Defaults to totalAmount.' })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  refundedAmount?: number;
-
-  @ApiPropertyOptional({ description: 'Amount applied to reduce outstanding sale balance (no cash movement).' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  appliedToDueAmount?: number;
-
-  @ApiPropertyOptional({ description: 'Store credit issued to customer for future purchases.' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  storeCreditIssued?: number;
+  amountPaidToCustomer?: number;
 
   @ApiProperty()
   @IsArray()
@@ -100,6 +82,27 @@ export class CreateSaleReturnDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class CreateCustomerPaymentDto {
+  @ApiProperty()
+  @IsUUID()
+  customerId: string;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @ApiPropertyOptional({ enum: PaymentMethod })
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -157,10 +160,6 @@ export class SaleFilterDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  paymentStatus?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
   startDate?: string;
 
   @ApiPropertyOptional()
@@ -174,11 +173,4 @@ export class SaleFilterDto {
   @ApiPropertyOptional()
   @IsOptional()
   limit?: number;
-}
-
-export class RecordPaymentDto {
-  @ApiProperty()
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
 }
