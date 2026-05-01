@@ -238,7 +238,7 @@ export class PurchasesService {
 
       await queryRunner.manager.save(PurchaseItem, items);
 
-      // Adjust inventory and record expense if received
+      // Adjust inventory if received (purchase increases inventory asset, not an expense)
       if (isReceived) {
         for (const item of itemsWithTotals) {
           await this.inventoryService.adjustStock(
@@ -254,18 +254,6 @@ export class PurchasesService {
             shopId,
           );
         }
-
-        await this.expensesService.recordSystemExpense(
-          {
-            typeName: 'Purchase',
-            title: `Purchase: ${refNum}`,
-            amount: grandTotal,
-            referenceId: saved.id,
-            referenceType: 'purchase',
-          },
-          shopId,
-          userId,
-        );
       }
 
       // Supplier ledger for credit portion
@@ -330,18 +318,6 @@ export class PurchasesService {
       isReceived: true,
       ...(dto.supplierBillNumber ? { supplierBillNumber: dto.supplierBillNumber } : {}),
     });
-
-    await this.expensesService.recordSystemExpense(
-      {
-        typeName: 'Purchase',
-        title: `Purchase received: ${purchase.referenceNumber}`,
-        amount: Number(purchase.grandTotal),
-        referenceId: purchase.id,
-        referenceType: 'purchase',
-      },
-      shopId,
-      userId,
-    );
 
     return this.findOne(id, shopId);
   }

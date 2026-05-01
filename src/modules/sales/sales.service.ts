@@ -185,6 +185,7 @@ export class SalesService {
       let subtotal = 0;
       let totalTax = 0;
       let totalProfit = 0;
+      let totalCogs = 0;
       const enrichedItems = [];
 
       for (const item of dto.items) {
@@ -196,16 +197,20 @@ export class SalesService {
         }
 
         const retailPrice = item.unitPrice ?? (await this.productsService.getCurrentPrice(item.productId, PriceType.RETAIL, shopId));
-        const costPrice = inv ? Number(inv.averageCost) : 0;
+
+        // Use FIFO to determine actual cost of goods sold for this line item
+        const lineCogs = await this.inventoryService.consumeBatchesFIFO(item.productId, shopId, item.quantity, queryRunner);
+        const costPrice = item.quantity > 0 ? lineCogs / item.quantity : 0;
 
         const discountAmount = (retailPrice * item.quantity * (item.discountRate || 0)) / 100;
         const lineSubtotal = retailPrice * item.quantity - discountAmount;
         const taxAmount = (lineSubtotal * Number(product.taxRate)) / 100;
-        const lineProfit = (retailPrice - costPrice) * item.quantity - discountAmount;
+        const lineProfit = lineSubtotal - lineCogs;
 
         subtotal += lineSubtotal;
         totalTax += taxAmount;
         totalProfit += lineProfit;
+        totalCogs += lineCogs;
 
         enrichedItems.push({
           productId: item.productId,
@@ -259,7 +264,7 @@ export class SalesService {
 
       await queryRunner.commitTransaction();
 
-      // Adjust inventory
+      // Adjust inventory stock quantities
       for (const item of enrichedItems) {
         await this.inventoryService.adjustStock(
           {
@@ -272,6 +277,21 @@ export class SalesService {
             performedBy: userId,
           },
           shopId,
+        );
+      }
+
+      // Record COGS as expense when goods are sold
+      if (totalCogs > 0) {
+        await this.expensesService.recordSystemExpense(
+          {
+            typeName: 'Cost of Goods Sold',
+            title: `COGS: ${invoiceNumber}`,
+            amount: totalCogs,
+            referenceId: savedSale.id,
+            referenceType: 'sale',
+          },
+          shopId,
+          userId,
         );
       }
 

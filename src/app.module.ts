@@ -38,6 +38,7 @@ import { Product } from './modules/products/entities/product.entity';
 import { ProductPrice } from './modules/products/entities/product-price.entity';
 import { InventoryItem } from './modules/inventory/entities/inventory-item.entity';
 import { InventoryHistory } from './modules/inventory/entities/inventory-history.entity';
+import { InventoryBatch } from './modules/inventory/entities/inventory-batch.entity';
 import { Supplier } from './modules/purchases/entities/supplier.entity';
 import { Purchase } from './modules/purchases/entities/purchase.entity';
 import { PurchaseItem } from './modules/purchases/entities/purchase-item.entity';
@@ -103,6 +104,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
           ProductPrice,
           InventoryItem,
           InventoryHistory,
+          InventoryBatch,
           Supplier,
           SupplierLedger,
           SupplierPayment,

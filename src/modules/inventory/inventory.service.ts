@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { InventoryItem } from './entities/inventory-item.entity';
 import { InventoryHistory, InventoryMovementType } from './entities/inventory-history.entity';
+import { InventoryBatch } from './entities/inventory-batch.entity';
 import { StockAdjustmentDto } from './dto/inventory.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
@@ -13,6 +14,8 @@ export class InventoryService {
     private inventoryRepository: Repository<InventoryItem>,
     @InjectRepository(InventoryHistory)
     private historyRepository: Repository<InventoryHistory>,
+    @InjectRepository(InventoryBatch)
+    private batchRepository: Repository<InventoryBatch>,
     private dataSource: DataSource,
   ) {}
 
@@ -155,6 +158,25 @@ export class InventoryService {
       });
       await queryRunner.manager.save(InventoryHistory, history);
 
+      // Create inventory batch for inbound movements with a known cost
+      const batchInboundTypes = [
+        InventoryMovementType.PURCHASE,
+        InventoryMovementType.OPENING_STOCK,
+        InventoryMovementType.ADJUSTMENT_IN,
+      ];
+      if (batchInboundTypes.includes(dto.movementType) && dto.unitCost) {
+        const batch = queryRunner.manager.create(InventoryBatch, {
+          productId: dto.productId,
+          purchasePrice: dto.unitCost,
+          quantityReceived: dto.quantity,
+          quantityRemaining: dto.quantity,
+          referenceId: dto.referenceId,
+          referenceType: dto.referenceType,
+          shopId,
+        });
+        await queryRunner.manager.save(InventoryBatch, batch);
+      }
+
       await queryRunner.commitTransaction();
       return inventoryItem;
     } catch (err) {
@@ -163,6 +185,41 @@ export class InventoryService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Consume inventory batches using FIFO and return total COGS for the quantity sold.
+   * Updates quantityRemaining in each batch within the provided queryRunner transaction.
+   */
+  async consumeBatchesFIFO(
+    productId: string,
+    shopId: string,
+    quantityToConsume: number,
+    queryRunner: import('typeorm').QueryRunner,
+  ): Promise<number> {
+    const batches = await queryRunner.manager.find(InventoryBatch, {
+      where: { productId, shopId },
+      order: { createdAt: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    let remaining = quantityToConsume;
+    let totalCost = 0;
+
+    for (const batch of batches) {
+      if (remaining <= 0) break;
+      const available = Number(batch.quantityRemaining);
+      if (available <= 0) continue;
+
+      const consumed = Math.min(available, remaining);
+      totalCost += consumed * Number(batch.purchasePrice);
+      remaining -= consumed;
+      batch.quantityRemaining = available - consumed;
+      await queryRunner.manager.save(InventoryBatch, batch);
+    }
+
+    // If batches are exhausted (no cost data), remaining items have zero cost
+    return totalCost;
   }
 
   async getHistory(
