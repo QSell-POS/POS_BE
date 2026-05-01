@@ -7,7 +7,6 @@ import { User } from 'src/modules/users/entities/user.entity';
 export enum SaleStatus {
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
-  REFUNDED = 'refunded',
 }
 
 export enum PaymentMethod {

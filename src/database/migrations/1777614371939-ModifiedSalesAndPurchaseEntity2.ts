@@ -1,148 +1,125 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class ModifiedSalesAndPurchaseEntity21777614371939 implements MigrationInterface {
-    name = 'ModifiedSalesAndPurchaseEntity21777614371939'
+export class FixStatusEnums1719999999999 implements MigrationInterface {
+  name = 'FixStatusEnums1719999999999';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DROP INDEX "public"."IDX_509ab86c67d299c17b677acdef"`);
-        await queryRunner.query(`CREATE TYPE "public"."customer_payments_payment_method_enum" AS ENUM('cash', 'card', 'mobile_payment', 'bank_transfer', 'credit', 'mixed')`);
-        await queryRunner.query(`CREATE TABLE "customer_payments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "shop_id" character varying, "customer_id" uuid NOT NULL, "amount" numeric(12,2) NOT NULL, "payment_method" "public"."customer_payments_payment_method_enum" NOT NULL DEFAULT 'cash', "payment_date" TIMESTAMP NOT NULL DEFAULT now(), "notes" text, "created_by" character varying, CONSTRAINT "PK_49f9fc4bd44d957db20148928d1" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_abe60052e34ed83b707262f4e2" ON "customer_payments" ("shop_id", "customer_id") `);
-        await queryRunner.query(`CREATE TYPE "public"."customer_ledger_type_enum" AS ENUM('sale_credit', 'payment_received', 'sale_return_credit', 'adjustment')`);
-        await queryRunner.query(`CREATE TABLE "customer_ledger" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "shop_id" character varying, "customer_id" uuid NOT NULL, "type" "public"."customer_ledger_type_enum" NOT NULL, "amount" numeric(12,2) NOT NULL, "balance_after" numeric(12,2) NOT NULL, "reference_type" character varying(50), "reference_id" character varying, "description" text, "created_by" character varying, CONSTRAINT "PK_0948ca0aa3febbe1df572618e0e" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_514f65148703ccf6de22e2acde" ON "customer_ledger" ("shop_id", "customer_id") `);
-        await queryRunner.query(`CREATE TABLE "supplier_payments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "shop_id" character varying, "supplier_id" uuid NOT NULL, "amount" numeric(12,2) NOT NULL, "payment_method" character varying(50) NOT NULL DEFAULT 'cash', "payment_date" TIMESTAMP NOT NULL DEFAULT now(), "notes" text, "created_by" character varying, CONSTRAINT "PK_76e86f3194494faf999c652dbf9" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_5d6db6f87e6b14cd228c4f7abe" ON "supplier_payments" ("shop_id", "supplier_id") `);
-        await queryRunner.query(`CREATE TYPE "public"."supplier_ledger_type_enum" AS ENUM('purchase_debit', 'payment_sent', 'purchase_return_credit', 'adjustment')`);
-        await queryRunner.query(`CREATE TABLE "supplier_ledger" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "shop_id" character varying, "supplier_id" uuid NOT NULL, "type" "public"."supplier_ledger_type_enum" NOT NULL, "amount" numeric(12,2) NOT NULL, "balance_after" numeric(12,2) NOT NULL, "reference_type" character varying(50), "reference_id" character varying, "description" text, "created_by" character varying, CONSTRAINT "PK_21685feb22810ceceae29346ea8" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_1ab732cd1045623f9ca5b18b34" ON "supplier_ledger" ("shop_id", "supplier_id") `);
-        await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN "loyalty_points"`);
-        await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN "store_credit"`);
-        await queryRunner.query(`ALTER TABLE "sales" DROP COLUMN "payment_status"`);
-        await queryRunner.query(`DROP TYPE "public"."sales_payment_status_enum"`);
-        await queryRunner.query(`ALTER TABLE "sales" DROP COLUMN "paid_amount"`);
-        await queryRunner.query(`ALTER TABLE "sales" DROP COLUMN "change_amount"`);
-        await queryRunner.query(`ALTER TABLE "sales" DROP COLUMN "due_amount"`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" DROP COLUMN "refund_method"`);
-        await queryRunner.query(`DROP TYPE "public"."sale_returns_refund_method_enum"`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" DROP COLUMN "refund_status"`);
-        await queryRunner.query(`DROP TYPE "public"."sale_returns_refund_status_enum"`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" DROP COLUMN "refunded_amount"`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" DROP COLUMN "applied_to_due_amount"`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" DROP COLUMN "store_credit_issued"`);
-        await queryRunner.query(`ALTER TABLE "suppliers" DROP COLUMN "credit_balance"`);
-        await queryRunner.query(`ALTER TABLE "purchases" DROP COLUMN "payment_status"`);
-        await queryRunner.query(`DROP TYPE "public"."purchases_payment_status_enum"`);
-        await queryRunner.query(`ALTER TABLE "purchases" DROP COLUMN "expected_date"`);
-        await queryRunner.query(`ALTER TABLE "purchases" DROP COLUMN "paid_amount"`);
-        await queryRunner.query(`ALTER TABLE "purchases" DROP COLUMN "due_amount"`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" DROP COLUMN "refund_method"`);
-        await queryRunner.query(`DROP TYPE "public"."purchase_returns_refund_method_enum"`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" DROP COLUMN "refund_status"`);
-        await queryRunner.query(`DROP TYPE "public"."purchase_returns_refund_status_enum"`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" DROP COLUMN "refunded_amount"`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" DROP COLUMN "applied_to_due_amount"`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" DROP COLUMN "supplier_credit_issued"`);
-        await queryRunner.query(`ALTER TABLE "expenses" ADD "is_income" boolean NOT NULL DEFAULT false`);
-        await queryRunner.query(`ALTER TABLE "sales" ADD "credit_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" ADD "amount_paid_to_customer" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" ADD "amount_to_account" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "purchases" ADD "is_received" boolean NOT NULL DEFAULT true`);
-        await queryRunner.query(`ALTER TABLE "purchases" ADD "credit_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" ADD "amount_received_from_supplier" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" ADD "amount_to_account" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_c80e539063c0d7fe3eeb9a0ece"`);
-        await queryRunner.query(`ALTER TYPE "public"."sales_status_enum" RENAME TO "sales_status_enum_old"`);
-        await queryRunner.query(`CREATE TYPE "public"."sales_status_enum" AS ENUM('completed', 'cancelled', 'refunded')`);
-        await queryRunner.query(`ALTER TABLE "sales" ALTER COLUMN "status" DROP DEFAULT`);
-        await queryRunner.query(`ALTER TABLE "sales" ALTER COLUMN "status" TYPE "public"."sales_status_enum" USING "status"::"text"::"public"."sales_status_enum"`);
-        await queryRunner.query(`ALTER TABLE "sales" ALTER COLUMN "status" SET DEFAULT 'completed'`);
-        await queryRunner.query(`DROP TYPE "public"."sales_status_enum_old"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_7463a3917f57f3a28a80b4fe84"`);
-        await queryRunner.query(`ALTER TYPE "public"."purchases_status_enum" RENAME TO "purchases_status_enum_old"`);
-        await queryRunner.query(`CREATE TYPE "public"."purchases_status_enum" AS ENUM('completed', 'cancelled', 'received', 'ordered', 'draft', 'partial')`);
-        await queryRunner.query(`ALTER TABLE "purchases" ALTER COLUMN "status" DROP DEFAULT`);
-        await queryRunner.query(`ALTER TABLE "purchases" ALTER COLUMN "status" TYPE "public"."purchases_status_enum" USING "status"::"text"::"public"."purchases_status_enum"`);
-        await queryRunner.query(`ALTER TABLE "purchases" ALTER COLUMN "status" SET DEFAULT 'completed'`);
-        await queryRunner.query(`DROP TYPE "public"."purchases_status_enum_old"`);
-        await queryRunner.query(`ALTER TABLE "loyalty_settings" ALTER COLUMN "currency_per_point" SET DEFAULT '0.01'`);
-        await queryRunner.query(`CREATE INDEX "IDX_c80e539063c0d7fe3eeb9a0ece" ON "sales" ("shop_id", "status") `);
-        await queryRunner.query(`CREATE INDEX "IDX_7463a3917f57f3a28a80b4fe84" ON "purchases" ("shop_id", "status") `);
-        await queryRunner.query(`ALTER TABLE "customer_payments" ADD CONSTRAINT "FK_dcd8ce2a4a8587ee8a1d6985e8b" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "customer_ledger" ADD CONSTRAINT "FK_317a1ab7ef50a8d6d3f14e6bb15" FOREIGN KEY ("customer_id") REFERENCES "customers"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "supplier_payments" ADD CONSTRAINT "FK_220694212ec38b4aa2fb02ed622" FOREIGN KEY ("supplier_id") REFERENCES "suppliers"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "supplier_ledger" ADD CONSTRAINT "FK_b6da8f3145ce7ddfbaff7a961ca" FOREIGN KEY ("supplier_id") REFERENCES "suppliers"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-    }
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // =========================
+    // 1. UPDATE DATA FIRST
+    // =========================
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "supplier_ledger" DROP CONSTRAINT "FK_b6da8f3145ce7ddfbaff7a961ca"`);
-        await queryRunner.query(`ALTER TABLE "supplier_payments" DROP CONSTRAINT "FK_220694212ec38b4aa2fb02ed622"`);
-        await queryRunner.query(`ALTER TABLE "customer_ledger" DROP CONSTRAINT "FK_317a1ab7ef50a8d6d3f14e6bb15"`);
-        await queryRunner.query(`ALTER TABLE "customer_payments" DROP CONSTRAINT "FK_dcd8ce2a4a8587ee8a1d6985e8b"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_7463a3917f57f3a28a80b4fe84"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_c80e539063c0d7fe3eeb9a0ece"`);
-        await queryRunner.query(`ALTER TABLE "loyalty_settings" ALTER COLUMN "currency_per_point" SET DEFAULT 0.01`);
-        await queryRunner.query(`CREATE TYPE "public"."purchases_status_enum_old" AS ENUM('draft', 'ordered', 'partial', 'received', 'cancelled')`);
-        await queryRunner.query(`ALTER TABLE "purchases" ALTER COLUMN "status" DROP DEFAULT`);
-        await queryRunner.query(`ALTER TABLE "purchases" ALTER COLUMN "status" TYPE "public"."purchases_status_enum_old" USING "status"::"text"::"public"."purchases_status_enum_old"`);
-        await queryRunner.query(`ALTER TABLE "purchases" ALTER COLUMN "status" SET DEFAULT 'draft'`);
-        await queryRunner.query(`DROP TYPE "public"."purchases_status_enum"`);
-        await queryRunner.query(`ALTER TYPE "public"."purchases_status_enum_old" RENAME TO "purchases_status_enum"`);
-        await queryRunner.query(`CREATE INDEX "IDX_7463a3917f57f3a28a80b4fe84" ON "purchases" ("shop_id", "status") `);
-        await queryRunner.query(`CREATE TYPE "public"."sales_status_enum_old" AS ENUM('draft', 'confirmed', 'completed', 'cancelled', 'refunded', 'partial_refund')`);
-        await queryRunner.query(`ALTER TABLE "sales" ALTER COLUMN "status" DROP DEFAULT`);
-        await queryRunner.query(`ALTER TABLE "sales" ALTER COLUMN "status" TYPE "public"."sales_status_enum_old" USING "status"::"text"::"public"."sales_status_enum_old"`);
-        await queryRunner.query(`ALTER TABLE "sales" ALTER COLUMN "status" SET DEFAULT 'draft'`);
-        await queryRunner.query(`DROP TYPE "public"."sales_status_enum"`);
-        await queryRunner.query(`ALTER TYPE "public"."sales_status_enum_old" RENAME TO "sales_status_enum"`);
-        await queryRunner.query(`CREATE INDEX "IDX_c80e539063c0d7fe3eeb9a0ece" ON "sales" ("shop_id", "status") `);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" DROP COLUMN "amount_to_account"`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" DROP COLUMN "amount_received_from_supplier"`);
-        await queryRunner.query(`ALTER TABLE "purchases" DROP COLUMN "credit_amount"`);
-        await queryRunner.query(`ALTER TABLE "purchases" DROP COLUMN "is_received"`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" DROP COLUMN "amount_to_account"`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" DROP COLUMN "amount_paid_to_customer"`);
-        await queryRunner.query(`ALTER TABLE "sales" DROP COLUMN "credit_amount"`);
-        await queryRunner.query(`ALTER TABLE "expenses" DROP COLUMN "is_income"`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" ADD "supplier_credit_issued" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" ADD "applied_to_due_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" ADD "refunded_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`CREATE TYPE "public"."purchase_returns_refund_status_enum" AS ENUM('pending', 'completed', 'rejected')`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" ADD "refund_status" "public"."purchase_returns_refund_status_enum" NOT NULL DEFAULT 'completed'`);
-        await queryRunner.query(`CREATE TYPE "public"."purchase_returns_refund_method_enum" AS ENUM('cash', 'bank_transfer', 'supplier_credit', 'applied_to_due')`);
-        await queryRunner.query(`ALTER TABLE "purchase_returns" ADD "refund_method" "public"."purchase_returns_refund_method_enum" NOT NULL DEFAULT 'cash'`);
-        await queryRunner.query(`ALTER TABLE "purchases" ADD "due_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "purchases" ADD "paid_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "purchases" ADD "expected_date" TIMESTAMP`);
-        await queryRunner.query(`CREATE TYPE "public"."purchases_payment_status_enum" AS ENUM('paid', 'pending', 'partial', 'overdue')`);
-        await queryRunner.query(`ALTER TABLE "purchases" ADD "payment_status" "public"."purchases_payment_status_enum" NOT NULL DEFAULT 'pending'`);
-        await queryRunner.query(`ALTER TABLE "suppliers" ADD "credit_balance" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" ADD "store_credit_issued" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" ADD "applied_to_due_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" ADD "refunded_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`CREATE TYPE "public"."sale_returns_refund_status_enum" AS ENUM('pending', 'completed', 'rejected')`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" ADD "refund_status" "public"."sale_returns_refund_status_enum" NOT NULL DEFAULT 'completed'`);
-        await queryRunner.query(`CREATE TYPE "public"."sale_returns_refund_method_enum" AS ENUM('cash', 'card', 'mobile_payment', 'bank_transfer', 'store_credit', 'applied_to_due')`);
-        await queryRunner.query(`ALTER TABLE "sale_returns" ADD "refund_method" "public"."sale_returns_refund_method_enum" NOT NULL DEFAULT 'cash'`);
-        await queryRunner.query(`ALTER TABLE "sales" ADD "due_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "sales" ADD "change_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "sales" ADD "paid_amount" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`CREATE TYPE "public"."sales_payment_status_enum" AS ENUM('paid', 'pending', 'partial', 'overdue')`);
-        await queryRunner.query(`ALTER TABLE "sales" ADD "payment_status" "public"."sales_payment_status_enum" NOT NULL DEFAULT 'pending'`);
-        await queryRunner.query(`ALTER TABLE "customers" ADD "store_credit" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`ALTER TABLE "customers" ADD "loyalty_points" numeric(12,2) NOT NULL DEFAULT '0'`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_1ab732cd1045623f9ca5b18b34"`);
-        await queryRunner.query(`DROP TABLE "supplier_ledger"`);
-        await queryRunner.query(`DROP TYPE "public"."supplier_ledger_type_enum"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_5d6db6f87e6b14cd228c4f7abe"`);
-        await queryRunner.query(`DROP TABLE "supplier_payments"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_514f65148703ccf6de22e2acde"`);
-        await queryRunner.query(`DROP TABLE "customer_ledger"`);
-        await queryRunner.query(`DROP TYPE "public"."customer_ledger_type_enum"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_abe60052e34ed83b707262f4e2"`);
-        await queryRunner.query(`DROP TABLE "customer_payments"`);
-        await queryRunner.query(`DROP TYPE "public"."customer_payments_payment_method_enum"`);
-        await queryRunner.query(`CREATE INDEX "IDX_509ab86c67d299c17b677acdef" ON "sales" ("payment_status", "shop_id") `);
-    }
+    await queryRunner.query(`
+      UPDATE purchases
+      SET status = 'completed'
+      WHERE status IN ('received', 'ordered', 'partial')
+    `);
 
+    await queryRunner.query(`
+      UPDATE purchases
+      SET status = 'cancelled'
+      WHERE status = 'draft'
+    `);
+
+    await queryRunner.query(`
+      UPDATE sales
+      SET status = 'completed'
+      WHERE status = 'refunded'
+    `);
+
+    // =========================
+    // 2. REMOVE DEFAULTS (IMPORTANT ⚠️)
+    // =========================
+
+    await queryRunner.query(`
+      ALTER TABLE purchases ALTER COLUMN status DROP DEFAULT;
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE sales ALTER COLUMN status DROP DEFAULT;
+    `);
+
+    // =========================
+    // 3. FIX PURCHASE ENUM
+    // =========================
+
+    await queryRunner.query(`
+      ALTER TYPE purchases_status_enum RENAME TO purchases_status_enum_old;
+    `);
+
+    await queryRunner.query(`
+      CREATE TYPE purchases_status_enum AS ENUM ('completed', 'cancelled');
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE purchases
+      ALTER COLUMN status TYPE purchases_status_enum
+      USING status::text::purchases_status_enum;
+    `);
+
+    await queryRunner.query(`
+      DROP TYPE purchases_status_enum_old;
+    `);
+
+    // =========================
+    // 4. FIX SALES ENUM
+    // =========================
+
+    await queryRunner.query(`
+      ALTER TYPE sales_status_enum RENAME TO sales_status_enum_old;
+    `);
+
+    await queryRunner.query(`
+      CREATE TYPE sales_status_enum AS ENUM ('completed');
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE sales
+      ALTER COLUMN status TYPE sales_status_enum
+      USING status::text::sales_status_enum;
+    `);
+
+    await queryRunner.query(`
+      DROP TYPE sales_status_enum_old;
+    `);
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // rollback (basic)
+
+    await queryRunner.query(`
+      ALTER TYPE purchases_status_enum RENAME TO purchases_status_enum_new;
+    `);
+
+    await queryRunner.query(`
+      CREATE TYPE purchases_status_enum AS ENUM ('received', 'ordered', 'draft', 'partial');
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE purchases
+      ALTER COLUMN status TYPE purchases_status_enum
+      USING status::text::purchases_status_enum;
+    `);
+
+    await queryRunner.query(`
+      DROP TYPE purchases_status_enum_new;
+    `);
+
+    await queryRunner.query(`
+      ALTER TYPE sales_status_enum RENAME TO sales_status_enum_new;
+    `);
+
+    await queryRunner.query(`
+      CREATE TYPE sales_status_enum AS ENUM ('refunded');
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE sales
+      ALTER COLUMN status TYPE sales_status_enum
+      USING status::text::sales_status_enum;
+    `);
+
+    await queryRunner.query(`
+      DROP TYPE sales_status_enum_new;
+    `);
+  }
 }

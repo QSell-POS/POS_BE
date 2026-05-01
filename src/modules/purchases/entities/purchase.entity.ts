@@ -6,10 +6,6 @@ import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm
 export enum PurchaseStatus {
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
-  RECEIVED = 'received',
-  ORDERED = 'ordered',
-  DRAFT = 'draft',
-  PARTIAL = 'partial',
 }
 
 @Entity('purchases')
