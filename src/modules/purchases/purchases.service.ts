@@ -390,7 +390,7 @@ export class PurchasesService {
       throw new BadRequestException('Amount received cannot exceed total return amount');
     }
 
-    const refNum = await this.generateReferenceNumber('PRN', shopId);
+    const refNum = await this.generateReturnNumber(shopId);
     const savedReturn = await this.returnRepository.save(
       this.returnRepository.create({
         referenceNumber: refNum,
@@ -490,8 +490,15 @@ export class PurchasesService {
 
   private async generateReferenceNumber(prefix: string, shopId: string): Promise<string> {
     const date = new Date();
-    const yyyymm = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const yyyymmdd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
     const count = await this.purchaseRepository.count({ where: { shopId } });
-    return `${prefix}-${yyyymm}-${String(count + 1).padStart(4, '0')}`;
+    return `${prefix}-${yyyymmdd}-${String(count + 1).padStart(4, '0')}`;
+  }
+
+  private async generateReturnNumber(shopId: string): Promise<string> {
+    const date = new Date();
+    const yyyymmdd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+    const count = await this.returnRepository.count({ where: { shopId } });
+    return `SRN-${yyyymmdd}-${String(count + 1).padStart(4, '0')}`;
   }
 }

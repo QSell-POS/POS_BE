@@ -6,7 +6,15 @@ import { SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-re
 import { Customer } from './entities/customer.entity';
 import { CustomerLedger, CustomerLedgerType } from './entities/customer-ledger.entity';
 import { CustomerPayment } from './entities/customer-payment.entity';
-import { CreateSaleDto, UpdateSaleDto, CreateSaleReturnDto, CreateCustomerDto, UpdateCustomerDto, SaleFilterDto, CreateCustomerPaymentDto } from './dto/sale.dto';
+import {
+  CreateSaleDto,
+  UpdateSaleDto,
+  CreateSaleReturnDto,
+  CreateCustomerDto,
+  UpdateCustomerDto,
+  SaleFilterDto,
+  CreateCustomerPaymentDto,
+} from './dto/sale.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryMovementType } from '../inventory/entities/inventory-history.entity';
@@ -246,9 +254,7 @@ export class SalesService {
 
       const savedSale = await queryRunner.manager.save(Sale, sale);
 
-      const saleItems = enrichedItems.map((item) =>
-        queryRunner.manager.create(SaleItem, { ...item, saleId: savedSale.id }),
-      );
+      const saleItems = enrichedItems.map((item) => queryRunner.manager.create(SaleItem, { ...item, saleId: savedSale.id }));
       await queryRunner.manager.save(SaleItem, saleItems);
 
       await queryRunner.commitTransaction();
@@ -517,8 +523,10 @@ export class SalesService {
   private async generateInvoiceNumber(shopId: string): Promise<string> {
     const date = new Date();
     const yyyymmdd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-    const start = new Date(); start.setHours(0, 0, 0, 0);
-    const end = new Date(); end.setHours(23, 59, 59, 999);
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
     const count = await this.saleRepository
       .createQueryBuilder('s')
       .where('s.shopId = :shopId', { shopId })
@@ -529,8 +537,8 @@ export class SalesService {
 
   private async generateReturnNumber(shopId: string): Promise<string> {
     const date = new Date();
-    const yyyymm = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const yyyymmdd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
     const count = await this.returnRepository.count({ where: { shopId } });
-    return `SRN-${yyyymm}-${String(count + 1).padStart(4, '0')}`;
+    return `SRN-${yyyymmdd}-${String(count + 1).padStart(4, '0')}`;
   }
 }
