@@ -62,6 +62,8 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { AppController } from './app.controller';
 import { SupplierLedger } from './modules/purchases/entities/supplier-ledger.entity';
 import { CustomerLedger } from './modules/sales/entities/customer-ledger.entity';
+import { CustomerPayment } from './modules/sales/entities/customer-payment.entity';
+import { SupplierPayment } from './modules/purchases/entities/supplier-payment.entity';
 
 @Module({
   imports: [
@@ -103,12 +105,14 @@ import { CustomerLedger } from './modules/sales/entities/customer-ledger.entity'
           InventoryHistory,
           Supplier,
           SupplierLedger,
+          SupplierPayment,
           Purchase,
           PurchaseItem,
           PurchaseReturn,
           PurchaseReturnItem,
           Customer,
           CustomerLedger,
+          CustomerPayment,
           Sale,
           SaleItem,
           SaleReturn,
