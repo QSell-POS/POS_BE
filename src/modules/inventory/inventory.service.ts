@@ -158,11 +158,17 @@ export class InventoryService {
       });
       await queryRunner.manager.save(InventoryHistory, history);
 
+      // Deduct from batches FIFO for outbound movements (purchase return to supplier)
+      if (dto.movementType === InventoryMovementType.RETURN_OUT) {
+        await this.consumeBatchesFIFO(dto.productId, shopId, dto.quantity, queryRunner);
+      }
+
       // Create inventory batch for inbound movements with a known cost
       const batchInboundTypes = [
         InventoryMovementType.PURCHASE,
         InventoryMovementType.OPENING_STOCK,
         InventoryMovementType.ADJUSTMENT_IN,
+        InventoryMovementType.RETURN_IN,
       ];
       if (batchInboundTypes.includes(dto.movementType) && dto.unitCost) {
         const batch = queryRunner.manager.create(InventoryBatch, {

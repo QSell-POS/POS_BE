@@ -256,6 +256,7 @@ export class SalesService {
           productId: item.productId,
           quantity: item.quantity,
           movementType: InventoryMovementType.RETURN_IN,
+          unitCost: Number(item.costPrice),
           referenceId: sale.invoiceNumber,
           referenceType: 'sale_cancel',
           performedBy: userId,
@@ -333,13 +334,17 @@ export class SalesService {
       ),
     );
 
-    // Restore inventory
+    // Build a cost lookup from original sale items
+    const costByProduct = Object.fromEntries(sale.items.map((i) => [i.productId, Number(i.costPrice)]));
+
+    // Restore inventory with original cost so batch is recreated for future FIFO sales
     for (const item of dto.items) {
       await this.inventoryService.adjustStock(
         {
           productId: item.productId,
           quantity: item.quantity,
           movementType: InventoryMovementType.RETURN_IN,
+          unitCost: costByProduct[item.productId] ?? 0,
           referenceId: savedReturn.referenceNumber,
           referenceType: 'sale_return',
           performedBy: userId,
