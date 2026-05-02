@@ -187,9 +187,30 @@ export class InventoryService {
     }
   }
 
+  async getBatches(shopId: string, productId?: string, page = 1, limit = 20) {
+    const qb = this.batchRepository
+      .createQueryBuilder('b')
+      .leftJoinAndSelect('b.product', 'product')
+      .where('b.shopId = :shopId', { shopId });
+
+    if (productId) qb.andWhere('b.productId = :productId', { productId });
+
+    const total = await qb.getCount();
+    const data = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy('b.createdAt', 'ASC')
+      .getMany();
+
+    return {
+      data,
+      message: 'Inventory batches retrieved successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
+  }
+
   /**
-   * Consume inventory batches using FIFO and return total COGS for the quantity sold.
-   * Updates quantityRemaining in each batch within the provided queryRunner transaction.
+   * Consume inventory batches using FIFO and return total COGS for the quantity sold.   * Updates quantityRemaining in each batch within the provided queryRunner transaction.
    */
   async consumeBatchesFIFO(
     productId: string,

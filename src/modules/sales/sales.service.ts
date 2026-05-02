@@ -3,17 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Sale, SaleItem, SaleStatus } from './entities/sale.entity';
 import { SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-return.entity';
-import { Customer } from './entities/customer.entity';
-import { CustomerLedger, CustomerLedgerType } from './entities/customer-ledger.entity';
-import { CustomerPayment } from './entities/customer-payment.entity';
+import { CustomerLedgerType } from './entities/customer-ledger.entity';
 import {
   CreateSaleDto,
   UpdateSaleDto,
   CreateSaleReturnDto,
-  CreateCustomerDto,
-  UpdateCustomerDto,
   SaleFilterDto,
-  CreateCustomerPaymentDto,
 } from './dto/sale.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryService } from '../inventory/inventory.service';
@@ -21,7 +16,7 @@ import { InventoryMovementType } from '../inventory/entities/inventory-history.e
 import { ProductsService } from '../products/products.service';
 import { PriceType } from '../products/entities/product-price.entity';
 import { ExpensesService } from '../expenses/expenses.service';
-import { PaymentMethod } from './entities/sale.entity';
+import { CustomersService } from '../customers/customers.service';
 
 @Injectable()
 export class SalesService {
@@ -34,146 +29,12 @@ export class SalesService {
     private returnRepository: Repository<SaleReturn>,
     @InjectRepository(SaleReturnItem)
     private returnItemRepository: Repository<SaleReturnItem>,
-    @InjectRepository(Customer)
-    private customerRepository: Repository<Customer>,
-    @InjectRepository(CustomerLedger)
-    private ledgerRepository: Repository<CustomerLedger>,
-    @InjectRepository(CustomerPayment)
-    private customerPaymentRepository: Repository<CustomerPayment>,
+    private customersService: CustomersService,
     private inventoryService: InventoryService,
     private productsService: ProductsService,
     private expensesService: ExpensesService,
     private dataSource: DataSource,
   ) {}
-
-  // ── Customers ─────────────────────────────────────────────
-  async createCustomer(dto: CreateCustomerDto, shopId: string) {
-    const customer = this.customerRepository.create({ ...dto, shopId });
-    return this.customerRepository.save(customer);
-  }
-
-  async getCustomers(shopId: string, search?: string, page = 1, limit = 20) {
-    const qb = this.customerRepository.createQueryBuilder('c').where('c.shopId = :shopId', { shopId });
-    if (search) {
-      qb.andWhere('(c.name ILIKE :search OR c.phone ILIKE :search OR c.email ILIKE :search)', { search: `%${search}%` });
-    }
-    const total = await qb.getCount();
-    const data = await qb
-      .skip((page - 1) * limit)
-      .take(limit)
-      .orderBy('c.name', 'ASC')
-      .getMany();
-    return {
-      data,
-      message: 'Customers fetched successfully',
-      meta: buildPaginationMeta(total, page, limit),
-    };
-  }
-
-  async getCustomer(id: string, shopId: string) {
-    const c = await this.customerRepository.findOne({ where: { id, shopId } });
-    if (!c) throw new NotFoundException('Customer not found');
-    return c;
-  }
-
-  async updateCustomer(id: string, dto: UpdateCustomerDto, shopId: string) {
-    const customer = await this.getCustomer(id, shopId);
-    Object.assign(customer, dto);
-    return this.customerRepository.save(customer);
-  }
-
-  // ── Customer Ledger ────────────────────────────────────────
-  async getCustomerLedger(customerId: string, shopId: string, page = 1, limit = 20) {
-    await this.getCustomer(customerId, shopId);
-    const [data, total] = await this.ledgerRepository.findAndCount({
-      where: { customerId, shopId },
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    return {
-      data,
-      message: 'Customer ledger fetched successfully',
-      meta: buildPaginationMeta(total, page, limit),
-    };
-  }
-
-  async getCustomerStatement(customerId: string, shopId: string) {
-    const customer = await this.getCustomer(customerId, shopId);
-    const ledger = await this.ledgerRepository.find({
-      where: { customerId, shopId },
-      order: { createdAt: 'ASC' },
-    });
-    const balance = ledger.length > 0 ? Number(ledger[ledger.length - 1].balanceAfter) : 0;
-    return {
-      data: {
-        customer,
-        balance,
-        transactions: ledger,
-      },
-    };
-  }
-
-  async recordCustomerPayment(dto: CreateCustomerPaymentDto, shopId: string, userId: string) {
-    const customer = await this.getCustomer(dto.customerId, shopId);
-
-    const balance = await this.getCustomerBalance(dto.customerId, shopId);
-    if (dto.amount > balance) {
-      throw new BadRequestException(`Payment (${dto.amount}) exceeds outstanding balance (${balance})`);
-    }
-
-    const balanceAfter = balance - dto.amount;
-
-    const payment = await this.customerPaymentRepository.save(
-      this.customerPaymentRepository.create({
-        customerId: dto.customerId,
-        amount: dto.amount,
-        paymentMethod: dto.paymentMethod ?? PaymentMethod.CASH,
-        notes: dto.notes,
-        createdBy: userId,
-        shopId,
-      }),
-    );
-
-    await this.ledgerRepository.save(
-      this.ledgerRepository.create({
-        customerId: dto.customerId,
-        type: CustomerLedgerType.PAYMENT_RECEIVED,
-        amount: dto.amount,
-        balanceAfter,
-        referenceType: 'customer_payment',
-        referenceId: payment.id,
-        description: `Payment received`,
-        createdBy: userId,
-        shopId,
-      }),
-    );
-
-    await this.customerRepository.update(dto.customerId, { totalDue: balanceAfter });
-
-    await this.expensesService.recordSystemExpense(
-      {
-        typeName: 'Customer Payment',
-        title: `Customer payment: ${customer.name}`,
-        amount: dto.amount,
-        referenceId: payment.id,
-        referenceType: 'customer_payment',
-        isIncome: true,
-      },
-      shopId,
-      userId,
-    );
-
-    return { data: payment, message: 'Payment recorded successfully' };
-  }
-
-  private async getCustomerBalance(customerId: string, shopId: string): Promise<number> {
-    const last = await this.ledgerRepository.findOne({
-      where: { customerId, shopId },
-      order: { createdAt: 'DESC' },
-    });
-    return last ? Number(last.balanceAfter) : 0;
-  }
 
   // ── Sales ──────────────────────────────────────────────────
   async create(dto: CreateSaleDto, shopId: string, userId: string) {
@@ -297,10 +158,10 @@ export class SalesService {
 
       // Customer ledger entry for credit portion
       if (creditAmount > 0 && dto.customerId) {
-        const prevBalance = await this.getCustomerBalance(dto.customerId, shopId);
+        const prevBalance = await this.customersService.getBalance(dto.customerId, shopId);
         const balanceAfter = prevBalance + creditAmount;
-        await this.ledgerRepository.save(
-          this.ledgerRepository.create({
+        await this.customersService.addLedgerEntry(
+          {
             customerId: dto.customerId,
             type: CustomerLedgerType.SALE_CREDIT,
             amount: creditAmount,
@@ -309,14 +170,14 @@ export class SalesService {
             referenceId: savedSale.id,
             description: `Credit sale: ${invoiceNumber}`,
             createdBy: userId,
-            shopId,
-          }),
+          },
+          shopId,
         );
-        await this.customerRepository.increment({ id: dto.customerId }, 'totalDue', creditAmount);
+        await this.customersService.incrementTotalDue(dto.customerId, creditAmount);
       }
 
       if (dto.customerId) {
-        await this.customerRepository.increment({ id: dto.customerId }, 'totalPurchased', grandTotal);
+        await this.customersService.incrementTotalPurchased(dto.customerId, grandTotal);
       }
 
       return this.findOne(savedSale.id, shopId);
@@ -405,10 +266,10 @@ export class SalesService {
 
     // Reverse credit ledger entry if applicable
     if (Number(sale.creditAmount) > 0 && sale.customerId) {
-      const prevBalance = await this.getCustomerBalance(sale.customerId, shopId);
+      const prevBalance = await this.customersService.getBalance(sale.customerId, shopId);
       const balanceAfter = Math.max(0, prevBalance - Number(sale.creditAmount));
-      await this.ledgerRepository.save(
-        this.ledgerRepository.create({
+      await this.customersService.addLedgerEntry(
+        {
           customerId: sale.customerId,
           type: CustomerLedgerType.ADJUSTMENT,
           amount: Number(sale.creditAmount),
@@ -417,10 +278,10 @@ export class SalesService {
           referenceId: id,
           description: `Sale cancelled: ${sale.invoiceNumber}`,
           createdBy: userId,
-          shopId,
-        }),
+        },
+        shopId,
       );
-      await this.customerRepository.decrement({ id: sale.customerId }, 'totalDue', Number(sale.creditAmount));
+      await this.customersService.decrementTotalDue(sale.customerId, Number(sale.creditAmount));
     }
 
     return this.findOne(id, shopId);
@@ -504,10 +365,10 @@ export class SalesService {
 
     // Credit remainder to customer account (reduces their balance)
     if (amountToAccount > 0 && sale.customerId) {
-      const prevBalance = await this.getCustomerBalance(sale.customerId, shopId);
+      const prevBalance = await this.customersService.getBalance(sale.customerId, shopId);
       const balanceAfter = Math.max(0, prevBalance - amountToAccount);
-      await this.ledgerRepository.save(
-        this.ledgerRepository.create({
+      await this.customersService.addLedgerEntry(
+        {
           customerId: sale.customerId,
           type: CustomerLedgerType.SALE_RETURN_CREDIT,
           amount: amountToAccount,
@@ -516,10 +377,10 @@ export class SalesService {
           referenceId: savedReturn.id,
           description: `Return credit: ${refNum}`,
           createdBy: userId,
-          shopId,
-        }),
+        },
+        shopId,
       );
-      await this.customerRepository.decrement({ id: sale.customerId }, 'totalDue', amountToAccount);
+      await this.customersService.decrementTotalDue(sale.customerId, amountToAccount);
     }
 
     return savedReturn;

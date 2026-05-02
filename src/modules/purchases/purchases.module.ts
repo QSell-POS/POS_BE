@@ -3,21 +3,20 @@ import { PurchasesService } from './purchases.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PurchasesController } from './purchases.controller';
 import { PurchaseReturn, PurchaseReturnItem } from './entities/purchase-return.entity';
-import { Supplier } from './entities/supplier.entity';
-import { SupplierLedger } from './entities/supplier-ledger.entity';
-import { SupplierPayment } from './entities/supplier-payment.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { ProductsModule } from '../products/products.module';
 import { PurchaseItem } from './entities/purchase-item.entity';
 import { Purchase } from './entities/purchase.entity';
 import { ExpensesModule } from '../expenses/expenses.module';
+import { SuppliersModule } from '../suppliers/suppliers.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem, Supplier, SupplierLedger, SupplierPayment]),
+    TypeOrmModule.forFeature([Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem]),
     InventoryModule,
     ProductsModule,
     ExpensesModule,
+    SuppliersModule,
   ],
   providers: [PurchasesService],
   controllers: [PurchasesController],

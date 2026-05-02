@@ -14,6 +14,8 @@ import { ProductsModule } from './modules/products/products.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { PurchasesModule } from './modules/purchases/purchases.module';
 import { SalesModule } from './modules/sales/sales.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { CommonModule } from './common/common.module';
@@ -142,6 +144,8 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     CategoriesModule,
     ProductsModule,
     InventoryModule,
+    CustomersModule,
+    SuppliersModule,
     PurchasesModule,
     SalesModule,
     ExpensesModule,
