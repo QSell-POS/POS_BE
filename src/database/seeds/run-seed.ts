@@ -6,6 +6,7 @@ import { Product } from 'src/modules/products/entities/product.entity';
 import { ProductPrice, PriceType } from 'src/modules/products/entities/product-price.entity';
 import { InventoryItem } from 'src/modules/inventory/entities/inventory-item.entity';
 import { InventoryHistory, InventoryMovementType } from 'src/modules/inventory/entities/inventory-history.entity';
+import { InventoryBatch } from 'src/modules/inventory/entities/inventory-batch.entity';
 
 dotenv.config();
 
@@ -618,6 +619,17 @@ async function seed() {
         unitCost: item.purchasePrice,
         referenceType: 'seed',
         notes: 'Opening stock',
+      });
+
+      // 📦 Inventory batch (required for FIFO COGS on sales)
+      await qr.manager.save(InventoryBatch, {
+        shopId: shop.id,
+        productId: saved.id,
+        purchasePrice: item.purchasePrice,
+        quantityReceived: qty,
+        quantityRemaining: qty,
+        referenceType: 'opening_stock',
+        referenceId: 'seed',
       });
 
       console.log(`✅ Product seeded: ${item.name}`);
