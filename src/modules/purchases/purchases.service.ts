@@ -89,10 +89,19 @@ export class PurchasesService {
 
       const saved = await queryRunner.manager.save(Purchase, purchase);
 
-      const items = itemsWithTotals.map((item) =>
+      // Resolve variantId for each item
+      const itemsWithVariants = await Promise.all(
+        itemsWithTotals.map(async (item) => ({
+          ...item,
+          variantId: item.variantId ?? await this.productsService.getDefaultVariantId(item.productId, shopId),
+        })),
+      );
+
+      const items = itemsWithVariants.map((item) =>
         queryRunner.manager.create(PurchaseItem, {
           purchaseId: saved.id,
           productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           receivedQuantity: isReceived ? item.quantity : 0,
           unitCost: item.unitCost,
@@ -111,10 +120,11 @@ export class PurchasesService {
 
       // Adjust inventory if received (purchase increases inventory asset, not an expense)
       if (isReceived) {
-        for (const item of itemsWithTotals) {
+        for (const item of itemsWithVariants) {
           await this.inventoryService.adjustStock(
             {
               productId: item.productId,
+              variantId: item.variantId,
               quantity: item.quantity,
               movementType: InventoryMovementType.PURCHASE,
               unitCost: item.unitCost,
@@ -170,9 +180,11 @@ export class PurchasesService {
     }
 
     for (const item of purchase.items) {
+      const variantId = item.variantId ?? await this.productsService.getDefaultVariantId(item.productId, shopId);
       await this.inventoryService.adjustStock(
         {
           productId: item.productId,
+          variantId,
           quantity: Number(item.quantity),
           movementType: InventoryMovementType.PURCHASE,
           unitCost: Number(item.unitCost),
@@ -270,9 +282,11 @@ export class PurchasesService {
 
     // Deduct from inventory
     for (const item of dto.items) {
+      const variantId = item.variantId ?? await this.productsService.getDefaultVariantId(item.productId, shopId);
       await this.inventoryService.adjustStock(
         {
           productId: item.productId,
+          variantId,
           quantity: item.quantity,
           movementType: InventoryMovementType.RETURN_OUT,
           unitCost: item.unitCost,

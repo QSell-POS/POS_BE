@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Customer } from './customer.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
+import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import { User } from 'src/modules/users/entities/user.entity';
 
 export enum SaleStatus {
@@ -85,6 +86,9 @@ export class SaleItem extends TenantBaseEntity {
   @Column({ name: 'product_id', type: 'uuid' })
   productId: string;
 
+  @Column({ name: 'variant_id', type: 'uuid' })
+  variantId: string;
+
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   quantity: number;
 
@@ -119,4 +123,8 @@ export class SaleItem extends TenantBaseEntity {
   @ManyToOne(() => Product, (product) => product.saleItems)
   @JoinColumn({ name: 'product_id' })
   product: Product;
+
+  @ManyToOne(() => ProductVariant)
+  @JoinColumn({ name: 'variant_id' })
+  variant: ProductVariant;
 }

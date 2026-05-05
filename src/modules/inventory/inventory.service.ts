@@ -96,12 +96,13 @@ export class InventoryService {
 
     try {
       let inventoryItem = await queryRunner.manager.findOne(InventoryItem, {
-        where: { productId: dto.productId, shopId },
+        where: { variantId: dto.variantId, shopId },
       });
 
       if (!inventoryItem) {
         inventoryItem = queryRunner.manager.create(InventoryItem, {
           productId: dto.productId,
+          variantId: dto.variantId,
           shopId,
           quantityOnHand: 0,
           quantityAvailable: 0,
@@ -145,6 +146,7 @@ export class InventoryService {
       const history = queryRunner.manager.create(InventoryHistory, {
         inventoryItemId: inventoryItem.id,
         productId: dto.productId,
+        variantId: dto.variantId,
         movementType: dto.movementType,
         quantity: dto.quantity,
         quantityBefore,
@@ -160,7 +162,7 @@ export class InventoryService {
 
       // Deduct from batches FIFO for outbound movements (purchase return to supplier)
       if (dto.movementType === InventoryMovementType.RETURN_OUT) {
-        await this.consumeBatchesFIFO(dto.productId, shopId, dto.quantity, queryRunner);
+        await this.consumeBatchesFIFO(dto.variantId, shopId, dto.quantity, queryRunner);
       }
 
       // Create inventory batch for inbound movements with a known cost
@@ -173,6 +175,7 @@ export class InventoryService {
       if (batchInboundTypes.includes(dto.movementType) && dto.unitCost) {
         const batch = queryRunner.manager.create(InventoryBatch, {
           productId: dto.productId,
+          variantId: dto.variantId,
           purchasePrice: dto.unitCost,
           quantityReceived: dto.quantity,
           quantityRemaining: dto.quantity,
@@ -193,13 +196,15 @@ export class InventoryService {
     }
   }
 
-  async getBatches(shopId: string, productId?: string, page = 1, limit = 20) {
+  async getBatches(shopId: string, productId?: string, variantId?: string, page = 1, limit = 20) {
     const qb = this.batchRepository
       .createQueryBuilder('b')
       .leftJoinAndSelect('b.product', 'product')
+      .leftJoinAndSelect('b.variant', 'variant')
       .where('b.shopId = :shopId', { shopId });
 
     if (productId) qb.andWhere('b.productId = :productId', { productId });
+    if (variantId) qb.andWhere('b.variantId = :variantId', { variantId });
 
     const total = await qb.getCount();
     const data = await qb
@@ -219,13 +224,13 @@ export class InventoryService {
    * Consume inventory batches using FIFO and return total COGS for the quantity sold.   * Updates quantityRemaining in each batch within the provided queryRunner transaction.
    */
   async consumeBatchesFIFO(
-    productId: string,
+    variantId: string,
     shopId: string,
     quantityToConsume: number,
     queryRunner: import('typeorm').QueryRunner,
   ): Promise<number> {
     const batches = await queryRunner.manager.find(InventoryBatch, {
-      where: { productId, shopId },
+      where: { variantId, shopId },
       order: { createdAt: 'ASC' },
       lock: { mode: 'pessimistic_write' },
     });

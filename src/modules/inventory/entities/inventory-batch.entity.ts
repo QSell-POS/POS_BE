@@ -1,12 +1,17 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
+import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 
 @Entity('inventory_batches')
-@Index(['shopId', 'productId', 'createdAt'])
+@Index(['shopId', 'variantId', 'createdAt'])
+@Index(['shopId', 'productId'])
 export class InventoryBatch extends TenantBaseEntity {
   @Column({ name: 'product_id' })
   productId: string;
+
+  @Column({ name: 'variant_id' })
+  variantId: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, name: 'purchase_price' })
   purchasePrice: number;
@@ -26,4 +31,8 @@ export class InventoryBatch extends TenantBaseEntity {
   @ManyToOne(() => Product)
   @JoinColumn({ name: 'product_id' })
   product: Product;
+
+  @ManyToOne(() => ProductVariant)
+  @JoinColumn({ name: 'variant_id' })
+  variant: ProductVariant;
 }

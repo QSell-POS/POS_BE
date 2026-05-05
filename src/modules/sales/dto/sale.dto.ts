@@ -8,6 +8,11 @@ export class CreateSaleItemDto {
   @IsUUID()
   productId: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
   @ApiProperty()
   @IsNumber()
   @Min(0.01)

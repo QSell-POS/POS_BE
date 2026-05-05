@@ -8,6 +8,11 @@ export class CreatePurchaseItemDto {
   @IsUUID()
   productId: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
   @ApiProperty()
   @IsNumber()
   @Min(0.01)
@@ -112,9 +117,9 @@ export class CreatePurchaseReturnDto {
   @Min(0)
   amountReceivedFromSupplier?: number;
 
-  @ApiProperty({ description: 'Array of {productId, quantity, unitCost, reason}' })
+  @ApiProperty({ description: 'Array of {productId, variantId?, quantity, unitCost, reason}' })
   @IsArray()
-  items: { productId: string; quantity: number; unitCost: number; reason?: string }[];
+  items: { productId: string; variantId?: string; quantity: number; unitCost: number; reason?: string }[];
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -5,6 +5,7 @@ import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Category } from 'src/modules/categories/entities/category.entity';
 import { InventoryItem } from 'src/modules/inventory/entities/inventory-item.entity';
 import { ProductPrice } from './product-price.entity';
+import { ProductVariant } from './product-variant.entity';
 import { SaleItem } from 'src/modules/sales/entities/sale.entity';
 
 export enum ProductStatus {
@@ -95,6 +96,9 @@ export class Product extends TenantBaseEntity {
   @Column({ default: true, name: 'track_inventory' })
   trackInventory: boolean;
 
+  @Column({ name: 'has_variants', default: false })
+  hasVariants: boolean;
+
   // Relations
   @ManyToOne(() => Brand, (brand) => brand.products, { nullable: true })
   @JoinColumn({ name: 'brand_id' })
@@ -115,6 +119,9 @@ export class Product extends TenantBaseEntity {
 
   @OneToMany(() => InventoryItem, (inventory) => inventory.product)
   inventoryItems: InventoryItem[];
+
+  @OneToMany(() => ProductVariant, (variant) => variant.product)
+  variants: ProductVariant[];
 
   @OneToMany(() => SaleItem, (saleItem) => saleItem.product)
   saleItems: SaleItem[];

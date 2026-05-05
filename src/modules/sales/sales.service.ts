@@ -51,6 +51,7 @@ export class SalesService {
 
       for (const item of dto.items) {
         const product = await this.productsService.findOne(item.productId, shopId);
+        const variantId = item.variantId ?? await this.productsService.getDefaultVariantId(item.productId, shopId);
 
         const inv = product.inventoryItems?.[0];
         if (product.trackInventory && inv && Number(inv.quantityAvailable) < item.quantity) {
@@ -60,7 +61,7 @@ export class SalesService {
         const retailPrice = item.unitPrice ?? (await this.productsService.getCurrentPrice(item.productId, PriceType.RETAIL, shopId));
 
         // Use FIFO to determine actual cost of goods sold for this line item
-        const lineCogs = await this.inventoryService.consumeBatchesFIFO(item.productId, shopId, item.quantity, queryRunner);
+        const lineCogs = await this.inventoryService.consumeBatchesFIFO(variantId, shopId, item.quantity, queryRunner);
         const costPrice = item.quantity > 0 ? lineCogs / item.quantity : 0;
 
         const discountAmount = (retailPrice * item.quantity * (item.discountRate || 0)) / 100;
@@ -75,6 +76,7 @@ export class SalesService {
 
         enrichedItems.push({
           productId: item.productId,
+          variantId,
           quantity: item.quantity,
           unitPrice: retailPrice,
           costPrice,
@@ -130,6 +132,7 @@ export class SalesService {
         await this.inventoryService.adjustStock(
           {
             productId: item.productId,
+            variantId: item.variantId,
             quantity: item.quantity,
             movementType: InventoryMovementType.SALE,
             unitCost: item.costPrice,
@@ -254,6 +257,7 @@ export class SalesService {
       await this.inventoryService.adjustStock(
         {
           productId: item.productId,
+          variantId: item.variantId ?? await this.productsService.getDefaultVariantId(item.productId, shopId),
           quantity: item.quantity,
           movementType: InventoryMovementType.RETURN_IN,
           unitCost: Number(item.costPrice),
@@ -334,17 +338,20 @@ export class SalesService {
       ),
     );
 
-    // Build a cost lookup from original sale items
-    const costByProduct = Object.fromEntries(sale.items.map((i) => [i.productId, Number(i.costPrice)]));
+    // Build a cost/variant lookup from original sale items
+    const saleItemByProduct = Object.fromEntries(sale.items.map((i) => [i.productId, { costPrice: Number(i.costPrice), variantId: i.variantId }]));
 
     // Restore inventory with original cost so batch is recreated for future FIFO sales
     for (const item of dto.items) {
+      const original = saleItemByProduct[item.productId];
+      const variantId = original?.variantId ?? await this.productsService.getDefaultVariantId(item.productId, shopId);
       await this.inventoryService.adjustStock(
         {
           productId: item.productId,
+          variantId,
           quantity: item.quantity,
           movementType: InventoryMovementType.RETURN_IN,
-          unitCost: costByProduct[item.productId] ?? 0,
+          unitCost: original?.costPrice ?? 0,
           referenceId: savedReturn.referenceNumber,
           referenceType: 'sale_return',
           performedBy: userId,

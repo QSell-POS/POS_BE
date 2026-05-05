@@ -38,6 +38,7 @@ import { Category } from './modules/categories/entities/category.entity';
 import { Unit } from './modules/units/entities/unit.entity';
 import { Product } from './modules/products/entities/product.entity';
 import { ProductPrice } from './modules/products/entities/product-price.entity';
+import { ProductVariant } from './modules/products/entities/product-variant.entity';
 import { InventoryItem } from './modules/inventory/entities/inventory-item.entity';
 import { InventoryHistory } from './modules/inventory/entities/inventory-history.entity';
 import { InventoryBatch } from './modules/inventory/entities/inventory-batch.entity';
@@ -104,6 +105,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
           Unit,
           Product,
           ProductPrice,
+          ProductVariant,
           InventoryItem,
           InventoryHistory,
           InventoryBatch,

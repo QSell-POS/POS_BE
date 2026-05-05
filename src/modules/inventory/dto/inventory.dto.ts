@@ -8,6 +8,10 @@ export class AdjustStockDto {
   productId: string;
 
   @ApiProperty()
+  @IsUUID()
+  variantId: string;
+
+  @ApiProperty()
   @IsNumber()
   @Min(0.01)
   quantity: number;
@@ -29,6 +33,7 @@ export class AdjustStockDto {
 
 export interface StockAdjustmentDto {
   productId: string;
+  variantId: string;
   quantity: number;
   movementType: InventoryMovementType;
   notes?: string;

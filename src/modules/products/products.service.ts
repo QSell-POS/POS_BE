@@ -4,6 +4,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { Product } from 'src/modules/products/entities/product.entity';
 import { PriceType, ProductPrice } from './entities/product-price.entity';
+import { ProductVariant } from './entities/product-variant.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto, UpdateProductPriceDto } from './dto/product.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
@@ -15,6 +16,8 @@ export class ProductsService {
     private productRepository: Repository<Product>,
     @InjectRepository(ProductPrice)
     private priceRepository: Repository<ProductPrice>,
+    @InjectRepository(ProductVariant)
+    private variantRepository: Repository<ProductVariant>,
     @InjectRepository(InventoryItem)
     private inventoryRepository: Repository<InventoryItem>,
     private dataSource: DataSource,
@@ -201,11 +204,23 @@ export class ProductsService {
 
       await queryRunner.manager.save(ProductPrice, prices);
 
-      // Create inventory item
+      // Create default variant (always, for internal tracking)
+      const defaultVariant = await queryRunner.manager.save(ProductVariant, {
+        productId: saved.id,
+        name: 'Default',
+        sku: saved.sku,
+        barcode: saved.barcode,
+        isDefault: true,
+        isActive: true,
+        shopId,
+      });
+
+      // Create inventory item scoped to the default variant
       if (dto.type !== 'service' && dto.type !== 'digital') {
         await queryRunner.manager.save(InventoryItem, {
           shopId,
           productId: saved.id,
+          variantId: defaultVariant.id,
           quantityOnHand: dto.initialQuantity || 0,
           quantityAvailable: dto.initialQuantity || 0,
           quantityReserved: 0,
@@ -287,5 +302,56 @@ export class ProductsService {
     await this.productRepository.restore(id);
     await this.inventoryRepository.restore({ productId: id });
     return { message: 'Product restored' };
+  }
+
+  async getDefaultVariantId(productId: string, shopId: string): Promise<string> {
+    const variant = await this.variantRepository.findOne({
+      where: { productId, shopId, isDefault: true },
+    });
+    if (!variant) throw new NotFoundException(`No default variant found for product ${productId}`);
+    return variant.id;
+  }
+
+  async getVariants(productId: string, shopId: string) {
+    const product = await this.findOne(productId, shopId);
+    const variants = await this.variantRepository.find({
+      where: { productId: product.id, shopId },
+      order: { isDefault: 'DESC', createdAt: 'ASC' },
+    });
+    return { data: variants, message: 'Variants retrieved successfully' };
+  }
+
+  async createVariant(productId: string, dto: { name: string; sku?: string; barcode?: string; attributes?: Record<string, string> }, shopId: string) {
+    const product = await this.findOne(productId, shopId);
+    await this.productRepository.update(product.id, { hasVariants: true });
+    const variant = this.variantRepository.create({
+      productId: product.id,
+      name: dto.name,
+      sku: dto.sku,
+      barcode: dto.barcode,
+      attributes: dto.attributes,
+      isDefault: false,
+      isActive: true,
+      shopId,
+    });
+    const saved = await this.variantRepository.save(variant);
+    // Create inventory slot for this variant
+    await this.inventoryRepository.save({
+      shopId,
+      productId: product.id,
+      variantId: saved.id,
+      quantityOnHand: 0,
+      quantityAvailable: 0,
+      quantityReserved: 0,
+    });
+    return { data: saved, message: 'Variant created successfully' };
+  }
+
+  async updateVariant(productId: string, variantId: string, dto: Partial<{ name: string; sku: string; barcode: string; attributes: Record<string, string>; isActive: boolean }>, shopId: string) {
+    const variant = await this.variantRepository.findOne({ where: { id: variantId, productId, shopId } });
+    if (!variant) throw new NotFoundException('Variant not found');
+    Object.assign(variant, dto);
+    const saved = await this.variantRepository.save(variant);
+    return { data: saved, message: 'Variant updated successfully' };
   }
 }

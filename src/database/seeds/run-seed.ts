@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv';
 
 import { Product } from 'src/modules/products/entities/product.entity';
 import { ProductPrice, PriceType } from 'src/modules/products/entities/product-price.entity';
+import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import { InventoryItem } from 'src/modules/inventory/entities/inventory-item.entity';
 import { InventoryHistory, InventoryMovementType } from 'src/modules/inventory/entities/inventory-history.entity';
 import { InventoryBatch } from 'src/modules/inventory/entities/inventory-batch.entity';
@@ -594,12 +595,24 @@ async function seed() {
 
       await qr.manager.save(ProductPrice, prices);
 
+      // 🔖 Default variant
+      const defaultVariant = await qr.manager.save(ProductVariant, {
+        shopId: shop.id,
+        productId: saved.id,
+        name: 'Default',
+        sku: saved.sku,
+        barcode: saved.barcode,
+        isDefault: true,
+        isActive: true,
+      });
+
       // 📦 Inventory
       const qty = item.quantity;
 
       const inventory = await qr.manager.save(InventoryItem, {
         shopId: shop.id,
         productId: saved.id,
+        variantId: defaultVariant.id,
         quantityOnHand: qty,
         quantityAvailable: qty,
         quantityReserved: 0,
@@ -612,6 +625,7 @@ async function seed() {
         shopId: shop.id,
         inventoryItemId: inventory.id,
         productId: saved.id,
+        variantId: defaultVariant.id,
         movementType: InventoryMovementType.OPENING_STOCK,
         quantity: qty,
         quantityBefore: 0,
@@ -625,6 +639,7 @@ async function seed() {
       await qr.manager.save(InventoryBatch, {
         shopId: shop.id,
         productId: saved.id,
+        variantId: defaultVariant.id,
         purchasePrice: item.purchasePrice,
         quantityReceived: qty,
         quantityRemaining: qty,

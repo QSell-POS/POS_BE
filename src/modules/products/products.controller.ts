@@ -75,4 +75,29 @@ export class ProductsController {
   restore(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
     return this.productsService.restore(id, user.shopId);
   }
+
+  @Get(':id/variants')
+  @ApiOperation({ summary: 'List variants for a product' })
+  getVariants(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
+    return this.productsService.getVariants(id, user.shopId);
+  }
+
+  @Post(':id/variants')
+  @ApiOperation({ summary: 'Add a variant to a product' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
+  createVariant(@Param('id', UuidParamPipe) id: string, @Body() dto: any, @CurrentUser() user: any) {
+    return this.productsService.createVariant(id, dto, user.shopId);
+  }
+
+  @Put(':id/variants/:variantId')
+  @ApiOperation({ summary: 'Update a product variant' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
+  updateVariant(
+    @Param('id', UuidParamPipe) id: string,
+    @Param('variantId', UuidParamPipe) variantId: string,
+    @Body() dto: any,
+    @CurrentUser() user: any,
+  ) {
+    return this.productsService.updateVariant(id, variantId, dto, user.shopId);
+  }
 }

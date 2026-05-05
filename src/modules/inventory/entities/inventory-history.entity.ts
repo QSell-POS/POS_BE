@@ -3,13 +3,14 @@ import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { InventoryItem } from './inventory-item.entity';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
+import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import { User } from 'src/modules/users/entities/user.entity';
 
 export enum InventoryMovementType {
   PURCHASE = 'purchase',
   SALE = 'sale',
-  RETURN_IN = 'return_in', // Return from customer
-  RETURN_OUT = 'return_out', // Return to supplier
+  RETURN_IN = 'return_in',
+  RETURN_OUT = 'return_out',
   ADJUSTMENT_IN = 'adjustment_in',
   ADJUSTMENT_OUT = 'adjustment_out',
   TRANSFER_IN = 'transfer_in',
@@ -27,6 +28,9 @@ export class InventoryHistory extends TenantBaseEntity {
   @Column({ name: 'product_id' })
   productId: string;
 
+  @Column({ name: 'variant_id' })
+  variantId: string;
+
   @Column({ type: 'enum', enum: InventoryMovementType, name: 'movement_type' })
   movementType: InventoryMovementType;
 
@@ -43,7 +47,7 @@ export class InventoryHistory extends TenantBaseEntity {
   unitCost: number;
 
   @Column({ nullable: true, name: 'reference_id' })
-  referenceId: string; // invoice/reference number (e.g. INV-..., PO-..., SRN-..., TRF-...)
+  referenceId: string;
 
   @Column({ nullable: true, name: 'reference_type', length: 50 })
   referenceType: string;
@@ -65,4 +69,8 @@ export class InventoryHistory extends TenantBaseEntity {
   @ManyToOne(() => Product)
   @JoinColumn({ name: 'product_id' })
   product: Product;
+
+  @ManyToOne(() => ProductVariant)
+  @JoinColumn({ name: 'variant_id' })
+  variant: ProductVariant;
 }
