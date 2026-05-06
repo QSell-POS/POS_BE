@@ -546,7 +546,7 @@ async function seed() {
 
     // 6. 🛒 Products + 💰 Prices + 📦 Inventory + 🧾 History
     for (const item of products) {
-      let existing = await qr.manager.findOne(Product, {
+      let existing = await qr.manager.findOne(ProductVariant, {
         where: { sku: item.sku, shopId: shop.id },
       });
 
@@ -554,12 +554,10 @@ async function seed() {
 
       const product = qr.manager.create(Product, {
         name: item.name,
-        sku: item.sku,
         shopId: shop.id,
         brandId: brandMap[item.brand]?.id,
         categoryId: categoryMap[item.category]?.id,
         unitId: unitMap[item.unit]?.id,
-        minStockLevel: item.minStockLevel,
       });
 
       const saved = await qr.manager.save(product);
@@ -600,8 +598,8 @@ async function seed() {
         shopId: shop.id,
         productId: saved.id,
         name: 'Default',
-        sku: saved.sku,
-        barcode: saved.barcode,
+        sku: item.sku,
+        minStockLevel: item.minStockLevel ?? 0,
         isDefault: true,
         isActive: true,
       });

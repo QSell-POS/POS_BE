@@ -75,8 +75,8 @@ export class AnalyticsService {
       this.productRepository.count({ where: { shopId } }),
       this.inventoryRepository
         .createQueryBuilder('inv')
-        .innerJoin('inv.product', 'p')
-        .where('inv.shopId = :shopId AND inv.quantityAvailable <= p.minStockLevel AND p.trackInventory = true', { shopId })
+        .innerJoin('inv.variant', 'v')
+        .where('inv.shopId = :shopId AND inv.quantityAvailable <= v.minStockLevel AND v.trackInventory = true', { shopId })
         .getCount(),
     ]);
 
@@ -205,7 +205,6 @@ export class AnalyticsService {
 
       .select('p.id', 'productId')
       .addSelect('p.name', 'productName')
-      .addSelect('p.sku', 'sku')
       .addSelect('brand.name', 'brandName')
       .addSelect('category.name', 'categoryName')
       .addSelect('unit.symbol', 'unitSymbol')
@@ -232,7 +231,6 @@ export class AnalyticsService {
       data: rows.map((row) => ({
         productId: row.productId,
         name: row.productName,
-        sku: row.sku,
         brandName: row.brandName,
         categoryName: row.categoryName,
         unitSymbol: row.unitSymbol,

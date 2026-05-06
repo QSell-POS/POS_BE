@@ -1,5 +1,6 @@
 import { IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
-import { ProductStatus, ProductType } from '../entities/product.entity';
+import { ProductType } from '../entities/product.entity';
+import { ProductStatus } from '../entities/product-variant.entity';
 import { PriceType } from '../entities/product-price.entity';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 

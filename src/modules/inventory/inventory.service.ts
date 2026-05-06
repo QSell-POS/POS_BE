@@ -22,7 +22,7 @@ export class InventoryService {
   async getInventory(shopId: string, page = 1, limit = 20) {
     const [rawData, total] = await this.inventoryRepository.findAndCount({
       where: { shopId },
-      relations: ['product', 'product.brand', 'product.category', 'product.unit'],
+      relations: ['product', 'product.brand', 'product.category', 'product.unit', 'variant'],
       skip: (page - 1) * limit,
       take: limit,
       order: { createdAt: 'DESC' },
@@ -34,15 +34,16 @@ export class InventoryService {
       updatedAt: p.updatedAt,
       shopId: p.shopId,
       productId: p.productId,
+      variantId: p.variantId,
       quantityOnHand: p.quantityOnHand,
       quantityReserved: p.quantityReserved,
       quantityAvailable: p.quantityAvailable,
-      minStockLevel: p.product.minStockLevel,
-      maxStockLevel: p.product.maxStockLevel,
+      minStockLevel: p.variant?.minStockLevel ?? null,
+      maxStockLevel: p.variant?.maxStockLevel ?? null,
       product: {
         name: p.product.name,
-        sku: p.product.sku,
-        barcode: p.product.barcode,
+        sku: p.variant?.sku ?? null,
+        barcode: p.variant?.barcode ?? null,
         brand: p.product.brand?.name,
         category: p.product.category?.name,
         unit: p.product.unit?.symbol,
@@ -69,11 +70,12 @@ export class InventoryService {
     const qb = this.inventoryRepository
       .createQueryBuilder('inv')
       .leftJoinAndSelect('inv.product', 'product')
+      .leftJoinAndSelect('inv.variant', 'variant')
       .leftJoinAndSelect('product.brand', 'brand')
       .leftJoinAndSelect('product.unit', 'unit')
       .where('inv.shopId = :shopId', { shopId })
-      .andWhere('inv.quantityAvailable <= product.minStockLevel')
-      .andWhere('product.trackInventory = true');
+      .andWhere('inv.quantityAvailable <= variant.minStockLevel')
+      .andWhere('variant.trackInventory = true');
 
     const total = await qb.getCount();
     const data = await qb

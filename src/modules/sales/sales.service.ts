@@ -51,10 +51,13 @@ export class SalesService {
 
       for (const item of dto.items) {
         const product = await this.productsService.findOne(item.productId, shopId);
-        const variantId = item.variantId ?? await this.productsService.getDefaultVariantId(item.productId, shopId);
+        const variant = item.variantId
+          ? await this.productsService.getDefaultVariant(item.productId, shopId)
+          : await this.productsService.getDefaultVariant(item.productId, shopId);
+        const variantId = item.variantId ?? variant.id;
 
-        const inv = product.inventoryItems?.[0];
-        if (product.trackInventory && inv && Number(inv.quantityAvailable) < item.quantity) {
+        const inv = product.inventoryItems?.find((i) => i.variantId === variantId) ?? product.inventoryItems?.[0];
+        if (variant.trackInventory && inv && Number(inv.quantityAvailable) < item.quantity) {
           throw new BadRequestException(`Insufficient stock for "${product.name}". Available: ${inv.quantityAvailable}`);
         }
 

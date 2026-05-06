@@ -4,7 +4,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { Product } from 'src/modules/products/entities/product.entity';
 import { PriceType, ProductPrice } from './entities/product-price.entity';
-import { ProductVariant } from './entities/product-variant.entity';
+import { ProductVariant, ProductStatus } from './entities/product-variant.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { CreateProductDto, ProductFilterDto, UpdateProductDto, UpdateProductPriceDto } from './dto/product.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
@@ -32,18 +32,22 @@ export class ProductsService {
       .leftJoinAndSelect('p.category', 'category')
       .leftJoinAndSelect('p.unit', 'unit')
       .leftJoinAndSelect('p.prices', 'price', 'price.isCurrent = true')
-      .leftJoinAndSelect('p.inventoryItems', 'inv')
+      .leftJoinAndSelect('p.variants', 'variant', 'variant.isDefault = true')
+      .leftJoinAndSelect('p.inventoryItems', 'inv', 'inv.variantId = variant.id')
       .where('p.shopId = :shopId', { shopId })
       .andWhere('p.deletedAt IS NULL');
 
     if (search) {
-      qb.andWhere('(p.name ILIKE :search OR p.sku ILIKE :search OR p.barcode ILIKE :search)', { search: `%${search}%` });
+      qb.andWhere(
+        '(p.name ILIKE :search OR variant.sku ILIKE :search OR variant.barcode ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
     if (categoryId) qb.andWhere('p.categoryId = :categoryId', { categoryId });
     if (brandId) qb.andWhere('p.brandId = :brandId', { brandId });
-    if (status) qb.andWhere('p.status = :status', { status });
+    if (status) qb.andWhere('variant.status = :status', { status });
     if (lowStock) {
-      qb.andWhere('inv.quantityAvailable <= p.minStockLevel');
+      qb.andWhere('inv.quantityAvailable <= variant.minStockLevel');
     }
 
     const total = await qb.getCount();
@@ -58,35 +62,42 @@ export class ProductsService {
         (acc, pr) => { acc[pr.priceType] = Number(pr.price); return acc; },
         {} as Record<string, number>,
       );
+      const defaultVariant = p.variants?.[0];
+      const inventory = p.inventoryItems?.[0];
       return {
         id: p.id,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
         shopId: p.shopId,
         name: p.name,
-        sku: p.sku,
-        barcode: p.barcode,
         description: p.description,
-        image: p.image,
-        status: p.status,
         type: p.type,
         brandId: p.brandId,
         categoryId: p.categoryId,
         unitId: p.unitId,
         taxRate: p.taxRate,
-        minStockLevel: p.minStockLevel,
-        maxStockLevel: p.maxStockLevel,
+        hasVariants: p.hasVariants,
         brand: p.brand?.name,
         category: p.category?.name,
         unit: p.unit?.symbol,
+        // default variant fields (flat)
+        variantId: defaultVariant?.id ?? null,
+        sku: defaultVariant?.sku ?? null,
+        barcode: defaultVariant?.barcode ?? null,
+        image: defaultVariant?.image ?? null,
+        status: defaultVariant?.status ?? null,
+        minStockLevel: defaultVariant?.minStockLevel ?? null,
+        maxStockLevel: defaultVariant?.maxStockLevel ?? null,
+        reorderPoint: defaultVariant?.reorderPoint ?? null,
+        trackInventory: defaultVariant?.trackInventory ?? true,
         purchasePrice: priceMap[PriceType.PURCHASE] ?? null,
         retailPrice: priceMap[PriceType.RETAIL] ?? null,
         wholesalePrice: priceMap[PriceType.WHOLESALE] ?? null,
-        inventory: p.inventoryItems?.[0]
+        inventory: inventory
           ? {
-              quantityOnHand: p.inventoryItems[0].quantityOnHand,
-              quantityReserved: p.inventoryItems[0].quantityReserved,
-              quantityAvailable: p.inventoryItems[0].quantityAvailable,
+              quantityOnHand: inventory.quantityOnHand,
+              quantityReserved: inventory.quantityReserved,
+              quantityAvailable: inventory.quantityAvailable,
             }
           : null,
       };
@@ -102,24 +113,24 @@ export class ProductsService {
   async findOne(id: string, shopId: string) {
     const product = await this.productRepository.findOne({
       where: { id, shopId },
-      relations: ['brand', 'category', 'unit', 'prices', 'inventoryItems'],
+      relations: ['brand', 'category', 'unit', 'prices', 'variants', 'inventoryItems'],
     });
     if (!product) throw new NotFoundException('Product not found');
     return product;
   }
 
   async findByBarcode(barcode: string, shopId: string) {
-    const product = await this.productRepository
-      .createQueryBuilder('p')
+    const variant = await this.variantRepository
+      .createQueryBuilder('v')
+      .leftJoinAndSelect('v.product', 'p')
       .leftJoinAndSelect('p.brand', 'brand')
       .leftJoinAndSelect('p.unit', 'unit')
       .leftJoinAndSelect('p.prices', 'price', 'price.isCurrent = true AND price.priceType = :retailType', { retailType: PriceType.RETAIL })
-      .leftJoinAndSelect('p.inventoryItems', 'inv')
-      .where('p.barcode = :barcode AND p.shopId = :shopId', { barcode, shopId })
+      .where('v.barcode = :barcode AND v.shopId = :shopId', { barcode, shopId })
       .getOne();
 
-    if (!product) throw new NotFoundException('Product not found');
-    return product;
+    if (!variant) throw new NotFoundException('Product not found');
+    return variant;
   }
 
   async getPriceHistory(productId: string, shopId: string) {
@@ -141,29 +152,20 @@ export class ProductsService {
     return price?.price ?? 0;
   }
 
-  private generateSku(name: string, shopId: string): string {
-    const prefix = name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4).padEnd(4, 'X');
-    const suffix = Date.now().toString(36).toUpperCase().slice(-5);
-    return `${prefix}-${suffix}`;
-  }
-
-  private generateBarcode(): string {
-    const ts = Date.now().toString();
-    const rand = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return ts.slice(-8) + rand;
-  }
-
   async create(dto: CreateProductDto, shopId: string, userId: string) {
-    if (!dto.sku) dto.sku = this.generateSku(dto.name, shopId);
-    if (!dto.barcode) dto.barcode = this.generateBarcode();
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // Create product
       const product = queryRunner.manager.create(Product, {
-        ...dto,
+        name: dto.name,
+        description: dto.description,
+        type: dto.type,
+        brandId: dto.brandId,
+        categoryId: dto.categoryId,
+        unitId: dto.unitId,
+        taxRate: dto.taxRate,
         shopId,
       });
       const saved = await queryRunner.manager.save(Product, product);
@@ -204,12 +206,18 @@ export class ProductsService {
 
       await queryRunner.manager.save(ProductPrice, prices);
 
-      // Create default variant (always, for internal tracking)
+      // Create default variant with variant-level fields
       const defaultVariant = await queryRunner.manager.save(ProductVariant, {
         productId: saved.id,
         name: 'Default',
-        sku: saved.sku,
-        barcode: saved.barcode,
+        sku: dto.sku,
+        barcode: dto.barcode,
+        image: dto.image,
+        status: dto.status ?? ProductStatus.ACTIVE,
+        minStockLevel: dto.minStockLevel ?? 0,
+        maxStockLevel: dto.maxStockLevel,
+        reorderPoint: dto.reorderPoint ?? 0,
+        trackInventory: dto.trackInventory ?? true,
         isDefault: true,
         isActive: true,
         shopId,
@@ -242,9 +250,29 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto, shopId: string) {
     const product = await this.findOne(id, shopId);
-    Object.assign(product, dto);
+
+    // Separate product-level fields from variant-level fields
+    const { sku, barcode, image, status, minStockLevel, maxStockLevel, reorderPoint, trackInventory, ...productFields } = dto;
+    Object.assign(product, productFields);
+    await this.productRepository.save(product);
+
+    // Update default variant if any variant-level fields are provided
+    const variantUpdate: Partial<ProductVariant> = {};
+    if (sku !== undefined) variantUpdate.sku = sku;
+    if (barcode !== undefined) variantUpdate.barcode = barcode;
+    if (image !== undefined) variantUpdate.image = image;
+    if (status !== undefined) variantUpdate.status = status;
+    if (minStockLevel !== undefined) variantUpdate.minStockLevel = minStockLevel;
+    if (maxStockLevel !== undefined) variantUpdate.maxStockLevel = maxStockLevel;
+    if (reorderPoint !== undefined) variantUpdate.reorderPoint = reorderPoint;
+    if (trackInventory !== undefined) variantUpdate.trackInventory = trackInventory;
+
+    if (Object.keys(variantUpdate).length > 0) {
+      await this.variantRepository.update({ productId: id, isDefault: true, shopId }, variantUpdate);
+    }
+
     return {
-      data: await this.productRepository.save(product),
+      data: await this.findOne(id, shopId),
       message: 'Product updated successfully',
     };
   }
@@ -255,14 +283,12 @@ export class ProductsService {
     await queryRunner.startTransaction();
 
     try {
-      // Expire current price
       await queryRunner.manager.update(
         ProductPrice,
         { productId, priceType: dto.priceType, isCurrent: true, shopId },
         { isCurrent: false, effectiveTo: new Date() },
       );
 
-      // Insert new price
       const newPrice = queryRunner.manager.create(ProductPrice, {
         productId,
         priceType: dto.priceType,
@@ -312,6 +338,14 @@ export class ProductsService {
     return variant.id;
   }
 
+  async getDefaultVariant(productId: string, shopId: string): Promise<ProductVariant> {
+    const variant = await this.variantRepository.findOne({
+      where: { productId, shopId, isDefault: true },
+    });
+    if (!variant) throw new NotFoundException(`No default variant found for product ${productId}`);
+    return variant;
+  }
+
   async getVariants(productId: string, shopId: string) {
     const product = await this.findOne(productId, shopId);
     const variants = await this.variantRepository.find({
@@ -321,7 +355,7 @@ export class ProductsService {
     return { data: variants, message: 'Variants retrieved successfully' };
   }
 
-  async createVariant(productId: string, dto: { name: string; sku?: string; barcode?: string; attributes?: Record<string, string> }, shopId: string) {
+  async createVariant(productId: string, dto: { name: string; sku?: string; barcode?: string; image?: string; status?: ProductStatus; minStockLevel?: number; maxStockLevel?: number; reorderPoint?: number; trackInventory?: boolean; attributes?: Record<string, string> }, shopId: string) {
     const product = await this.findOne(productId, shopId);
     await this.productRepository.update(product.id, { hasVariants: true });
     const variant = this.variantRepository.create({
@@ -329,13 +363,18 @@ export class ProductsService {
       name: dto.name,
       sku: dto.sku,
       barcode: dto.barcode,
+      image: dto.image,
+      status: dto.status ?? ProductStatus.ACTIVE,
+      minStockLevel: dto.minStockLevel ?? 0,
+      maxStockLevel: dto.maxStockLevel,
+      reorderPoint: dto.reorderPoint ?? 0,
+      trackInventory: dto.trackInventory ?? true,
       attributes: dto.attributes,
       isDefault: false,
       isActive: true,
       shopId,
     });
     const saved = await this.variantRepository.save(variant);
-    // Create inventory slot for this variant
     await this.inventoryRepository.save({
       shopId,
       productId: product.id,
@@ -347,7 +386,7 @@ export class ProductsService {
     return { data: saved, message: 'Variant created successfully' };
   }
 
-  async updateVariant(productId: string, variantId: string, dto: Partial<{ name: string; sku: string; barcode: string; attributes: Record<string, string>; isActive: boolean }>, shopId: string) {
+  async updateVariant(productId: string, variantId: string, dto: Partial<{ name: string; sku: string; barcode: string; image: string; status: ProductStatus; minStockLevel: number; maxStockLevel: number; reorderPoint: number; trackInventory: boolean; attributes: Record<string, string>; isActive: boolean }>, shopId: string) {
     const variant = await this.variantRepository.findOne({ where: { id: variantId, productId, shopId } });
     if (!variant) throw new NotFoundException('Variant not found');
     Object.assign(variant, dto);

@@ -59,13 +59,14 @@ export class ReportsService {
     const items = await this.inventoryRepository
       .createQueryBuilder('inv')
       .leftJoinAndSelect('inv.product', 'p')
+      .leftJoinAndSelect('inv.variant', 'v')
       .where('inv.shopId = :shopId', { shopId })
       .orderBy('p.name', 'ASC')
       .getMany();
 
     const rows = items.map((inv) => ({
       'Product Name': inv.product?.name || 'Unknown',
-      SKU: inv.product?.sku || '',
+      SKU: inv.variant?.sku || '',
       'Quantity On Hand': Number(inv.quantityOnHand),
       'Quantity Reserved': Number(inv.quantityReserved),
       'Quantity Available': Number(inv.quantityAvailable),
