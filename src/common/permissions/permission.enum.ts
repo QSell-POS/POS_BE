@@ -1,3 +1,5 @@
+import { UserRole } from 'src/modules/users/entities/user.entity';
+
 export enum Permission {
   // Products
   PRODUCTS_VIEW = 'products:view',
@@ -70,6 +72,41 @@ export const PRESET_PERMISSIONS: Record<StaffPreset, Permission[]> = {
   ],
 
   [StaffPreset.CUSTOM]: [],
+};
+
+/** Default permissions assigned automatically based on role when creating a staff member */
+export const DEFAULT_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.CASHIER]: [
+    Permission.PRODUCTS_VIEW,
+    Permission.SALES_VIEW,
+    Permission.SALES_CREATE,
+    Permission.CUSTOMERS_VIEW,
+  ],
+  [UserRole.VIEWER]: [
+    Permission.PRODUCTS_VIEW,
+    Permission.SALES_VIEW,
+    Permission.INVENTORY_VIEW,
+    Permission.REPORTS_VIEW,
+    Permission.CUSTOMERS_VIEW,
+    Permission.PURCHASES_VIEW,
+  ],
+  [UserRole.MANAGER]: [
+    Permission.PRODUCTS_VIEW,
+    Permission.PRODUCTS_MANAGE,
+    Permission.SALES_VIEW,
+    Permission.SALES_CREATE,
+    Permission.SALES_VOID,
+    Permission.INVENTORY_VIEW,
+    Permission.INVENTORY_ADJUST,
+    Permission.REPORTS_VIEW,
+    Permission.CUSTOMERS_VIEW,
+    Permission.CUSTOMERS_MANAGE,
+    Permission.PURCHASES_VIEW,
+    Permission.PURCHASES_CREATE,
+    Permission.STAFF_VIEW,
+  ],
+  [UserRole.ADMIN]: [],
+  [UserRole.SUPER_ADMIN]: [],
 };
 
 /** Human-readable descriptions for each permission (useful for the frontend) */

@@ -6,20 +6,12 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
-import { Permission, PERMISSION_META, PRESET_PERMISSIONS, StaffPreset } from 'src/common/permissions/permission.enum';
+import { DEFAULT_PERMISSIONS, Permission, PERMISSION_META } from 'src/common/permissions/permission.enum';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
-import { CreateStaffDto, SetPermissionsDto, StaffFilterDto, UpdateStaffDto, ApplyPresetDto } from './staff.dto';
+import { CreateStaffDto, SetPermissionsDto, StaffFilterDto, UpdateStaffDto } from './staff.dto';
 
 /** Staff roles — any User that is NOT ADMIN or SUPER_ADMIN is considered staff */
 const STAFF_ROLES: UserRole[] = [UserRole.MANAGER, UserRole.CASHIER, UserRole.VIEWER];
-
-/** Determine which UserRole a preset maps to */
-const PRESET_TO_ROLE: Record<StaffPreset, UserRole> = {
-  [StaffPreset.CASHIER]:          UserRole.CASHIER,
-  [StaffPreset.INVENTORY_CLERK]:  UserRole.CASHIER,
-  [StaffPreset.MANAGER]:          UserRole.MANAGER,
-  [StaffPreset.CUSTOM]:           UserRole.CASHIER,
-};
 
 @Injectable()
 export class StaffService {
@@ -44,16 +36,15 @@ export class StaffService {
     const existing = await this.users.findOne({ where: { email: dto.email } });
     if (existing) throw new ConflictException('A user with this email already exists.');
 
-    const permissions: Permission[] = dto.permissions ?? PRESET_PERMISSIONS[dto.preset];
-    const role: UserRole = PRESET_TO_ROLE[dto.preset];
+    const permissions = DEFAULT_PERMISSIONS[dto.role] ?? [];
 
     const staff = this.users.create({
       firstName: dto.firstName,
       lastName: dto.lastName,
       email: dto.email,
-      password: dto.password, // hashed by @BeforeInsert on the entity
+      password: dto.password,
       phone: dto.phone,
-      role,
+      role: dto.role,
       permissions,
       shopId,
       status: UserStatus.ACTIVE,
@@ -129,16 +120,6 @@ export class StaffService {
     return { data: this.safeUser(saved), message: 'Permissions updated successfully.' };
   }
 
-  async applyPreset(id: string, dto: ApplyPresetDto, shopId: string) {
-    const user = await this.users.findOne({ where: { id, shopId } });
-    if (!user) throw new NotFoundException('Staff member not found.');
-    this.assertStaff(user);
-    user.permissions = PRESET_PERMISSIONS[dto.preset];
-    user.role = PRESET_TO_ROLE[dto.preset];
-    const saved = await this.users.save(user);
-    return { data: this.safeUser(saved), message: `Preset '${dto.preset}' applied successfully.` };
-  }
-
   async setStatus(id: string, status: UserStatus, shopId: string) {
     const user = await this.users.findOne({ where: { id, shopId } });
     if (!user) throw new NotFoundException('Staff member not found.');
@@ -159,15 +140,5 @@ export class StaffService {
   /** Return all available permissions with metadata, grouped by module */
   getPermissionsMeta() {
     return { data: PERMISSION_META, message: 'Permissions metadata retrieved.' };
-  }
-
-  /** Return all presets with their default permission lists */
-  getPresets() {
-    const entries = Object.values(StaffPreset).map((preset) => ({
-      preset,
-      role: PRESET_TO_ROLE[preset],
-      permissions: PRESET_PERMISSIONS[preset],
-    }));
-    return { data: entries, message: 'Staff presets retrieved.' };
   }
 }

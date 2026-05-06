@@ -3,8 +3,10 @@ import {
   MinLength, IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Permission, StaffPreset } from 'src/common/permissions/permission.enum';
-import { UserStatus } from '../users/entities/user.entity';
+import { Permission } from 'src/common/permissions/permission.enum';
+import { UserRole, UserStatus } from '../users/entities/user.entity';
+
+const STAFF_ROLES = [UserRole.CASHIER, UserRole.MANAGER, UserRole.VIEWER];
 
 export class CreateStaffDto {
   @ApiProperty({ example: 'John' })
@@ -32,22 +34,12 @@ export class CreateStaffDto {
   phone?: string;
 
   @ApiProperty({
-    enum: StaffPreset,
-    example: StaffPreset.CASHIER,
-    description: 'Preset role — auto-fills default permissions that you can then override.',
+    enum: STAFF_ROLES,
+    example: UserRole.CASHIER,
+    description: 'Role for the staff member — default permissions are assigned automatically.',
   })
-  @IsEnum(StaffPreset)
-  preset: StaffPreset;
-
-  @ApiPropertyOptional({
-    type: [String],
-    enum: Permission,
-    description: 'Override the preset permissions with a custom list. If omitted the preset defaults are used.',
-  })
-  @IsOptional()
-  @IsArray()
-  @IsEnum(Permission, { each: true })
-  permissions?: Permission[];
+  @IsEnum(UserRole)
+  role: UserRole;
 }
 
 export class UpdateStaffDto {
@@ -81,12 +73,6 @@ export class SetPermissionsDto {
   @IsArray()
   @IsEnum(Permission, { each: true })
   permissions: Permission[];
-}
-
-export class ApplyPresetDto {
-  @ApiProperty({ enum: StaffPreset })
-  @IsEnum(StaffPreset)
-  preset: StaffPreset;
 }
 
 export class StaffFilterDto {

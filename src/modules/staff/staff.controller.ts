@@ -7,7 +7,7 @@ import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from 'src/common/guards/
 import { UserRole, UserStatus } from '../users/entities/user.entity';
 import { UuidParamPipe } from 'src/common/validator';
 import { StaffService } from './staff.service';
-import { CreateStaffDto, UpdateStaffDto, SetPermissionsDto, ApplyPresetDto, StaffFilterDto } from './staff.dto';
+import { CreateStaffDto, UpdateStaffDto, SetPermissionsDto, StaffFilterDto } from './staff.dto';
 
 @ApiTags('Staff')
 @ApiBearerAuth()
@@ -22,12 +22,6 @@ export class StaffController {
   @ApiOperation({ summary: 'List all available permissions with labels and groups' })
   getPermissionsMeta() {
     return this.staffService.getPermissionsMeta();
-  }
-
-  @Get('presets')
-  @ApiOperation({ summary: 'List all staff presets with their default permissions' })
-  getPresets() {
-    return this.staffService.getPresets();
   }
 
   // ── Management endpoints (ADMIN / SUPER_ADMIN only) ──────────────────────
@@ -73,17 +67,6 @@ export class StaffController {
     @CurrentUser() user: any,
   ) {
     return this.staffService.setPermissions(id, dto, user.shopId);
-  }
-
-  @Patch(':id/preset')
-  @ApiOperation({ summary: 'Apply a preset to a staff member (resets permissions to preset defaults)' })
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  applyPreset(
-    @Param('id', UuidParamPipe) id: string,
-    @Body() dto: ApplyPresetDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.staffService.applyPreset(id, dto, user.shopId);
   }
 
   @Patch(':id/activate')
