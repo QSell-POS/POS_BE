@@ -232,14 +232,14 @@ export class SalesService {
   async findOne(id: string, shopId: string) {
     const sale = await this.saleRepository.findOne({
       where: { id, shopId },
-      relations: ['customer', 'items', 'items.product', 'servedByUser'],
+      relations: ['customer', 'items', 'items.product', 'items.variant', 'servedByUser'],
     });
     if (!sale) throw new NotFoundException('Sale not found');
     const { servedByUser, items, ...rest } = sale;
-    const mappedItems = items.map(({ product, ...item }) => ({
+    const mappedItems = items.map(({ product, variant, ...item }) => ({
       ...item,
       productName: product?.name ?? null,
-      productSku: product?.sku ?? null,
+      productSku: variant?.sku ?? null,
     }));
     return {
       ...rest,
