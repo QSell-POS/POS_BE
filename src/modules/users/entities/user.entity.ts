@@ -3,6 +3,7 @@ import { BaseEntity } from 'src/common/entities/base.entity';
 import { Exclude } from 'class-transformer';
 import * as bcrypt from 'bcrypt';
 import { Expense } from 'src/modules/expenses/entities/expense.entity';
+import { Permission } from 'src/common/permissions/permission.enum';
 
 export enum UserRole {
   SUPER_ADMIN = 'super_admin',
@@ -77,6 +78,13 @@ export class User extends BaseEntity {
   @Column({ name: 'refresh_token', nullable: true, type: 'text' })
   @Exclude()
   refreshToken: string;
+
+  /**
+   * Fine-grained permission set for staff members.
+   * ADMIN / SUPER_ADMIN bypass all permission checks and this column is ignored for them.
+   */
+  @Column({ type: 'jsonb', default: [], nullable: false })
+  permissions: Permission[];
 
   @OneToMany(() => Expense, (expense) => expense.recordedByUser)
   expenses: Expense[];

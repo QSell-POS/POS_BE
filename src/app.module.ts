@@ -29,6 +29,7 @@ import { UploadModule } from './modules/upload/upload.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './modules/health/health.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StaffModule } from './modules/staff/staff.module';
 
 // Entities
 import { User } from './modules/users/entities/user.entity';
@@ -60,7 +61,7 @@ import { AuditLog } from './modules/audit/entities/audit-log.entity';
 
 import { appConfig, databaseConfig, jwtConfig, mailerConfig, uploadConfig } from './config/app.config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { JwtAuthGuard, RolesGuard } from './common/guards/auth.guard';
+import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards/auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { AppController } from './app.controller';
@@ -161,6 +162,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     AuditModule,
     HealthModule,
     ReportsModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [
@@ -168,6 +170,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
