@@ -4,6 +4,14 @@ export class FixStatusEnums1719999999999 implements MigrationInterface {
   name = 'FixStatusEnums1719999999999';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    const purchasesExists = await queryRunner.hasTable('purchases');
+    const salesExists = await queryRunner.hasTable('sales');
+
+    if (!purchasesExists || !salesExists) {
+      // Fresh database — tables not yet created, nothing to migrate
+      return;
+    }
+
     // =========================
     // 1. UPDATE DATA FIRST
     // =========================
@@ -42,45 +50,57 @@ export class FixStatusEnums1719999999999 implements MigrationInterface {
     // 3. FIX PURCHASE ENUM
     // =========================
 
-    await queryRunner.query(`
-      ALTER TYPE purchases_status_enum RENAME TO purchases_status_enum_old;
+    const purchasesEnumExists = await queryRunner.query(`
+      SELECT 1 FROM pg_type WHERE typname = 'purchases_status_enum'
     `);
 
-    await queryRunner.query(`
-      CREATE TYPE purchases_status_enum AS ENUM ('completed', 'cancelled');
-    `);
+    if (purchasesEnumExists.length > 0) {
+      await queryRunner.query(`
+        ALTER TYPE purchases_status_enum RENAME TO purchases_status_enum_old;
+      `);
 
-    await queryRunner.query(`
-      ALTER TABLE purchases
-      ALTER COLUMN status TYPE purchases_status_enum
-      USING status::text::purchases_status_enum;
-    `);
+      await queryRunner.query(`
+        CREATE TYPE purchases_status_enum AS ENUM ('completed', 'cancelled');
+      `);
 
-    await queryRunner.query(`
-      DROP TYPE purchases_status_enum_old;
-    `);
+      await queryRunner.query(`
+        ALTER TABLE purchases
+        ALTER COLUMN status TYPE purchases_status_enum
+        USING status::text::purchases_status_enum;
+      `);
+
+      await queryRunner.query(`
+        DROP TYPE purchases_status_enum_old;
+      `);
+    }
 
     // =========================
     // 4. FIX SALES ENUM
     // =========================
 
-    await queryRunner.query(`
-      ALTER TYPE sales_status_enum RENAME TO sales_status_enum_old;
+    const salesEnumExists = await queryRunner.query(`
+      SELECT 1 FROM pg_type WHERE typname = 'sales_status_enum'
     `);
 
-    await queryRunner.query(`
-      CREATE TYPE sales_status_enum AS ENUM ('completed');
-    `);
+    if (salesEnumExists.length > 0) {
+      await queryRunner.query(`
+        ALTER TYPE sales_status_enum RENAME TO sales_status_enum_old;
+      `);
 
-    await queryRunner.query(`
-      ALTER TABLE sales
-      ALTER COLUMN status TYPE sales_status_enum
-      USING status::text::sales_status_enum;
-    `);
+      await queryRunner.query(`
+        CREATE TYPE sales_status_enum AS ENUM ('completed');
+      `);
 
-    await queryRunner.query(`
-      DROP TYPE sales_status_enum_old;
-    `);
+      await queryRunner.query(`
+        ALTER TABLE sales
+        ALTER COLUMN status TYPE sales_status_enum
+        USING status::text::sales_status_enum;
+      `);
+
+      await queryRunner.query(`
+        DROP TYPE sales_status_enum_old;
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
