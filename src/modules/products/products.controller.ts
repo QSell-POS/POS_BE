@@ -3,7 +3,7 @@ import { ProductsService } from './products.service';
 import { UserRole } from '../users/entities/user.entity';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
 import { Get, Post, Body, Param, Delete, UseGuards, Controller, Query, Put, Patch } from '@nestjs/common';
-import { CreateProductDto, ProductFilterDto, UpdateProductDto, UpdateProductPriceDto } from './dto/product.dto';
+import { CreateProductDto, CreateVariantDto, ProductFilterDto, UpdateProductDto, UpdateProductPriceDto, UpdateVariantDto } from './dto/product.dto';
 import { UuidParamPipe } from 'src/common/validator';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
@@ -85,7 +85,7 @@ export class ProductsController {
   @Post(':id/variants')
   @ApiOperation({ summary: 'Add a variant to a product' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
-  createVariant(@Param('id', UuidParamPipe) id: string, @Body() dto: any, @CurrentUser() user: any) {
+  createVariant(@Param('id', UuidParamPipe) id: string, @Body() dto: CreateVariantDto, @CurrentUser() user: any) {
     return this.productsService.createVariant(id, dto, user.shopId);
   }
 
@@ -95,7 +95,7 @@ export class ProductsController {
   updateVariant(
     @Param('id', UuidParamPipe) id: string,
     @Param('variantId', UuidParamPipe) variantId: string,
-    @Body() dto: any,
+    @Body() dto: UpdateVariantDto,
     @CurrentUser() user: any,
   ) {
     return this.productsService.updateVariant(id, variantId, dto, user.shopId);

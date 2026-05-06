@@ -6,7 +6,7 @@ import { Product } from 'src/modules/products/entities/product.entity';
 import { PriceType, ProductPrice } from './entities/product-price.entity';
 import { ProductVariant, ProductStatus } from './entities/product-variant.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
-import { CreateProductDto, ProductFilterDto, UpdateProductDto, UpdateProductPriceDto } from './dto/product.dto';
+import { CreateProductDto, CreateVariantDto, ProductFilterDto, UpdateProductDto, UpdateProductPriceDto, UpdateVariantDto } from './dto/product.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
@@ -355,7 +355,7 @@ export class ProductsService {
     return { data: variants, message: 'Variants retrieved successfully' };
   }
 
-  async createVariant(productId: string, dto: { name: string; sku?: string; barcode?: string; image?: string; status?: ProductStatus; minStockLevel?: number; maxStockLevel?: number; reorderPoint?: number; trackInventory?: boolean; attributes?: Record<string, string> }, shopId: string) {
+  async createVariant(productId: string, dto: CreateVariantDto, shopId: string) {
     const product = await this.findOne(productId, shopId);
     await this.productRepository.update(product.id, { hasVariants: true });
     const variant = this.variantRepository.create({
@@ -386,7 +386,7 @@ export class ProductsService {
     return { data: saved, message: 'Variant created successfully' };
   }
 
-  async updateVariant(productId: string, variantId: string, dto: Partial<{ name: string; sku: string; barcode: string; image: string; status: ProductStatus; minStockLevel: number; maxStockLevel: number; reorderPoint: number; trackInventory: boolean; attributes: Record<string, string>; isActive: boolean }>, shopId: string) {
+  async updateVariant(productId: string, variantId: string, dto: UpdateVariantDto, shopId: string) {
     const variant = await this.variantRepository.findOne({ where: { id: variantId, productId, shopId } });
     if (!variant) throw new NotFoundException('Variant not found');
     Object.assign(variant, dto);
