@@ -81,10 +81,10 @@ export class StaffFilterDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: StaffPreset })
+  @ApiPropertyOptional({ enum: UserRole })
   @IsOptional()
-  @IsEnum(StaffPreset)
-  preset?: StaffPreset;
+  @IsEnum(UserRole)
+  role?: UserRole;
 
   @ApiPropertyOptional({ enum: UserStatus })
   @IsOptional()
