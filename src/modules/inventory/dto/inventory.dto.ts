@@ -33,7 +33,7 @@ export class AdjustStockDto {
 
 export interface StockAdjustmentDto {
   productId: string;
-  variantId: string;
+  variantId?: string;
   quantity: number;
   movementType: InventoryMovementType;
   notes?: string;

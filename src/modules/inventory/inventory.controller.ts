@@ -33,14 +33,14 @@ export class InventoryController {
 
   @Get('batches')
   @ApiOperation({ summary: 'Get all inventory batches (purchase cost layers for FIFO)' })
-  getBatches(@Query('productId') productId: string, @Query() pagination: PaginationDto, @CurrentUser() user: any) {
-    return this.inventoryService.getBatches(user.shopId, productId, pagination.page, pagination.limit);
+  getBatches(@Query('productId') productId: string, @Query('variantId') variantId: string, @Query() pagination: PaginationDto, @CurrentUser() user: any) {
+    return this.inventoryService.getBatches(user.shopId, productId, variantId, pagination.page, pagination.limit);
   }
 
   @Get('batches/product/:productId')
   @ApiOperation({ summary: 'Get inventory batches for a specific product' })
   getBatchesByProduct(@Param('productId') productId: string, @Query() pagination: PaginationDto, @CurrentUser() user: any) {
-    return this.inventoryService.getBatches(user.shopId, productId, pagination.page, pagination.limit);
+    return this.inventoryService.getBatches(user.shopId, productId, undefined, pagination.page, pagination.limit);
   }
 
   @Get('product/:productId')
