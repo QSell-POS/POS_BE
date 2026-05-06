@@ -1,5 +1,6 @@
 import { Entity, Column } from 'typeorm';
 import { BaseEntity } from 'src/common/entities/base.entity';
+import { ShopPlan } from 'src/common/plans/plan.config';
 
 export enum ShopStatus {
   ACTIVE = 'active',
@@ -41,4 +42,10 @@ export class Shop extends BaseEntity {
 
   @Column({ name: 'owner_id', nullable: true })
   ownerId: string;
+
+  @Column({ type: 'enum', enum: ShopPlan, default: ShopPlan.FREE })
+  plan: ShopPlan;
+
+  @Column({ name: 'plan_expires_at', nullable: true })
+  planExpiresAt: Date;
 }

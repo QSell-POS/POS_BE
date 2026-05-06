@@ -3,6 +3,7 @@ import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/
 import { UserRole } from '../users/entities/user.entity';
 import { CreateShopDto, ShopFilterDto, UpdateShopDto } from './dto/shop.dto';
 import { ShopsService } from './shops.service';
+import { PlanService } from 'src/common/plans/plan.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Shops')
@@ -10,7 +11,13 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('shops')
 export class ShopsController {
-  constructor(private readonly shopsService: ShopsService) {}
+  constructor(private readonly shopsService: ShopsService, private readonly planService: PlanService) {}
+
+  @Get('my-plan')
+  @ApiOperation({ summary: 'Get current shop plan and available features' })
+  getMyPlan(@CurrentUser() user: any) {
+    return this.planService.getPlanInfo(user.shopId);
+  }
 
   @Get()
   @Roles(UserRole.SUPER_ADMIN)

@@ -19,6 +19,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { CommonModule } from './common/common.module';
+import { PlanModule } from './common/plans/plan.module';
 import { UsersModule } from './modules/users/users.module';
 import { ShiftsModule } from './modules/shifts/shifts.module';
 import { DiscountsModule } from './modules/discounts/discounts.module';
@@ -139,6 +140,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     }),
     // Feature modules
     CommonModule,
+    PlanModule,
     AuthModule,
     UsersModule,
     ShopsModule,

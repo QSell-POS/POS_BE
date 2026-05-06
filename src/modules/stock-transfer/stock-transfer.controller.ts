@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard, CurrentUser, Roles } from 'src/common/guards/auth.guard';
+import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
 import { StockTransferService } from './stock-transfer.service';
 import {
@@ -11,7 +12,8 @@ import {
 
 @ApiTags('Stock Transfers')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
+@RequiresPlan('stockTransfer')
 @Controller('stock-transfers')
 export class StockTransferController {
   constructor(private readonly stockTransferService: StockTransferService) {}

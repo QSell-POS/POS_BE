@@ -2,6 +2,7 @@ import { ProductsService } from './products.service';
 
 import { UserRole } from '../users/entities/user.entity';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
+import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
 import {
   Get,
   Post,
@@ -60,6 +61,8 @@ export class ProductsController {
   }
 
   @Post('import')
+  @RequiresPlan('bulkImport')
+  @UseGuards(PlanGuard)
   @ApiOperation({ summary: 'Bulk import products and variants from an Excel file (.xlsx)' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({

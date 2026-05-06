@@ -1,6 +1,7 @@
 import { Controller, Get, Put, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard, CurrentUser, Roles } from 'src/common/guards/auth.guard';
+import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
 import { LoyaltyService } from './loyalty.service';
 import {
@@ -13,7 +14,8 @@ import {
 
 @ApiTags('Loyalty')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
+@RequiresPlan('loyalty')
 @Controller('loyalty')
 export class LoyaltyController {
   constructor(private readonly loyaltyService: LoyaltyService) {}

@@ -2,12 +2,14 @@ import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard, CurrentUser, Roles } from 'src/common/guards/auth.guard';
+import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
 import { ReportsService } from './reports.service';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
+@RequiresPlan('reports')
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}

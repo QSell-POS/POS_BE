@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { DEFAULT_PERMISSIONS, Permission, PERMISSION_META } from 'src/common/permissions/permission.enum';
+import { PlanService } from 'src/common/plans/plan.service';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { CreateStaffDto, SetPermissionsDto, StaffFilterDto, UpdateStaffDto } from './staff.dto';
 
@@ -15,7 +16,10 @@ const STAFF_ROLES: UserRole[] = [UserRole.MANAGER, UserRole.CASHIER, UserRole.VI
 
 @Injectable()
 export class StaffService {
-  constructor(@InjectRepository(User) private users: Repository<User>) {}
+  constructor(
+    @InjectRepository(User) private users: Repository<User>,
+    private planService: PlanService,
+  ) {}
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -35,6 +39,9 @@ export class StaffService {
   async create(dto: CreateStaffDto, shopId: string): Promise<{ data: any; message: string }> {
     const existing = await this.users.findOne({ where: { email: dto.email } });
     if (existing) throw new ConflictException('A user with this email already exists.');
+
+    const staffCount = await this.users.count({ where: { shopId } });
+    await this.planService.assertQuantity(shopId, 'maxStaff', staffCount);
 
     const permissions = DEFAULT_PERMISSIONS[dto.role] ?? [];
 
