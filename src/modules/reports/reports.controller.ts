@@ -1,7 +1,8 @@
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { JwtAuthGuard, RolesGuard, CurrentUser, Roles } from 'src/common/guards/auth.guard';
+import { JwtAuthGuard, RolesGuard, CurrentUser, Roles, Permissions } from 'src/common/guards/auth.guard';
+import { Permission } from 'src/common/permissions/permission.enum';
 import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
 import { ReportsService } from './reports.service';
@@ -10,11 +11,13 @@ import { ReportsService } from './reports.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
 @RequiresPlan('reports')
+@Permissions(Permission.REPORTS_VIEW)
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get('sales/excel')
+  @Permissions(Permission.REPORTS_EXPORT)
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Export sales to Excel (.xlsx)' })
   @ApiQuery({ name: 'startDate', required: false, description: 'Start date (ISO string)' })
@@ -35,6 +38,7 @@ export class ReportsController {
   }
 
   @Get('inventory/excel')
+  @Permissions(Permission.REPORTS_EXPORT)
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Export inventory to Excel (.xlsx)' })
   async exportInventory(@CurrentUser() user: any, @Res() res: Response) {

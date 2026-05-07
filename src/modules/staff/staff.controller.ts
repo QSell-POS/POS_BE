@@ -3,7 +3,8 @@ import {
   Body, Param, Query, UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from 'src/common/guards/auth.guard';
+import { JwtAuthGuard, RolesGuard, Roles, CurrentUser, Permissions } from 'src/common/guards/auth.guard';
+import { Permission } from 'src/common/permissions/permission.enum';
 import { UserRole, UserStatus } from '../users/entities/user.entity';
 import { UuidParamPipe } from 'src/common/validator';
 import { StaffService } from './staff.service';
@@ -27,6 +28,7 @@ export class StaffController {
   // ── Management endpoints (ADMIN / SUPER_ADMIN only) ──────────────────────
 
   @Post()
+  @Permissions(Permission.STAFF_CREATE)
   @ApiOperation({ summary: 'Create a new staff member' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   create(@Body() dto: CreateStaffDto, @CurrentUser() user: any) {
@@ -34,6 +36,7 @@ export class StaffController {
   }
 
   @Get()
+  @Permissions(Permission.STAFF_VIEW)
   @ApiOperation({ summary: 'List all staff for this shop' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER)
   findAll(@Query() filters: StaffFilterDto, @CurrentUser() user: any) {
@@ -41,6 +44,7 @@ export class StaffController {
   }
 
   @Get(':id')
+  @Permissions(Permission.STAFF_VIEW)
   @ApiOperation({ summary: 'Get a staff member by ID' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER)
   findOne(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
@@ -48,6 +52,7 @@ export class StaffController {
   }
 
   @Put(':id')
+  @Permissions(Permission.STAFF_UPDATE)
   @ApiOperation({ summary: 'Update staff profile (name, phone, avatar)' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   update(
@@ -59,6 +64,7 @@ export class StaffController {
   }
 
   @Patch(':id/permissions')
+  @Permissions(Permission.STAFF_PERMISSIONS)
   @ApiOperation({ summary: 'Replace all permissions for a staff member' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   setPermissions(
@@ -70,6 +76,7 @@ export class StaffController {
   }
 
   @Patch(':id/activate')
+  @Permissions(Permission.STAFF_UPDATE)
   @ApiOperation({ summary: 'Activate a staff member' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   activate(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
@@ -77,6 +84,7 @@ export class StaffController {
   }
 
   @Patch(':id/deactivate')
+  @Permissions(Permission.STAFF_UPDATE)
   @ApiOperation({ summary: 'Deactivate a staff member' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   deactivate(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
@@ -84,6 +92,7 @@ export class StaffController {
   }
 
   @Delete(':id')
+  @Permissions(Permission.STAFF_DELETE)
   @ApiOperation({ summary: 'Remove a staff member (soft delete)' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   remove(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {

@@ -2,7 +2,8 @@ import { UnitsService } from './units.service';
 import { UserRole } from '../users/entities/user.entity';
 import { CreateUnitDto, UnitFilterDto, UpdateUnitDto } from './dto/unit.dto';
 import { Get, Body, Post, Param, UseGuards, Controller, Delete, Put, Query } from '@nestjs/common';
-import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
+import { CurrentUser, JwtAuthGuard, Roles, RolesGuard, Permissions } from 'src/common/guards/auth.guard';
+import { Permission } from 'src/common/permissions/permission.enum';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Units')
@@ -13,6 +14,7 @@ export class UnitsController {
   constructor(private readonly service: UnitsService) {}
 
   @Post()
+  @Permissions(Permission.SETTINGS_MANAGE)
   @ApiOperation({ summary: 'Create a new unit (admin, manager, or super admin only)' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   create(@Body() dto: CreateUnitDto, @CurrentUser() user: any) {
@@ -20,18 +22,21 @@ export class UnitsController {
   }
 
   @Get()
+  @Permissions(Permission.SETTINGS_VIEW)
   @ApiOperation({ summary: 'Get all units for the current shop' })
   findAll(@Query() filters: UnitFilterDto, @CurrentUser() user: any) {
     return this.service.findAll(user.shopId, filters);
   }
 
   @Get(':id')
+  @Permissions(Permission.SETTINGS_VIEW)
   @ApiOperation({ summary: 'Get a unit by ID' })
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.findOne(id, user.shopId);
   }
 
   @Put(':id')
+  @Permissions(Permission.SETTINGS_MANAGE)
   @ApiOperation({ summary: 'Update a unit' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   update(@Param('id') id: string, @Body() dto: UpdateUnitDto, @CurrentUser() user: any) {
@@ -39,6 +44,7 @@ export class UnitsController {
   }
 
   @Delete(':id')
+  @Permissions(Permission.SETTINGS_MANAGE)
   @ApiOperation({ summary: 'Delete a unit' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   remove(@Param('id') id: string, @CurrentUser() user: any) {
@@ -46,6 +52,7 @@ export class UnitsController {
   }
 
   @Put(':id/restore')
+  @Permissions(Permission.SETTINGS_MANAGE)
   @ApiOperation({ summary: 'Restore a soft-deleted unit' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   restore(@Param('id') id: string, @CurrentUser() user: any) {

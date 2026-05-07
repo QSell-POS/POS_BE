@@ -1,8 +1,9 @@
 import { ProductsService } from './products.service';
 
 import { UserRole } from '../users/entities/user.entity';
-import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/auth.guard';
+import { CurrentUser, JwtAuthGuard, Permissions, Roles, RolesGuard } from 'src/common/guards/auth.guard';
 import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
+import { Permission } from 'src/common/permissions/permission.enum';
 import {
   Get,
   Post,
@@ -39,6 +40,7 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Find all products' })
   @ApiQuery({ name: 'filters', required: false, type: () => ProductFilterDto })
   findAll(@Query() filters: ProductFilterDto, @CurrentUser() user: any) {
@@ -48,6 +50,7 @@ export class ProductsController {
   // Import endpoints declared BEFORE :id to avoid route collision
 
   @Get('import/template')
+  @Permissions(Permission.PRODUCTS_IMPORT)
   @ApiOperation({ summary: 'Download the Excel import template (.xlsx)' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   async downloadImportTemplate(@Res() res: Response) {
@@ -61,6 +64,7 @@ export class ProductsController {
   }
 
   @Post('import')
+  @Permissions(Permission.PRODUCTS_IMPORT)
   @RequiresPlan('bulkImport')
   @UseGuards(PlanGuard)
   @ApiOperation({ summary: 'Bulk import products and variants from an Excel file (.xlsx)' })
@@ -89,12 +93,14 @@ export class ProductsController {
   }
 
   @Get('barcode/:barcode')
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get product by barcode' })
   findByBarcode(@Param('barcode') barcode: string, @CurrentUser() user: any) {
     return this.productsService.findByBarcode(barcode, user.shopId);
   }
 
   @Get(':id')
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get product by ID' })
   async findOne(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
     return {
@@ -103,12 +109,14 @@ export class ProductsController {
   }
 
   @Get(':id/price-history')
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get price history for a product' })
   getPriceHistory(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
     return this.productsService.getPriceHistory(id, user.shopId);
   }
 
   @Post('')
+  @Permissions(Permission.PRODUCTS_CREATE)
   @ApiOperation({ summary: 'Create a new product' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   create(@Body() dto: CreateProductDto, @CurrentUser() user: any) {
@@ -116,6 +124,7 @@ export class ProductsController {
   }
 
   @Put(':id')
+  @Permissions(Permission.PRODUCTS_UPDATE)
   @ApiOperation({ summary: 'Update a product' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   update(@Param('id', UuidParamPipe) id: string, @Body() dto: UpdateProductDto, @CurrentUser() user: any) {
@@ -123,6 +132,7 @@ export class ProductsController {
   }
 
   @Patch(':id/price')
+  @Permissions(Permission.PRODUCTS_UPDATE)
   @ApiOperation({ summary: 'Update product price' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   updatePrice(@Param('id', UuidParamPipe) id: string, @Body() dto: UpdateProductPriceDto, @CurrentUser() user: any) {
@@ -130,6 +140,7 @@ export class ProductsController {
   }
 
   @Delete(':id')
+  @Permissions(Permission.PRODUCTS_DELETE)
   @ApiOperation({ summary: 'Delete a product' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   remove(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
@@ -137,6 +148,7 @@ export class ProductsController {
   }
 
   @Put(':id/restore')
+  @Permissions(Permission.PRODUCTS_DELETE)
   @ApiOperation({ summary: 'Restore a soft-deleted product' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   restore(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
@@ -144,12 +156,14 @@ export class ProductsController {
   }
 
   @Get(':id/variants')
+  @Permissions(Permission.VARIANTS_VIEW)
   @ApiOperation({ summary: 'List variants for a product' })
   getVariants(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
     return this.productsService.getVariants(id, user.shopId);
   }
 
   @Post(':id/variants')
+  @Permissions(Permission.VARIANTS_MANAGE)
   @ApiOperation({ summary: 'Add a variant to a product' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   createVariant(@Param('id', UuidParamPipe) id: string, @Body() dto: CreateVariantDto, @CurrentUser() user: any) {
@@ -157,6 +171,7 @@ export class ProductsController {
   }
 
   @Put(':id/variants/:variantId')
+  @Permissions(Permission.VARIANTS_MANAGE)
   @ApiOperation({ summary: 'Update a product variant' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   updateVariant(

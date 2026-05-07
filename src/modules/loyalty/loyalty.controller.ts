@@ -1,6 +1,7 @@
 import { Controller, Get, Put, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { JwtAuthGuard, RolesGuard, CurrentUser, Roles } from 'src/common/guards/auth.guard';
+import { JwtAuthGuard, RolesGuard, CurrentUser, Roles, Permissions } from 'src/common/guards/auth.guard';
+import { Permission } from 'src/common/permissions/permission.enum';
 import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
 import { LoyaltyService } from './loyalty.service';
@@ -21,12 +22,14 @@ export class LoyaltyController {
   constructor(private readonly loyaltyService: LoyaltyService) {}
 
   @Get('settings')
+  @Permissions(Permission.LOYALTY_VIEW)
   @ApiOperation({ summary: 'Get loyalty program settings for current shop' })
   getSettings(@CurrentUser() user: any) {
     return this.loyaltyService.getSettings(user.shopId);
   }
 
   @Put('settings')
+  @Permissions(Permission.LOYALTY_MANAGE)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update loyalty program settings' })
   updateSettings(@Body() dto: UpdateLoyaltySettingsDto, @CurrentUser() user: any) {
@@ -34,12 +37,14 @@ export class LoyaltyController {
   }
 
   @Get('customers/:id/balance')
+  @Permissions(Permission.LOYALTY_VIEW)
   @ApiOperation({ summary: 'Get loyalty points balance for a customer' })
   getCustomerBalance(@Param('id') id: string, @CurrentUser() user: any) {
     return this.loyaltyService.getCustomerBalance(id, user.shopId);
   }
 
   @Get('customers/:id/history')
+  @Permissions(Permission.LOYALTY_VIEW)
   @ApiOperation({ summary: 'Get loyalty transaction history for a customer' })
   getHistory(
     @Param('id') id: string,
@@ -50,6 +55,7 @@ export class LoyaltyController {
   }
 
   @Post('customers/:id/earn')
+  @Permissions(Permission.LOYALTY_MANAGE)
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Earn points for a customer based on sale total' })
   earnPoints(@Param('id') id: string, @Body() dto: EarnPointsDto, @CurrentUser() user: any) {
@@ -57,6 +63,7 @@ export class LoyaltyController {
   }
 
   @Post('customers/:id/redeem')
+  @Permissions(Permission.LOYALTY_MANAGE)
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Redeem loyalty points for a customer' })
   redeemPoints(@Param('id') id: string, @Body() dto: RedeemPointsDto, @CurrentUser() user: any) {
@@ -64,6 +71,7 @@ export class LoyaltyController {
   }
 
   @Post('customers/:id/adjust')
+  @Permissions(Permission.LOYALTY_MANAGE)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Manually adjust loyalty points for a customer (Admin only)' })
   adjustPoints(@Param('id') id: string, @Body() dto: AdjustPointsDto, @CurrentUser() user: any) {
