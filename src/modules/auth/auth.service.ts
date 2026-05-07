@@ -1,6 +1,6 @@
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ChangePasswordDto, LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
@@ -33,43 +33,51 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailerService: MailerService,
+    private dataSource: DataSource,
   ) {}
 
   async register(dto: RegisterDto) {
     const existing = await this.users.findOne({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Email already registered.');
 
-    const user = this.users.create({ ...dto, role: UserRole.ADMIN });
-    await this.users.save(user);
+    const { user, org, shop } = await this.dataSource.transaction(async (manager) => {
+      // 1. Save user first to get generated ID (needed as ownerId for org/shop)
+      const user = manager.create(User, { ...dto, role: UserRole.ADMIN });
+      await manager.save(user);
 
-    const { org, shop } = await this.createDefaultOrgAndShop(user);
-    user.shopId = shop.id;
-    user.organizationId = org.id;
-    await this.users.save(user);
+      // 2. Create org with user as owner
+      const orgName = `${user.firstName}'s Organization`;
+      const org = await manager.save(
+        manager.create(Organization, { name: orgName, ownerId: user.id }),
+      );
+
+      // 3. Create default shop under that org
+      const baseSlug = `${user.firstName}-${user.lastName}`
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      const slug = await this.generateUniqueSlug(baseSlug);
+      const shop = await manager.save(
+        manager.create(Shop, {
+          name: `${user.firstName}'s Shop`,
+          slug,
+          ownerId: user.id,
+          organizationId: org.id,
+        }),
+      );
+
+      // 4. Link user to org and shop atomically
+      user.organizationId = org.id;
+      user.shopId = shop.id;
+      await manager.save(user);
+
+      return { user, org, shop };
+    });
 
     const tokens = await this.generateTokens(user);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
     return { user: this.sanitizeUser(user), org, shop, ...tokens };
-  }
-
-  private async createDefaultOrgAndShop(user: User): Promise<{ org: Organization; shop: Shop }> {
-    const orgName = `${user.firstName}'s Organization`;
-    const org = await this.orgs.save(
-      this.orgs.create({ name: orgName, ownerId: user.id }),
-    );
-
-    const baseName = `${user.firstName}'s Shop`;
-    const baseSlug = `${user.firstName}-${user.lastName}`
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-    const slug = await this.generateUniqueSlug(baseSlug);
-    const shop = await this.shops.save(
-      this.shops.create({ name: baseName, slug, ownerId: user.id, organizationId: org.id }),
-    );
-
-    return { org, shop };
   }
 
   private async generateUniqueSlug(base: string): Promise<string> {
