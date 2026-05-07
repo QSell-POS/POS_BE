@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ChangePasswordDto, LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
 import { User, UserRole, UserStatus } from 'src/modules/users/entities/user.entity';
 import { Shop } from 'src/modules/shops/entities/shop.entity';
+import { Organization } from 'src/modules/organizations/entities/organization.entity';
 import {
   Injectable,
   UnauthorizedException,
@@ -27,6 +28,8 @@ export class AuthService {
     private users: Repository<User>,
     @InjectRepository(Shop)
     private shops: Repository<Shop>,
+    @InjectRepository(Organization)
+    private orgs: Repository<Organization>,
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailerService: MailerService,
@@ -39,26 +42,34 @@ export class AuthService {
     const user = this.users.create({ ...dto, role: UserRole.ADMIN });
     await this.users.save(user);
 
-    const shop = await this.createDefaultShop(user);
+    const { org, shop } = await this.createDefaultOrgAndShop(user);
     user.shopId = shop.id;
+    user.organizationId = org.id;
     await this.users.save(user);
 
     const tokens = await this.generateTokens(user);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
-    return { user: this.sanitizeUser(user), shop, ...tokens };
+    return { user: this.sanitizeUser(user), org, shop, ...tokens };
   }
 
-  private async createDefaultShop(user: User): Promise<Shop> {
+  private async createDefaultOrgAndShop(user: User): Promise<{ org: Organization; shop: Shop }> {
+    const orgName = `${user.firstName}'s Organization`;
+    const org = await this.orgs.save(
+      this.orgs.create({ name: orgName, ownerId: user.id }),
+    );
+
     const baseName = `${user.firstName}'s Shop`;
     const baseSlug = `${user.firstName}-${user.lastName}`
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
-
     const slug = await this.generateUniqueSlug(baseSlug);
-    const shop = this.shops.create({ name: baseName, slug, ownerId: user.id });
-    return this.shops.save(shop);
+    const shop = await this.shops.save(
+      this.shops.create({ name: baseName, slug, ownerId: user.id, organizationId: org.id }),
+    );
+
+    return { org, shop };
   }
 
   private async generateUniqueSlug(base: string): Promise<string> {
@@ -268,6 +279,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       shopId: user.shopId,
+      organizationId: user.organizationId,
     };
 
     const [accessToken, refreshToken] = await Promise.all([

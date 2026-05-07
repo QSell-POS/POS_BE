@@ -1,6 +1,6 @@
-import { Entity, Column } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from 'src/common/entities/base.entity';
-import { ShopPlan } from 'src/common/plans/plan.config';
+import { Organization } from 'src/modules/organizations/entities/organization.entity';
 
 export enum ShopStatus {
   ACTIVE = 'active',
@@ -43,9 +43,10 @@ export class Shop extends BaseEntity {
   @Column({ name: 'owner_id', nullable: true })
   ownerId: string;
 
-  @Column({ type: 'enum', enum: ShopPlan, default: ShopPlan.FREE })
-  plan: ShopPlan;
+  @Column({ name: 'organization_id', nullable: true })
+  organizationId: string;
 
-  @Column({ name: 'plan_expires_at', nullable: true })
-  planExpiresAt: Date;
+  @ManyToOne(() => Organization, (org) => org.shops, { nullable: true })
+  @JoinColumn({ name: 'organization_id' })
+  organization: Organization;
 }

@@ -48,6 +48,9 @@ export class User extends BaseEntity {
   @Column({ name: 'shop_id', nullable: true })
   shopId: string;
 
+  @Column({ name: 'organization_id', nullable: true })
+  organizationId: string;
+
   @Column({ nullable: true, length: 255 })
   avatar: string;
 

@@ -31,8 +31,10 @@ import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './modules/health/health.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { StaffModule } from './modules/staff/staff.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
 
 // Entities
+import { Organization } from './modules/organizations/entities/organization.entity';
 import { User } from './modules/users/entities/user.entity';
 import { Shop } from './modules/shops/entities/shop.entity';
 import { Brand } from './modules/brands/entities/brand.entity';
@@ -100,6 +102,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
           options: `-c timezone=${process.env.TZ || 'Asia/Kathmandu'}`,
         },
         entities: [
+          Organization,
           User,
           Shop,
           Brand,
@@ -141,6 +144,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     // Feature modules
     CommonModule,
     PlanModule,
+    OrganizationsModule,
     AuthModule,
     UsersModule,
     ShopsModule,
