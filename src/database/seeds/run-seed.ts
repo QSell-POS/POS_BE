@@ -2,6 +2,16 @@ import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv';
 
+import { Organization, OrgStatus } from 'src/modules/organizations/entities/organization.entity';
+import { User, UserRole, UserStatus } from 'src/modules/users/entities/user.entity';
+import { Shop, ShopStatus } from 'src/modules/shops/entities/shop.entity';
+import { ShopPlan } from 'src/common/plans/plan.config';
+import { DEFAULT_PERMISSIONS } from 'src/common/permissions/permission.enum';
+import { Brand } from 'src/modules/brands/entities/brand.entity';
+import { Category } from 'src/modules/categories/entities/category.entity';
+import { Unit } from 'src/modules/units/entities/unit.entity';
+import { Supplier } from 'src/modules/purchases/entities/supplier.entity';
+import { Customer } from 'src/modules/sales/entities/customer.entity';
 import { Product } from 'src/modules/products/entities/product.entity';
 import { ProductPrice, PriceType } from 'src/modules/products/entities/product-price.entity';
 import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
@@ -22,637 +32,353 @@ const AppDataSource = new DataSource({
   synchronize: true,
 });
 
-// 🛒 Product Seed Data
-const products = [
-  {
-    name: 'iPhone 13',
-    sku: 'IPH13',
-    retailPrice: 120000,
-    purchasePrice: 90000,
-    wholesalePrice: 110000,
-    quantity: 10,
-    brand: 'Apple',
-    category: 'Electronics',
-    unit: 'pc',
-    minStockLevel: 5,
-  },
-  {
-    name: 'Samsung Galaxy S22',
-    sku: 'SGS22',
-    retailPrice: 95000,
-    purchasePrice: 75000,
-    wholesalePrice: 92000,
-    quantity: 15,
-    brand: 'Samsung',
-    category: 'Electronics',
-    unit: 'pc',
-    minStockLevel: 4,
-  },
-  {
-    name: 'Sony Headphones',
-    sku: 'SONY-HDP',
-    retailPrice: 2000,
-    purchasePrice: 1200,
-    wholesalePrice: 1800,
-    quantity: 25,
-    brand: 'Sony',
-    category: 'Electronics',
-    unit: 'pc',
-    minStockLevel: 10,
-  },
-  {
-    name: 'Dal Masuro',
-    sku: 'DAL-MASURO',
-    retailPrice: 200,
-    purchasePrice: 130,
-    wholesalePrice: 180,
-    quantity: 50,
-    brand: 'General',
-    category: 'Foods',
-    unit: 'kg',
-    minStockLevel: 10,
-  },
-  {
-    name: 'Dal Moong',
-    sku: 'DAL-MOONG',
-    retailPrice: 220,
-    purchasePrice: 150,
-    wholesalePrice: 190,
-    quantity: 50,
-    brand: 'General',
-    category: 'Foods',
-    unit: 'kg',
-    minStockLevel: 10,
-  },
-  {
-    name: 'Coca cola 250mg',
-    sku: 'COKE-250',
-    retailPrice: 60,
-    purchasePrice: 55,
-    wholesalePrice: 55,
-    quantity: 20,
-    brand: 'Cocacola',
-    category: 'Beverages',
-    unit: 'pc',
-    minStockLevel: 5,
-  },
-  {
-    name: 'Coca cola 500mg',
-    sku: 'COKE-500',
-    retailPrice: 100,
-    purchasePrice: 90,
-    wholesalePrice: 90,
-    quantity: 30,
-    brand: 'Cocacola',
-    category: 'Beverages',
-    unit: 'pc',
-    minStockLevel: 8,
-  },
-  {
-    name: 'Tuborg Gold',
-    sku: 'TUBORG-GOLD-660',
-    retailPrice: 550,
-    purchasePrice: 450,
-    wholesalePrice: 500,
-    quantity: 50,
-    brand: 'Tuborg',
-    category: 'Beverages',
-    unit: 'pc',
-    minStockLevel: 20,
-  },
+// ─── Seed data ────────────────────────────────────────────────────────────────
+
+const SUPER_ADMIN_CREDS = { firstName: 'Super', lastName: 'Admin', email: 'superadmin@pos.com', password: 'Super@1234' };
+const DEMO_ADMIN_CREDS  = { firstName: 'Demo',  lastName: 'Admin', email: 'admin@pos.com',      password: 'Admin@1234' };
+
+const DEMO_STAFF = [
+  { firstName: 'Manager', lastName: 'User', email: 'manager@pos.com', password: 'Manager@1234', role: UserRole.MANAGER },
+  { firstName: 'Cashier', lastName: 'User', email: 'cashier@pos.com', password: 'Cashier@1234', role: UserRole.CASHIER },
+  { firstName: 'Viewer',  lastName: 'User', email: 'viewer@pos.com',  password: 'Viewer@1234',  role: UserRole.VIEWER  },
 ];
 
-const suppliers = [
-  {
-    name: 'Apple Nepal Distributor',
-    contactPerson: 'Ramesh Shrestha',
-    phone: '9800000001',
-    email: 'apple.nepal@dist.com',
-    taxNumber: 'PAN001',
-    address: 'Kathmandu',
-    status: 'active',
-    notes: 'Supplies Apple products like iPhone',
-  },
-  {
-    name: 'Samsung Electronics Nepal',
-    contactPerson: 'Sita Gurung',
-    phone: '9800000002',
-    email: 'samsung.nepal@dist.com',
-    taxNumber: 'PAN002',
-    address: 'Lalitpur',
-    status: 'active',
-    notes: 'Samsung smartphones distributor',
-  },
-  {
-    name: 'Sony Authorized Dealer',
-    contactPerson: 'Bikash Rai',
-    phone: '9800000003',
-    email: 'sony.dealer@np.com',
-    taxNumber: 'PAN003',
-    address: 'Bhaktapur',
-    status: 'active',
-    notes: 'Audio devices supplier',
-  },
-  {
-    name: 'Everest Dal Suppliers',
-    contactPerson: 'Kiran Thapa',
-    phone: '9800000004',
-    email: 'everestdal@gmail.com',
-    taxNumber: 'PAN004',
-    address: 'Pokhara',
-    status: 'active',
-    notes: 'Dal and grains wholesale',
-  },
-  {
-    name: 'Himalayan Pulses Traders',
-    contactPerson: 'Anita Karki',
-    phone: '9800000005',
-    email: 'pulses@himalaya.com',
-    taxNumber: 'PAN005',
-    address: 'Biratnagar',
-    status: 'active',
-    notes: 'Bulk dal supplier',
-  },
-  {
-    name: 'Coca Cola Nepal Distributor',
-    contactPerson: 'Suresh Adhikari',
-    phone: '9800000006',
-    email: 'coke@np.com',
-    taxNumber: 'PAN006',
-    address: 'Kathmandu',
-    status: 'active',
-    notes: 'Soft drinks distribution',
-  },
-  {
-    name: 'Beverage Hub Nepal',
-    contactPerson: 'Dipesh KC',
-    phone: '9800000007',
-    email: 'bevhub@np.com',
-    taxNumber: 'PAN007',
-    address: 'Butwal',
-    status: 'active',
-    notes: 'Multiple beverage brands',
-  },
-  {
-    name: 'Tuborg Nepal Supply',
-    contactPerson: 'Roshan Lama',
-    phone: '9800000008',
-    email: 'tuborg@np.com',
-    taxNumber: 'PAN008',
-    address: 'Kathmandu',
-    status: 'active',
-    notes: 'Alcohol distributor',
-  },
-  {
-    name: 'Global Electronics Traders',
-    contactPerson: 'Manoj Shahi',
-    phone: '9800000009',
-    email: 'global@electronics.com',
-    taxNumber: 'PAN009',
-    address: 'Nepalgunj',
-    status: 'active',
-    notes: 'Mixed electronics supplier',
-  },
-  {
-    name: 'TechWorld Suppliers',
-    contactPerson: 'Prakash Bhandari',
-    phone: '9800000010',
-    email: 'techworld@np.com',
-    taxNumber: 'PAN010',
-    address: 'Kathmandu',
-    status: 'active',
-    notes: 'Phones and accessories',
-  },
-  {
-    name: 'Fresh Foods Wholesale',
-    contactPerson: 'Laxmi Oli',
-    phone: '9800000011',
-    email: 'freshfoods@np.com',
-    taxNumber: 'PAN011',
-    address: 'Chitwan',
-    status: 'active',
-    notes: 'Food grains supplier',
-  },
-  {
-    name: 'AgroMart Nepal',
-    contactPerson: 'Deepak Chaudhary',
-    phone: '9800000012',
-    email: 'agromart@np.com',
-    taxNumber: 'PAN012',
-    address: 'Janakpur',
-    status: 'active',
-    notes: 'Agricultural products',
-  },
-  {
-    name: 'Urban Beverage Supply',
-    contactPerson: 'Sneha Joshi',
-    phone: '9800000013',
-    email: 'urbanbev@np.com',
-    taxNumber: 'PAN013',
-    address: 'Lalitpur',
-    status: 'active',
-    notes: 'City beverage distribution',
-  },
-  {
-    name: 'Premium Liquor House',
-    contactPerson: 'Amit Shrestha',
-    phone: '9800000014',
-    email: 'liquor@np.com',
-    taxNumber: 'PAN014',
-    address: 'Kathmandu',
-    status: 'active',
-    notes: 'Beer and alcohol supply',
-  },
-  {
-    name: 'Nepal Wholesale Network',
-    contactPerson: 'Sunil Magar',
-    phone: '9800000015',
-    email: 'wholesale@np.com',
-    taxNumber: 'PAN015',
-    address: 'Dharan',
-    status: 'active',
-    notes: 'Multi-category supplier',
-  },
+const UNITS = [
+  { name: 'Piece',    symbol: 'pc'  },
+  { name: 'Gram',     symbol: 'gm'  },
+  { name: 'Kilogram', symbol: 'kg'  },
+  { name: 'Dozen',    symbol: 'dz'  },
+  { name: 'Litre',    symbol: 'ltr' },
+  { name: 'Box',      symbol: 'box' },
 ];
 
-const customers = [
-  {
-    name: 'Ram Bahadur',
-    phone: '9811111111',
-    email: 'ram@gmail.com',
-    address: 'Kathmandu',
-    customerType: 'retail',
-    discountRate: 0,
-    isActive: true,
-    notes: '',
-  },
-  {
-    name: 'Shyam Shrestha',
-    phone: '9822222222',
-    email: 'shyam@gmail.com',
-    address: 'Lalitpur',
-    customerType: 'vip',
-    discountRate: 10,
-    isActive: true,
-    notes: 'Frequent buyer',
-  },
-  {
-    name: 'Sita Gurung',
-    phone: '9833333333',
-    email: 'sita@gmail.com',
-    address: 'Bhaktapur',
-    customerType: 'retail',
-    discountRate: 2,
-    isActive: true,
-    notes: '',
-  },
-  {
-    name: 'Hari Thapa',
-    phone: '9844444444',
-    email: 'hari@gmail.com',
-    address: 'Pokhara',
-    customerType: 'wholesale',
-    discountRate: 15,
-    isActive: true,
-    notes: 'Bulk orders',
-  },
-  {
-    name: 'Gita Karki',
-    phone: '9855555555',
-    email: 'gita@gmail.com',
-    address: 'Chitwan',
-    customerType: 'retail',
-    discountRate: 3,
-    isActive: true,
-    notes: '',
-  },
-  {
-    name: 'Dipesh Rai',
-    phone: '9866666666',
-    email: 'dipesh@gmail.com',
-    address: 'Dharan',
-    customerType: 'vip',
-    discountRate: 12,
-    isActive: true,
-    notes: 'High value customer',
-  },
-  {
-    name: 'Anita Lama',
-    phone: '9877777777',
-    email: 'anita@gmail.com',
-    address: 'Biratnagar',
-    customerType: 'retail',
-    discountRate: 0,
-    isActive: true,
-    notes: '',
-  },
-  {
-    name: 'Bikash Magar',
-    phone: '9888888888',
-    email: 'bikash@gmail.com',
-    address: 'Butwal',
-    customerType: 'wholesale',
-    discountRate: 18,
-    isActive: true,
-    notes: 'Regular bulk buyer',
-  },
-  {
-    name: 'Sunita Oli',
-    phone: '9899999999',
-    email: 'sunita@gmail.com',
-    address: 'Nepalgunj',
-    customerType: 'retail',
-    discountRate: 1,
-    isActive: true,
-    notes: '',
-  },
-  {
-    name: 'Prakash Adhikari',
-    phone: '9800000001',
-    email: 'prakash@gmail.com',
-    address: 'Janakpur',
-    customerType: 'vip',
-    discountRate: 8,
-    isActive: true,
-    notes: '',
-  },
-  {
-    name: 'Ramesh Bhandari',
-    phone: '9800000002',
-    email: 'ramesh@gmail.com',
-    address: 'Hetauda',
-    customerType: 'wholesale',
-    discountRate: 20,
-    isActive: true,
-    notes: 'Distributor',
-  },
-  {
-    name: 'Laxmi Shrestha',
-    phone: '9800000003',
-    email: 'laxmi@gmail.com',
-    address: 'Itahari',
-    customerType: 'retail',
-    discountRate: 2,
-    isActive: true,
-    notes: '',
-  },
-  {
-    name: 'Kiran KC',
-    phone: '9800000004',
-    email: 'kiran@gmail.com',
-    address: 'Dang',
-    customerType: 'vip',
-    discountRate: 10,
-    isActive: true,
-    notes: '',
-  },
-  {
-    name: 'Sabina Thapa',
-    phone: '9800000005',
-    email: 'sabina@gmail.com',
-    address: 'Kathmandu',
-    customerType: 'retail',
-    discountRate: 5,
-    isActive: true,
-    notes: 'Loyal customer',
-  },
-  {
-    name: 'Amit Chaudhary',
-    phone: '9800000006',
-    email: 'amit@gmail.com',
-    address: 'Birgunj',
-    customerType: 'wholesale',
-    discountRate: 17,
-    isActive: true,
-    notes: 'Shop owner',
-  },
+const CATEGORIES = ['Electronics', 'Foods', 'Beverages', 'General'];
+const BRANDS     = ['Apple', 'Samsung', 'Sony', 'General', 'Coca-Cola', 'Tuborg', 'Other'];
+
+const PRODUCTS = [
+  { name: 'iPhone 13',          sku: 'IPH13',            retailPrice: 120000, purchasePrice: 90000,  wholesalePrice: 110000, quantity: 10, brand: 'Apple',     category: 'Electronics', unit: 'pc',  minStockLevel: 5  },
+  { name: 'Samsung Galaxy S22', sku: 'SGS22',            retailPrice: 95000,  purchasePrice: 75000,  wholesalePrice: 92000,  quantity: 15, brand: 'Samsung',   category: 'Electronics', unit: 'pc',  minStockLevel: 4  },
+  { name: 'Sony Headphones',    sku: 'SONY-HDP',         retailPrice: 2000,   purchasePrice: 1200,   wholesalePrice: 1800,   quantity: 25, brand: 'Sony',      category: 'Electronics', unit: 'pc',  minStockLevel: 10 },
+  { name: 'Dal Masuro',         sku: 'DAL-MASURO',       retailPrice: 200,    purchasePrice: 130,    wholesalePrice: 180,    quantity: 50, brand: 'General',   category: 'Foods',       unit: 'kg',  minStockLevel: 10 },
+  { name: 'Dal Moong',          sku: 'DAL-MOONG',        retailPrice: 220,    purchasePrice: 150,    wholesalePrice: 190,    quantity: 50, brand: 'General',   category: 'Foods',       unit: 'kg',  minStockLevel: 10 },
+  { name: 'Coca Cola 250ml',    sku: 'COKE-250',         retailPrice: 60,     purchasePrice: 55,     wholesalePrice: 55,     quantity: 20, brand: 'Coca-Cola', category: 'Beverages',   unit: 'pc',  minStockLevel: 5  },
+  { name: 'Coca Cola 500ml',    sku: 'COKE-500',         retailPrice: 100,    purchasePrice: 90,     wholesalePrice: 90,     quantity: 30, brand: 'Coca-Cola', category: 'Beverages',   unit: 'pc',  minStockLevel: 8  },
+  { name: 'Tuborg Gold 660ml',  sku: 'TUBORG-GOLD-660',  retailPrice: 550,    purchasePrice: 450,    wholesalePrice: 500,    quantity: 50, brand: 'Tuborg',    category: 'Beverages',   unit: 'pc',  minStockLevel: 20 },
 ];
 
-const units = [
-  { name: 'Piece', symbol: 'pc' },
-  { name: 'Gram', symbol: 'gm' },
-  { name: 'Kilogram', symbol: 'kg' },
-  { name: 'Dozen', symbol: 'dz' },
+const SUPPLIERS = [
+  { name: 'Apple Nepal Distributor',    contactPerson: 'Ramesh Shrestha', phone: '9800000001', email: 'apple.nepal@dist.com',    taxNumber: 'PAN001', address: 'Kathmandu' },
+  { name: 'Samsung Electronics Nepal',  contactPerson: 'Sita Gurung',     phone: '9800000002', email: 'samsung.nepal@dist.com',  taxNumber: 'PAN002', address: 'Lalitpur'  },
+  { name: 'Sony Authorized Dealer',     contactPerson: 'Bikash Rai',      phone: '9800000003', email: 'sony.dealer@np.com',      taxNumber: 'PAN003', address: 'Bhaktapur' },
+  { name: 'Everest Dal Suppliers',      contactPerson: 'Kiran Thapa',     phone: '9800000004', email: 'everestdal@gmail.com',    taxNumber: 'PAN004', address: 'Pokhara'   },
+  { name: 'Coca Cola Nepal Distributor',contactPerson: 'Suresh Adhikari', phone: '9800000006', email: 'coke@np.com',             taxNumber: 'PAN006', address: 'Kathmandu' },
+  { name: 'Beverage Hub Nepal',         contactPerson: 'Dipesh KC',       phone: '9800000007', email: 'bevhub@np.com',           taxNumber: 'PAN007', address: 'Butwal'    },
+  { name: 'Tuborg Nepal Supply',        contactPerson: 'Roshan Lama',     phone: '9800000008', email: 'tuborg@np.com',           taxNumber: 'PAN008', address: 'Kathmandu' },
+  { name: 'Global Electronics Traders', contactPerson: 'Manoj Shahi',     phone: '9800000009', email: 'global@electronics.com', taxNumber: 'PAN009', address: 'Nepalgunj' },
+  { name: 'Nepal Wholesale Network',    contactPerson: 'Sunil Magar',     phone: '9800000015', email: 'wholesale@np.com',        taxNumber: 'PAN015', address: 'Dharan'    },
 ];
 
-const categories = ['Electronics', 'Foods', 'Beverages'];
-const brands = ['Apple', 'Samsung', 'Sony', 'General', 'Cocacola', 'Arna', 'Tuborg'];
+const CUSTOMERS = [
+  { name: 'Ram Bahadur',     phone: '9811111111', email: 'ram@gmail.com',     address: 'Kathmandu', customerType: 'retail',    discountRate: 0,  notes: '' },
+  { name: 'Shyam Shrestha',  phone: '9822222222', email: 'shyam@gmail.com',   address: 'Lalitpur',  customerType: 'vip',       discountRate: 10, notes: 'Frequent buyer' },
+  { name: 'Sita Gurung',     phone: '9833333333', email: 'sita@gmail.com',    address: 'Bhaktapur', customerType: 'retail',    discountRate: 2,  notes: '' },
+  { name: 'Hari Thapa',      phone: '9844444444', email: 'hari@gmail.com',    address: 'Pokhara',   customerType: 'wholesale', discountRate: 15, notes: 'Bulk orders' },
+  { name: 'Gita Karki',      phone: '9855555555', email: 'gita@gmail.com',    address: 'Chitwan',   customerType: 'retail',    discountRate: 3,  notes: '' },
+  { name: 'Dipesh Rai',      phone: '9866666666', email: 'dipesh@gmail.com',  address: 'Dharan',    customerType: 'vip',       discountRate: 12, notes: 'High value customer' },
+  { name: 'Anita Lama',      phone: '9877777777', email: 'anita@gmail.com',   address: 'Biratnagar',customerType: 'retail',    discountRate: 0,  notes: '' },
+  { name: 'Bikash Magar',    phone: '9888888888', email: 'bikash@gmail.com',  address: 'Butwal',    customerType: 'wholesale', discountRate: 18, notes: 'Regular bulk buyer' },
+  { name: 'Sunita Oli',      phone: '9899999999', email: 'sunita@gmail.com',  address: 'Nepalgunj', customerType: 'retail',    discountRate: 1,  notes: '' },
+  { name: 'Prakash Adhikari',phone: '9811000001', email: 'prakash@gmail.com', address: 'Janakpur',  customerType: 'vip',       discountRate: 8,  notes: '' },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function upsertOne<T>(repo: any, where: Partial<T>, data: Partial<T>): Promise<T> {
+  const existing = await repo.findOne({ where });
+  if (existing) return existing as T;
+  return repo.save(repo.create(data)) as Promise<T>;
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function seed() {
   await AppDataSource.initialize();
-  console.log('🌱 Seeding started...');
+  console.log('🌱 Seeding started...\n');
 
   const qr = AppDataSource.createQueryRunner();
   await qr.connect();
   await qr.startTransaction();
 
   try {
-    const shopRepo = qr.manager.getRepository('shops');
-    const userRepo = qr.manager.getRepository('users');
-    const brandRepo = qr.manager.getRepository('brands');
-    const categoryRepo = qr.manager.getRepository('categories');
-    const unitRepo = qr.manager.getRepository('units');
-    const suppliersRepo = qr.manager.getRepository('suppliers');
-    const customersRepo = qr.manager.getRepository('customers');
+    const m = qr.manager;
 
-    // 1. 🏪 Shop
-    let shop = await shopRepo.findOne({ where: { slug: 'main-shop' } });
+    // ── 1. SUPER_ADMIN (system-level, no org required) ───────────────────────
+    let superAdmin = await m.findOne(User, { where: { email: SUPER_ADMIN_CREDS.email } });
+    if (!superAdmin) {
+      superAdmin = await m.save(
+        m.create(User, {
+          firstName: SUPER_ADMIN_CREDS.firstName,
+          lastName:  SUPER_ADMIN_CREDS.lastName,
+          email:     SUPER_ADMIN_CREDS.email,
+          password:  await bcrypt.hash(SUPER_ADMIN_CREDS.password, 12),
+          role:      UserRole.SUPER_ADMIN,
+          status:    UserStatus.ACTIVE,
+          permissions: [],
+        }),
+      );
+      console.log(`✅ super_admin  created  →  ${SUPER_ADMIN_CREDS.email} / ${SUPER_ADMIN_CREDS.password}`);
+    } else {
+      console.log(`⏭  super_admin  already exists`);
+    }
+
+    // ── 2. Organization ──────────────────────────────────────────────────────
+    let org = await m.findOne(Organization, { where: { ownerId: superAdmin.id } });
+    if (!org) {
+      org = await m.save(
+        m.create(Organization, {
+          name:           'Demo Organization',
+          ownerId:        superAdmin.id,
+          status:         OrgStatus.ACTIVE,
+          plan:           ShopPlan.PRO,          // PRO so all features work in demos
+          planExpiresAt:  new Date('2030-12-31'),
+          email:          'org@pos.com',
+          phone:          '9800000000',
+          address:        'Kathmandu, Nepal',
+        }),
+      );
+      console.log('✅ Organization created  →  plan: PRO, expires: 2030-12-31');
+    } else {
+      console.log('⏭  Organization already exists');
+    }
+
+    // ── 3. Shop ──────────────────────────────────────────────────────────────
+    let shop = await m.findOne(Shop, { where: { slug: 'demo-shop', organizationId: org.id } });
     if (!shop) {
-      shop = await shopRepo.save({
-        name: 'Main Shop',
-        slug: 'main-shop',
-        currency: 'NPR',
-        currencySymbol: 'Rs.',
-        status: 'active',
-      });
+      shop = await m.save(
+        m.create(Shop, {
+          name:           'Demo Shop',
+          slug:           'demo-shop',
+          organizationId: org.id,
+          ownerId:        superAdmin.id,
+          currency:       'NPR',
+          currencySymbol: 'Rs.',
+          status:         ShopStatus.ACTIVE,
+        }),
+      );
+      console.log('✅ Shop created          →  demo-shop');
+    } else {
+      console.log('⏭  Shop already exists');
     }
-    console.log('✅ Shop created');
 
-    // 2. 👤 Users
-    const adminExists = await userRepo.findOne({ where: { email: 'admin@pos.com' } });
-    if (!adminExists) {
-      await userRepo.save({
-        firstName: 'Super',
-        lastName: 'Admin',
-        email: 'admin@pos.com',
-        password: await bcrypt.hash('Admin@1234', 12),
-        role: 'super_admin',
-        status: 'active',
-        shopId: shop.id,
-      });
+    // ── 4. Link super admin to org + shop ────────────────────────────────────
+    if (!superAdmin.organizationId || !superAdmin.shopId) {
+      superAdmin.organizationId = org.id;
+      superAdmin.shopId         = shop.id;
+      await m.save(superAdmin);
+      console.log('✅ Super Admin linked to org + shop');
     }
-    console.log('✅ Admin created');
 
-    const cashierExists = await userRepo.findOne({ where: { email: 'cashier@pos.com' } });
-    if (!cashierExists) {
-      await userRepo.save({
-        firstName: 'Cashier',
-        lastName: 'User',
-        email: 'cashier@pos.com',
-        password: await bcrypt.hash('Cashier@1234', 12),
-        role: 'cashier',
-        status: 'active',
-        shopId: shop.id,
-      });
+    // ── 5. Demo ADMIN ────────────────────────────────────────────────────────
+    let admin = await m.findOne(User, { where: { email: DEMO_ADMIN_CREDS.email } });
+    if (!admin) {
+      admin = await m.save(
+        m.create(User, {
+          firstName:      DEMO_ADMIN_CREDS.firstName,
+          lastName:       DEMO_ADMIN_CREDS.lastName,
+          email:          DEMO_ADMIN_CREDS.email,
+          password:       await bcrypt.hash(DEMO_ADMIN_CREDS.password, 12),
+          role:           UserRole.ADMIN,
+          status:         UserStatus.ACTIVE,
+          organizationId: org.id,
+          shopId:         shop.id,
+          permissions:    [],
+        }),
+      );
+      console.log(`✅ admin        created  →  ${DEMO_ADMIN_CREDS.email} / ${DEMO_ADMIN_CREDS.password}`);
+    } else {
+      console.log('⏭  admin already exists');
     }
-    console.log('✅ Cashier created');
 
-    // 3. Brands
-    for (const name of brands) {
-      const exists = await brandRepo.findOne({ where: { name, shopId: shop.id } });
-      if (!exists) {
-        await brandRepo.save({ name, shopId: shop.id, isActive: true });
+    // ── 6. Staff members with correct role-based permissions ─────────────────
+    for (const s of DEMO_STAFF) {
+      const existing = await m.findOne(User, { where: { email: s.email } });
+      if (!existing) {
+        await m.save(
+          m.create(User, {
+            firstName:      s.firstName,
+            lastName:       s.lastName,
+            email:          s.email,
+            password:       await bcrypt.hash(s.password, 12),
+            role:           s.role,
+            status:         UserStatus.ACTIVE,
+            organizationId: org.id,
+            shopId:         shop.id,
+            permissions:    DEFAULT_PERMISSIONS[s.role] ?? [],
+          }),
+        );
+        console.log(`✅ ${s.role.padEnd(10)} created  →  ${s.email} / ${s.password}`);
+      } else {
+        console.log(`⏭  ${s.role} already exists`);
       }
     }
 
-    // 4. Categories
-    for (const name of categories) {
-      const exists = await categoryRepo.findOne({ where: { name, shopId: shop.id } });
-      if (!exists) {
-        await categoryRepo.save({ name, shopId: shop.id, isActive: true });
-      }
+    // ── 7. Brands ────────────────────────────────────────────────────────────
+    const brandMap: Record<string, Brand> = {};
+    for (const name of BRANDS) {
+      const b = await upsertOne<Brand>(
+        m.getRepository(Brand),
+        { name, shopId: shop.id },
+        { name, shopId: shop.id, isActive: true } as any,
+      );
+      brandMap[name] = b;
     }
+    console.log('✅ Brands seeded');
 
-    // 4.1 Customers
-    for (const customer of customers) {
-      const exists = await customersRepo.findOne({ where: { name: customer.name, shopId: shop.id } });
-      if (!exists) {
-        await customersRepo.save({ ...customer, shopId: shop.id });
-      }
+    // ── 8. Categories ────────────────────────────────────────────────────────
+    const categoryMap: Record<string, Category> = {};
+    for (const name of CATEGORIES) {
+      const c = await upsertOne<Category>(
+        m.getRepository(Category),
+        { name, shopId: shop.id },
+        { name, shopId: shop.id, isActive: true } as any,
+      );
+      categoryMap[name] = c;
     }
+    console.log('✅ Categories seeded');
 
-    // 4.2 Suppliers
-    for (const supplier of suppliers) {
-      const exists = await suppliersRepo.findOne({ where: { name: supplier.name, shopId: shop.id } });
-      if (!exists) {
-        await suppliersRepo.save({ ...supplier, shopId: shop.id });
-      }
+    // ── 9. Units ─────────────────────────────────────────────────────────────
+    const unitMap: Record<string, Unit> = {};
+    for (const u of UNITS) {
+      const unit = await upsertOne<Unit>(
+        m.getRepository(Unit),
+        { symbol: u.symbol, shopId: shop.id },
+        { ...u, shopId: shop.id, isActive: true } as any,
+      );
+      unitMap[u.symbol] = unit;
     }
+    console.log('✅ Units seeded');
 
-    // 5. Units
-    for (const u of units) {
-      const exists = await unitRepo.findOne({ where: { symbol: u.symbol, shopId: shop.id } });
-      if (!exists) {
-        await unitRepo.save({ ...u, shopId: shop.id, isActive: true });
-      }
+    // ── 10. Suppliers ────────────────────────────────────────────────────────
+    for (const s of SUPPLIERS) {
+      await upsertOne<Supplier>(
+        m.getRepository(Supplier),
+        { name: s.name, shopId: shop.id },
+        { ...s, shopId: shop.id, status: 'active' } as any,
+      );
     }
+    console.log('✅ Suppliers seeded');
 
-    console.log('✅ Master data seeded');
+    // ── 11. Customers ────────────────────────────────────────────────────────
+    for (const c of CUSTOMERS) {
+      await upsertOne<Customer>(
+        m.getRepository(Customer),
+        { phone: c.phone, shopId: shop.id },
+        { ...c, shopId: shop.id, isActive: true } as any,
+      );
+    }
+    console.log('✅ Customers seeded');
 
-    // Fetch real DB records (IMPORTANT)
-    const brandMap = Object.fromEntries((await brandRepo.find({ where: { shopId: shop.id } })).map((b) => [b.name, b]));
-    const categoryMap = Object.fromEntries((await categoryRepo.find({ where: { shopId: shop.id } })).map((c) => [c.name, c]));
-    const unitMap = Object.fromEntries((await unitRepo.find({ where: { shopId: shop.id } })).map((u) => [u.symbol, u]));
-
-    // 6. 🛒 Products + 💰 Prices + 📦 Inventory + 🧾 History
-    for (const item of products) {
-      let existing = await qr.manager.findOne(ProductVariant, {
-        where: { sku: item.sku, shopId: shop.id },
-      });
-
-      if (existing) continue;
-
-      const product = qr.manager.create(Product, {
-        name: item.name,
-        shopId: shop.id,
-        brandId: brandMap[item.brand]?.id,
-        categoryId: categoryMap[item.category]?.id,
-        unitId: unitMap[item.unit]?.id,
-      });
-
-      const saved = await qr.manager.save(product);
-
-      // 💰 Prices
-      const prices = [
-        {
-          productId: saved.id,
-          priceType: PriceType.RETAIL,
-          price: item.retailPrice,
-          costPrice: item.purchasePrice,
-          isCurrent: true,
-          shopId: shop.id,
-        },
-        {
-          productId: saved.id,
-          priceType: PriceType.PURCHASE,
-          price: item.purchasePrice,
-          isCurrent: true,
-          shopId: shop.id,
-        },
-      ];
-
-      if (item.wholesalePrice) {
-        prices.push({
-          productId: saved.id,
-          priceType: PriceType.WHOLESALE,
-          price: item.wholesalePrice,
-          isCurrent: true,
-          shopId: shop.id,
-        } as any);
+    // ── 12. Products + Prices + Inventory ────────────────────────────────────
+    for (const item of PRODUCTS) {
+      const existing = await m.findOne(ProductVariant, { where: { sku: item.sku, shopId: shop.id } });
+      if (existing) {
+        console.log(`⏭  Product already exists: ${item.name}`);
+        continue;
       }
 
-      await qr.manager.save(ProductPrice, prices);
+      const product = await m.save(
+        m.create(Product, {
+          name:       item.name,
+          shopId:     shop.id,
+          brandId:    brandMap[item.brand]?.id,
+          categoryId: categoryMap[item.category]?.id,
+          unitId:     unitMap[item.unit]?.id,
+        }),
+      );
 
-      // 🔖 Default variant
-      const defaultVariant = await qr.manager.save(ProductVariant, {
-        shopId: shop.id,
-        productId: saved.id,
-        name: 'Default',
-        sku: item.sku,
-        minStockLevel: item.minStockLevel ?? 0,
-        isDefault: true,
-        isActive: true,
-      });
+      await m.save(ProductPrice, [
+        { productId: product.id, priceType: PriceType.RETAIL,    price: item.retailPrice,    costPrice: item.purchasePrice, isCurrent: true, shopId: shop.id },
+        { productId: product.id, priceType: PriceType.PURCHASE,  price: item.purchasePrice,  isCurrent: true, shopId: shop.id },
+        { productId: product.id, priceType: PriceType.WHOLESALE, price: item.wholesalePrice, isCurrent: true, shopId: shop.id },
+      ]);
 
-      // 📦 Inventory
-      const qty = item.quantity;
+      const variant = await m.save(
+        m.create(ProductVariant, {
+          shopId:       shop.id,
+          productId:    product.id,
+          name:         'Default',
+          sku:          item.sku,
+          minStockLevel: item.minStockLevel ?? 0,
+          isDefault:    true,
+          isActive:     true,
+        }),
+      );
 
-      const inventory = await qr.manager.save(InventoryItem, {
-        shopId: shop.id,
-        productId: saved.id,
-        variantId: defaultVariant.id,
-        quantityOnHand: qty,
-        quantityAvailable: qty,
-        quantityReserved: 0,
-        averageCost: item.purchasePrice,
-        lastRestockedAt: new Date(),
-      });
+      const inventory = await m.save(
+        m.create(InventoryItem, {
+          shopId:             shop.id,
+          productId:          product.id,
+          variantId:          variant.id,
+          quantityOnHand:     item.quantity,
+          quantityAvailable:  item.quantity,
+          quantityReserved:   0,
+          averageCost:        item.purchasePrice,
+          lastRestockedAt:    new Date(),
+        }),
+      );
 
-      // 🧾 History
-      await qr.manager.save(InventoryHistory, {
-        shopId: shop.id,
-        inventoryItemId: inventory.id,
-        productId: saved.id,
-        variantId: defaultVariant.id,
-        movementType: InventoryMovementType.OPENING_STOCK,
-        quantity: qty,
-        quantityBefore: 0,
-        quantityAfter: qty,
-        unitCost: item.purchasePrice,
-        referenceType: 'seed',
-        notes: 'Opening stock',
-      });
+      await m.save(
+        m.create(InventoryHistory, {
+          shopId:           shop.id,
+          inventoryItemId:  inventory.id,
+          productId:        product.id,
+          variantId:        variant.id,
+          movementType:     InventoryMovementType.OPENING_STOCK,
+          quantity:         item.quantity,
+          quantityBefore:   0,
+          quantityAfter:    item.quantity,
+          unitCost:         item.purchasePrice,
+          referenceType:    'seed',
+          notes:            'Opening stock',
+        }),
+      );
 
-      // 📦 Inventory batch (required for FIFO COGS on sales)
-      await qr.manager.save(InventoryBatch, {
-        shopId: shop.id,
-        productId: saved.id,
-        variantId: defaultVariant.id,
-        purchasePrice: item.purchasePrice,
-        quantityReceived: qty,
-        quantityRemaining: qty,
-        referenceType: 'opening_stock',
-        referenceId: 'seed',
-      });
+      await m.save(
+        m.create(InventoryBatch, {
+          shopId:            shop.id,
+          productId:         product.id,
+          variantId:         variant.id,
+          purchasePrice:     item.purchasePrice,
+          quantityReceived:  item.quantity,
+          quantityRemaining: item.quantity,
+          referenceType:     'opening_stock',
+          referenceId:       'seed',
+        }),
+      );
 
       console.log(`✅ Product seeded: ${item.name}`);
     }
 
     await qr.commitTransaction();
-    console.log('ALL DATA SEEDED SUCCESSFULLY');
+
+    console.log('\n══════════════════════════════════════════════════════');
+    console.log('  SEED COMPLETE');
+    console.log('══════════════════════════════════════════════════════');
+    console.log('  Organization : Demo Organization (PRO plan until 2030)');
+    console.log('  Shop         : Demo Shop (demo-shop)');
+    console.log('──────────────────────────────────────────────────────');
+    console.log('  Credentials:');
+    console.log(`  super_admin  →  ${SUPER_ADMIN_CREDS.email}  /  ${SUPER_ADMIN_CREDS.password}`);
+    console.log(`  admin        →  ${DEMO_ADMIN_CREDS.email}       /  ${DEMO_ADMIN_CREDS.password}`);
+    for (const s of DEMO_STAFF) {
+      console.log(`  ${s.role.padEnd(12)} →  ${s.email}     /  ${s.password}`);
+    }
+    console.log('══════════════════════════════════════════════════════\n');
+
   } catch (err) {
     await qr.rollbackTransaction();
     console.error('❌ Seed failed:', err);
+    process.exit(1);
   } finally {
     await qr.release();
     await AppDataSource.destroy();
