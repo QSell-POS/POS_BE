@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
+import { Shop } from '../shops/entities/shop.entity';
 import { DEFAULT_PERMISSIONS, Permission, PERMISSION_META } from 'src/common/permissions/permission.enum';
 import { PlanService } from 'src/common/plans/plan.service';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
@@ -18,8 +19,18 @@ const STAFF_ROLES: UserRole[] = [UserRole.MANAGER, UserRole.CASHIER, UserRole.VI
 export class StaffService {
   constructor(
     @InjectRepository(User) private users: Repository<User>,
+    @InjectRepository(Shop) private shops: Repository<Shop>,
     private planService: PlanService,
   ) {}
+
+  private async assertShopInOrg(shopId: string, organizationId: string): Promise<Shop> {
+    const shop = await this.shops.findOne({ where: { id: shopId } });
+    if (!shop) throw new NotFoundException('Shop not found');
+    if (shop.organizationId !== organizationId) {
+      throw new ForbiddenException('That shop does not belong to your organization');
+    }
+    return shop;
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -36,12 +47,21 @@ export class StaffService {
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
 
-  async create(dto: CreateStaffDto, shopId: string): Promise<{ data: any; message: string }> {
+  async create(
+    dto: CreateStaffDto,
+    callerShopId: string,
+    organizationId: string,
+  ): Promise<{ data: any; message: string }> {
     const existing = await this.users.findOne({ where: { email: dto.email } });
     if (existing) throw new ConflictException('A user with this email already exists.');
 
-    const staffCount = await this.users.count({ where: { shopId } });
-    await this.planService.assertQuantity(shopId, 'maxStaff', staffCount);
+    const targetShopId = dto.shopId ?? callerShopId;
+    if (dto.shopId) {
+      await this.assertShopInOrg(dto.shopId, organizationId);
+    }
+
+    const staffCount = await this.users.count({ where: { shopId: targetShopId } });
+    await this.planService.assertQuantity(targetShopId, 'maxStaff', staffCount);
 
     const permissions = DEFAULT_PERMISSIONS[dto.role] ?? [];
 
@@ -53,7 +73,8 @@ export class StaffService {
       phone: dto.phone,
       role: dto.role,
       permissions,
-      shopId,
+      shopId: targetShopId,
+      organizationId,
       status: UserStatus.ACTIVE,
     });
 
@@ -61,14 +82,39 @@ export class StaffService {
     return { data: this.safeUser(saved), message: 'Staff member created successfully.' };
   }
 
-  async findAll(shopId: string, filters: StaffFilterDto) {
-    const { search, status, page = 1, limit = 20 } = filters;
+  async transfer(
+    id: string,
+    targetShopId: string,
+    organizationId: string,
+  ): Promise<{ data: any; message: string }> {
+    const user = await this.users.findOne({ where: { id, organizationId } });
+    if (!user) throw new NotFoundException('Staff member not found.');
+    this.assertStaff(user);
+
+    if (user.shopId === targetShopId) {
+      return { data: this.safeUser(user), message: 'Staff is already in that shop.' };
+    }
+
+    await this.assertShopInOrg(targetShopId, organizationId);
+
+    const targetCount = await this.users.count({ where: { shopId: targetShopId } });
+    await this.planService.assertQuantity(targetShopId, 'maxStaff', targetCount);
+
+    user.shopId = targetShopId;
+    const saved = await this.users.save(user);
+    return { data: this.safeUser(saved), message: 'Staff member transferred successfully.' };
+  }
+
+  async findAll(organizationId: string, filters: StaffFilterDto & { shopId?: string }) {
+    const { search, status, page = 1, limit = 20, shopId } = filters;
 
     const qb = this.users
       .createQueryBuilder('u')
-      .where('u.shopId = :shopId', { shopId })
+      .where('u.organizationId = :organizationId', { organizationId })
       .andWhere('u.role IN (:...roles)', { roles: STAFF_ROLES })
       .andWhere('u.deletedAt IS NULL');
+
+    if (shopId) qb.andWhere('u.shopId = :shopId', { shopId });
 
     if (search) {
       qb.andWhere(
@@ -83,6 +129,7 @@ export class StaffService {
       .select([
         'u.id', 'u.firstName', 'u.lastName', 'u.email', 'u.phone',
         'u.role', 'u.status', 'u.permissions', 'u.avatar', 'u.lastLoginAt', 'u.createdAt',
+        'u.shopId',
       ])
       .orderBy('u.createdAt', 'DESC')
       .skip((page - 1) * limit)
@@ -96,12 +143,13 @@ export class StaffService {
     };
   }
 
-  async findOne(id: string, shopId: string) {
+  async findOne(id: string, organizationId: string) {
     const user = await this.users.findOne({
-      where: { id, shopId },
+      where: { id, organizationId },
       select: [
         'id', 'firstName', 'lastName', 'email', 'phone',
         'role', 'status', 'permissions', 'avatar', 'lastLoginAt', 'createdAt', 'updatedAt',
+        'shopId',
       ],
     });
     if (!user) throw new NotFoundException('Staff member not found.');
@@ -109,8 +157,8 @@ export class StaffService {
     return { data: user, message: 'Staff member retrieved successfully.' };
   }
 
-  async update(id: string, dto: UpdateStaffDto, shopId: string) {
-    const user = await this.users.findOne({ where: { id, shopId } });
+  async update(id: string, dto: UpdateStaffDto, organizationId: string) {
+    const user = await this.users.findOne({ where: { id, organizationId } });
     if (!user) throw new NotFoundException('Staff member not found.');
     this.assertStaff(user);
     Object.assign(user, dto);
@@ -118,8 +166,8 @@ export class StaffService {
     return { data: this.safeUser(saved), message: 'Staff member updated successfully.' };
   }
 
-  async setPermissions(id: string, dto: SetPermissionsDto, shopId: string) {
-    const user = await this.users.findOne({ where: { id, shopId } });
+  async setPermissions(id: string, dto: SetPermissionsDto, organizationId: string) {
+    const user = await this.users.findOne({ where: { id, organizationId } });
     if (!user) throw new NotFoundException('Staff member not found.');
     this.assertStaff(user);
     user.permissions = dto.permissions;
@@ -127,8 +175,8 @@ export class StaffService {
     return { data: this.safeUser(saved), message: 'Permissions updated successfully.' };
   }
 
-  async setStatus(id: string, status: UserStatus, shopId: string) {
-    const user = await this.users.findOne({ where: { id, shopId } });
+  async setStatus(id: string, status: UserStatus, organizationId: string) {
+    const user = await this.users.findOne({ where: { id, organizationId } });
     if (!user) throw new NotFoundException('Staff member not found.');
     this.assertStaff(user);
     user.status = status;
@@ -136,8 +184,8 @@ export class StaffService {
     return { message: `Staff member ${status === UserStatus.ACTIVE ? 'activated' : 'deactivated'} successfully.` };
   }
 
-  async remove(id: string, shopId: string) {
-    const user = await this.users.findOne({ where: { id, shopId } });
+  async remove(id: string, organizationId: string) {
+    const user = await this.users.findOne({ where: { id, organizationId } });
     if (!user) throw new NotFoundException('Staff member not found.');
     this.assertStaff(user);
     await this.users.softDelete(id);

@@ -4,6 +4,8 @@ import { UserRole } from '../users/entities/user.entity';
 import { CreateShopDto, ShopFilterDto, UpdateShopDto } from './dto/shop.dto';
 import { ShopsService } from './shops.service';
 import { PlanService } from 'src/common/plans/plan.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Shops')
@@ -11,7 +13,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('shops')
 export class ShopsController {
-  constructor(private readonly shopsService: ShopsService, private readonly planService: PlanService) {}
+  constructor(
+    private readonly shopsService: ShopsService,
+    private readonly planService: PlanService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get('my-plan')
   @ApiOperation({ summary: 'Get current shop plan and available features' })
@@ -26,8 +33,15 @@ export class ShopsController {
     return this.shopsService.findAll(filters);
   }
 
+  @Get('mine')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: "List all shops under the caller's organization" })
+  listMyShops(@CurrentUser() user: any) {
+    return this.shopsService.findMyOrgShops(user.organizationId);
+  }
+
   @Get('me')
-  @ApiOperation({ summary: "Get current user's shop" })
+  @ApiOperation({ summary: "Get current user's active shop" })
   getMyShop(@CurrentUser() user: any) {
     if (!user.shopId) {
       throw new BadRequestException("You don't have a shop yet");
@@ -45,10 +59,35 @@ export class ShopsController {
   }
 
   @Post()
-  @Roles(UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Create a new shop (super admin only)' })
-  create(@Body() dto: CreateShopDto, @CurrentUser() user: any) {
-    return this.shopsService.create(dto, user.id);
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: "Create a new shop under the caller's organization" })
+  async create(@Body() dto: CreateShopDto, @CurrentUser() user: any) {
+    if (!user.organizationId) {
+      throw new BadRequestException('You must belong to an organization to create a shop');
+    }
+    const shop = await this.shopsService.createForOrg(dto, user.id, user.organizationId);
+    return { data: shop, message: 'Shop created successfully' };
+  }
+
+  @Post(':id/switch')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: "Switch the caller's active shop and return a new access token" })
+  async switchShop(@Param('id') id: string, @CurrentUser() user: any) {
+    const result = await this.shopsService.switchShop(user.id, user.organizationId, id);
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        shopId: result.data.id,
+        organizationId: user.organizationId,
+      },
+      {
+        secret: this.configService.get('jwt.secret'),
+        expiresIn: this.configService.get('jwt.expiresIn'),
+      },
+    );
+    return { ...result, accessToken };
   }
 
   @Put(':id')

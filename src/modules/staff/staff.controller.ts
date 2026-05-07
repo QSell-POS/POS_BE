@@ -8,7 +8,7 @@ import { Permission } from 'src/common/permissions/permission.enum';
 import { UserRole, UserStatus } from '../users/entities/user.entity';
 import { UuidParamPipe } from 'src/common/validator';
 import { StaffService } from './staff.service';
-import { CreateStaffDto, UpdateStaffDto, SetPermissionsDto, StaffFilterDto } from './staff.dto';
+import { CreateStaffDto, UpdateStaffDto, SetPermissionsDto, StaffFilterDto, TransferStaffDto } from './staff.dto';
 
 @ApiTags('Staff')
 @ApiBearerAuth()
@@ -29,18 +29,18 @@ export class StaffController {
 
   @Post()
   @Permissions(Permission.STAFF_CREATE)
-  @ApiOperation({ summary: 'Create a new staff member' })
+  @ApiOperation({ summary: 'Create a new staff member (optionally targeting another shop in the same org)' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   create(@Body() dto: CreateStaffDto, @CurrentUser() user: any) {
-    return this.staffService.create(dto, user.shopId);
+    return this.staffService.create(dto, user.shopId, user.organizationId);
   }
 
   @Get()
   @Permissions(Permission.STAFF_VIEW)
-  @ApiOperation({ summary: 'List all staff for this shop' })
+  @ApiOperation({ summary: 'List staff across the organization (filter by shopId optional)' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER)
-  findAll(@Query() filters: StaffFilterDto, @CurrentUser() user: any) {
-    return this.staffService.findAll(user.shopId, filters);
+  findAll(@Query() filters: StaffFilterDto & { shopId?: string }, @CurrentUser() user: any) {
+    return this.staffService.findAll(user.organizationId, filters);
   }
 
   @Get(':id')
@@ -48,7 +48,7 @@ export class StaffController {
   @ApiOperation({ summary: 'Get a staff member by ID' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGER)
   findOne(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
-    return this.staffService.findOne(id, user.shopId);
+    return this.staffService.findOne(id, user.organizationId);
   }
 
   @Put(':id')
@@ -60,7 +60,7 @@ export class StaffController {
     @Body() dto: UpdateStaffDto,
     @CurrentUser() user: any,
   ) {
-    return this.staffService.update(id, dto, user.shopId);
+    return this.staffService.update(id, dto, user.organizationId);
   }
 
   @Patch(':id/permissions')
@@ -72,7 +72,19 @@ export class StaffController {
     @Body() dto: SetPermissionsDto,
     @CurrentUser() user: any,
   ) {
-    return this.staffService.setPermissions(id, dto, user.shopId);
+    return this.staffService.setPermissions(id, dto, user.organizationId);
+  }
+
+  @Patch(':id/transfer')
+  @Permissions(Permission.STAFF_UPDATE)
+  @ApiOperation({ summary: 'Transfer a staff member to another shop in the same organization' })
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  transfer(
+    @Param('id', UuidParamPipe) id: string,
+    @Body() dto: TransferStaffDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.staffService.transfer(id, dto.shopId, user.organizationId);
   }
 
   @Patch(':id/activate')
@@ -80,7 +92,7 @@ export class StaffController {
   @ApiOperation({ summary: 'Activate a staff member' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   activate(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
-    return this.staffService.setStatus(id, UserStatus.ACTIVE, user.shopId);
+    return this.staffService.setStatus(id, UserStatus.ACTIVE, user.organizationId);
   }
 
   @Patch(':id/deactivate')
@@ -88,7 +100,7 @@ export class StaffController {
   @ApiOperation({ summary: 'Deactivate a staff member' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   deactivate(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
-    return this.staffService.setStatus(id, UserStatus.INACTIVE, user.shopId);
+    return this.staffService.setStatus(id, UserStatus.INACTIVE, user.organizationId);
   }
 
   @Delete(':id')
@@ -96,6 +108,6 @@ export class StaffController {
   @ApiOperation({ summary: 'Remove a staff member (soft delete)' })
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   remove(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
-    return this.staffService.remove(id, user.shopId);
+    return this.staffService.remove(id, user.organizationId);
   }
 }

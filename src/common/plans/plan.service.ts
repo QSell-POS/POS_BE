@@ -51,6 +51,14 @@ export class PlanService {
     }
   }
 
+  async assertOrgQuantity(organizationId: string, feature: 'maxShops', currentCount: number): Promise<void> {
+    const plan = await this.getOrgPlan(organizationId);
+    const limit = PLAN_FEATURES[plan][feature] as number;
+    if (currentCount >= limit) {
+      throw new ForbiddenException(PLAN_UPGRADE_MESSAGE[feature] ?? 'Plan limit reached.');
+    }
+  }
+
   async getPlanInfo(shopId: string) {
     const plan = await this.getShopPlan(shopId);
     return { plan, features: PLAN_FEATURES[plan] };

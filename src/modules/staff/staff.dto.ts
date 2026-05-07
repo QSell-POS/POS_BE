@@ -1,6 +1,6 @@
 import {
   IsString, IsEmail, IsEnum, IsOptional, IsArray, IsNotEmpty,
-  MinLength, IsBoolean,
+  MinLength, IsBoolean, IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Permission } from 'src/common/permissions/permission.enum';
@@ -40,6 +40,19 @@ export class CreateStaffDto {
   })
   @IsEnum(UserRole)
   role: UserRole;
+
+  @ApiPropertyOptional({
+    description: 'Shop to assign the staff to. Must belong to the caller\'s organization. Defaults to the caller\'s active shop.',
+  })
+  @IsOptional()
+  @IsUUID()
+  shopId?: string;
+}
+
+export class TransferStaffDto {
+  @ApiProperty({ description: 'Target shop ID — must belong to the caller\'s organization' })
+  @IsUUID()
+  shopId: string;
 }
 
 export class UpdateStaffDto {
