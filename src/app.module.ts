@@ -32,6 +32,7 @@ import { HealthModule } from './modules/health/health.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 
 // Entities
 import { Organization } from './modules/organizations/entities/organization.entity';
@@ -61,6 +62,7 @@ import { TaxRule } from './modules/tax/entities/tax-rule.entity';
 import { StockTransfer, StockTransferItem } from './modules/stock-transfer/entities/stock-transfer.entity';
 import { LoyaltyTransaction, LoyaltySettings } from './modules/loyalty/entities/loyalty.entity';
 import { AuditLog } from './modules/audit/entities/audit-log.entity';
+import { Subscription } from './modules/subscriptions/entities/subscription.entity';
 
 import { appConfig, databaseConfig, jwtConfig, mailerConfig, uploadConfig } from './config/app.config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -138,6 +140,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
           LoyaltyTransaction,
           LoyaltySettings,
           AuditLog,
+          Subscription,
         ],
       }),
     }),
@@ -169,6 +172,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     HealthModule,
     ReportsModule,
     StaffModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [
