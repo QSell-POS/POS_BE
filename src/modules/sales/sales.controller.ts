@@ -1,4 +1,5 @@
 import { SalesService } from './sales.service';
+import { SaleReturnService } from './sale-return.service';
 import { UserRole } from '../users/entities/user.entity';
 import { JwtAuthGuard, CurrentUser, Roles, RolesGuard, Permissions } from 'src/common/guards/auth.guard';
 import { Permission } from 'src/common/permissions/permission.enum';
@@ -11,7 +12,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('sales')
 export class SalesController {
-  constructor(private readonly salesService: SalesService) {}
+  constructor(
+    private readonly salesService: SalesService,
+    private readonly saleReturnService: SaleReturnService,
+  ) {}
 
   @Get()
   @Permissions(Permission.SALES_VIEW)
@@ -24,7 +28,7 @@ export class SalesController {
   @Permissions(Permission.SALES_VIEW)
   @ApiOperation({ summary: 'List all sale returns' })
   getReturns(@Query('page') page: number, @Query('limit') limit: number, @CurrentUser() user: any) {
-    return this.salesService.getReturns(user.shopId, page, limit);
+    return this.saleReturnService.getReturns(user.shopId, page, limit);
   }
 
   @Get(':id')
@@ -43,17 +47,17 @@ export class SalesController {
 
   @Patch(':id/cancel')
   @Permissions(Permission.SALES_VOID)
-  @ApiOperation({ summary: 'Cancel a sale and restore inventory' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Cancel a sale and restore inventory' })
   cancelSale(@Param('id') id: string, @CurrentUser() user: any) {
     return this.salesService.cancelSale(id, user.shopId, user.id);
   }
 
   @Post('returns')
   @Permissions(Permission.SALES_RETURN)
-  @ApiOperation({ summary: 'Create a sale return' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Create a sale return' })
   createReturn(@Body() dto: CreateSaleReturnDto, @CurrentUser() user: any) {
-    return this.salesService.createReturn(dto, user.shopId, user.id);
+    return this.saleReturnService.createReturn(dto, user.shopId, user.id);
   }
 }

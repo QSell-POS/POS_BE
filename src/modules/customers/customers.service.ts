@@ -158,4 +158,38 @@ export class CustomersService {
   async incrementTotalPurchased(customerId: string, amount: number) {
     await this.customerRepository.increment({ id: customerId }, 'totalPurchased', amount);
   }
+
+  /**
+   * Record a debit (money owed by customer) in one atomic call.
+   * Replaces the 3-call pattern: getBalance → addLedgerEntry → incrementTotalDue.
+   */
+  async recordDebit(
+    customerId: string,
+    shopId: string,
+    amount: number,
+    entry: { type: CustomerLedgerType; referenceType: string; referenceId: string; description: string; createdBy: string },
+  ) {
+    const prevBalance = await this.getBalance(customerId, shopId);
+    const balanceAfter = prevBalance + amount;
+    await this.addLedgerEntry({ customerId, ...entry, amount, balanceAfter }, shopId);
+    await this.incrementTotalDue(customerId, amount);
+    return balanceAfter;
+  }
+
+  /**
+   * Record a credit (money owed reduced) in one atomic call.
+   * Replaces the 3-call pattern: getBalance → addLedgerEntry → decrementTotalDue.
+   */
+  async recordCredit(
+    customerId: string,
+    shopId: string,
+    amount: number,
+    entry: { type: CustomerLedgerType; referenceType: string; referenceId: string; description: string; createdBy: string },
+  ) {
+    const prevBalance = await this.getBalance(customerId, shopId);
+    const balanceAfter = Math.max(0, prevBalance - amount);
+    await this.addLedgerEntry({ customerId, ...entry, amount, balanceAfter }, shopId);
+    await this.decrementTotalDue(customerId, amount);
+    return balanceAfter;
+  }
 }

@@ -38,3 +38,10 @@ export const uploadConfig = registerAs('upload', () => ({
   maxSizeMb: parseInt(process.env.UPLOAD_MAX_SIZE_MB, 10) || 10,
   allowedMimes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
 }));
+
+export const authConfig = registerAs('auth', () => ({
+  maxLoginAttempts: parseInt(process.env.AUTH_MAX_LOGIN_ATTEMPTS, 10) || 5,
+  lockDurationMinutes: parseInt(process.env.AUTH_LOCK_DURATION_MINUTES, 10) || 15,
+  passwordResetExpiryHours: parseInt(process.env.AUTH_PASSWORD_RESET_EXPIRY_HOURS, 10) || 1,
+  emailVerifyExpiryHours: parseInt(process.env.AUTH_EMAIL_VERIFY_EXPIRY_HOURS, 10) || 24,
+}));

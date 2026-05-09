@@ -19,6 +19,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { CommonModule } from './common/common.module';
+import { CostingModule } from './common/costing/costing.module';
 import { PlanModule } from './common/plans/plan.module';
 import { UsersModule } from './modules/users/users.module';
 import { ShiftsModule } from './modules/shifts/shifts.module';
@@ -64,7 +65,7 @@ import { LoyaltyTransaction, LoyaltySettings } from './modules/loyalty/entities/
 import { AuditLog } from './modules/audit/entities/audit-log.entity';
 import { Subscription } from './modules/subscriptions/entities/subscription.entity';
 
-import { appConfig, databaseConfig, jwtConfig, mailerConfig, uploadConfig } from './config/app.config';
+import { appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, uploadConfig } from './config/app.config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards/auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -80,7 +81,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     // Config
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, mailerConfig, uploadConfig],
+      load: [appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, uploadConfig],
       envFilePath: ['.env', '.env.example'],
     }),
 
@@ -146,6 +147,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     }),
     // Feature modules
     CommonModule,
+    CostingModule,
     PlanModule,
     OrganizationsModule,
     AuthModule,

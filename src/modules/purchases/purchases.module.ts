@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { PurchasesService } from './purchases.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PurchasesService } from './purchases.service';
+import { PurchaseReturnService } from './purchase-return.service';
 import { PurchasesController } from './purchases.controller';
 import { PurchaseReturn, PurchaseReturnItem } from './entities/purchase-return.entity';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -18,7 +19,8 @@ import { SuppliersModule } from '../suppliers/suppliers.module';
     ExpensesModule,
     SuppliersModule,
   ],
-  providers: [PurchasesService],
+  providers: [PurchasesService, PurchaseReturnService],
   controllers: [PurchasesController],
+  exports: [PurchasesService, PurchaseReturnService],
 })
 export class PurchasesModule {}

@@ -18,8 +18,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from 'src/common/services/mailer.service';
 
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCK_DURATION_MINUTES = 15;
 
 @Injectable()
 export class AuthService {
@@ -110,9 +108,9 @@ export class AuthService {
       // Increment login attempts
       const newAttempts = (user.loginAttempts || 0) + 1;
       const updateData: Partial<User> = { loginAttempts: newAttempts };
-      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+      if (newAttempts >= this.configService.get<number>('auth.maxLoginAttempts')) {
         const lockedUntil = new Date();
-        lockedUntil.setMinutes(lockedUntil.getMinutes() + LOCK_DURATION_MINUTES);
+        lockedUntil.setMinutes(lockedUntil.getMinutes() + this.configService.get<number>('auth.lockDurationMinutes'));
         updateData.lockedUntil = lockedUntil;
       }
       await this.users.update(user.id, updateData);
@@ -195,7 +193,7 @@ export class AuthService {
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expires = new Date();
-    expires.setHours(expires.getHours() + 1);
+    expires.setHours(expires.getHours() + this.configService.get<number>('auth.passwordResetExpiryHours'));
 
     await this.users.update(user.id, {
       passwordResetToken: hashedToken,
@@ -245,7 +243,7 @@ export class AuthService {
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expires = new Date();
-    expires.setHours(expires.getHours() + 24);
+    expires.setHours(expires.getHours() + this.configService.get<number>('auth.emailVerifyExpiryHours'));
 
     await this.users.update(user.id, {
       emailVerifyToken: hashedToken,
