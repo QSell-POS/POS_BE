@@ -44,10 +44,13 @@ export class ShopsService {
     return { data, message: 'Shops fetched successfully' };
   }
 
-  async findOne(id: string, organizationId?: string, isSuperAdmin = false) {
+  async findOne(id: string, organizationId?: string, userShopId?: string, isSuperAdmin = false) {
     const s = await this.shops.findOne({ where: { id } });
     if (!s) throw new NotFoundException('Shop not found');
-    if (!isSuperAdmin && organizationId && s.organizationId !== organizationId) {
+    if (isSuperAdmin) return s;
+    const inSameOrg = organizationId && s.organizationId === organizationId;
+    const isOwnShop = userShopId && s.id === userShopId;
+    if (!inSameOrg && !isOwnShop) {
       throw new ForbiddenException('You do not have permission to access this shop');
     }
     return s;
@@ -63,7 +66,7 @@ export class ShopsService {
   }
 
   async update(id: string, dto: UpdateShopDto, organizationId?: string, isSuperAdmin = false) {
-    const s = await this.findOne(id, organizationId, isSuperAdmin);
+    const s = await this.findOne(id, organizationId, undefined, isSuperAdmin);
     return this.shops.save(Object.assign(s, dto));
   }
 
