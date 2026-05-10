@@ -20,6 +20,7 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "ignoreDeprecations": "5.0"
   }
 }
