@@ -7,6 +7,8 @@ import { Product, ProductType } from 'src/modules/products/entities/product.enti
 import { PriceType, ProductPrice } from './entities/product-price.entity';
 import { ProductVariant, ProductStatus } from './entities/product-variant.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
+import { InventoryHistory, InventoryMovementType } from '../inventory/entities/inventory-history.entity';
+import { InventoryBatch } from '../inventory/entities/inventory-batch.entity';
 import {
   CreateProductDto,
   CreateVariantDto,
@@ -230,14 +232,44 @@ export class ProductsService {
       });
 
       if (dto.type !== 'service' && dto.type !== 'digital') {
-        await queryRunner.manager.save(InventoryItem, {
+        const qty = dto.initialQuantity || 0;
+        const inventoryItem = await queryRunner.manager.save(InventoryItem, {
           shopId,
           productId: saved.id,
           variantId: defaultVariant.id,
-          quantityOnHand: dto.initialQuantity || 0,
-          quantityAvailable: dto.initialQuantity || 0,
+          quantityOnHand: qty,
+          quantityAvailable: qty,
           quantityReserved: 0,
+          averageCost: dto.purchasePrice || 0,
+          lastRestockedAt: qty > 0 ? new Date() : null,
         });
+
+        if (qty > 0) {
+          await queryRunner.manager.save(InventoryHistory, {
+            shopId,
+            inventoryItemId: inventoryItem.id,
+            productId: saved.id,
+            variantId: defaultVariant.id,
+            movementType: InventoryMovementType.OPENING_STOCK,
+            quantity: qty,
+            quantityBefore: 0,
+            quantityAfter: qty,
+            unitCost: dto.purchasePrice || 0,
+            referenceType: 'opening_stock',
+            notes: 'Initial stock on product creation',
+          });
+
+          await queryRunner.manager.save(InventoryBatch, {
+            shopId,
+            productId: saved.id,
+            variantId: defaultVariant.id,
+            purchasePrice: dto.purchasePrice || 0,
+            quantityReceived: qty,
+            quantityRemaining: qty,
+            referenceType: 'opening_stock',
+            referenceId: saved.id,
+          });
+        }
       }
 
       await queryRunner.commitTransaction();
@@ -692,14 +724,43 @@ export class ProductsService {
         });
 
         if (type !== ProductType.SERVICE && type !== ProductType.DIGITAL) {
-          await qr.manager.save(InventoryItem, {
+          const inventoryItem = await qr.manager.save(InventoryItem, {
             shopId,
             productId: product.id,
             variantId: defaultVariant.id,
             quantityOnHand: initialQuantity,
             quantityAvailable: initialQuantity,
             quantityReserved: 0,
+            averageCost: row.purchasePrice || 0,
+            lastRestockedAt: initialQuantity > 0 ? new Date() : null,
           });
+
+          if (initialQuantity > 0) {
+            await qr.manager.save(InventoryHistory, {
+              shopId,
+              inventoryItemId: inventoryItem.id,
+              productId: product.id,
+              variantId: defaultVariant.id,
+              movementType: InventoryMovementType.OPENING_STOCK,
+              quantity: initialQuantity,
+              quantityBefore: 0,
+              quantityAfter: initialQuantity,
+              unitCost: row.purchasePrice || 0,
+              referenceType: 'opening_stock',
+              notes: 'Initial stock from bulk import',
+            });
+
+            await qr.manager.save(InventoryBatch, {
+              shopId,
+              productId: product.id,
+              variantId: defaultVariant.id,
+              purchasePrice: row.purchasePrice || 0,
+              quantityReceived: initialQuantity,
+              quantityRemaining: initialQuantity,
+              referenceType: 'opening_stock',
+              referenceId: product.id,
+            });
+          }
         }
 
         await qr.commitTransaction();
@@ -818,14 +879,43 @@ export class ProductsService {
             shopId,
           });
 
-          await qr.manager.save(InventoryItem, {
+          const inventoryItem = await qr.manager.save(InventoryItem, {
             shopId,
             productId,
             variantId: variant.id,
             quantityOnHand: initialQuantity,
             quantityAvailable: initialQuantity,
             quantityReserved: 0,
+            averageCost: 0,
+            lastRestockedAt: initialQuantity > 0 ? new Date() : null,
           });
+
+          if (initialQuantity > 0) {
+            await qr.manager.save(InventoryHistory, {
+              shopId,
+              inventoryItemId: inventoryItem.id,
+              productId,
+              variantId: variant.id,
+              movementType: InventoryMovementType.OPENING_STOCK,
+              quantity: initialQuantity,
+              quantityBefore: 0,
+              quantityAfter: initialQuantity,
+              unitCost: 0,
+              referenceType: 'opening_stock',
+              notes: 'Initial stock from variant bulk import',
+            });
+
+            await qr.manager.save(InventoryBatch, {
+              shopId,
+              productId,
+              variantId: variant.id,
+              purchasePrice: 0,
+              quantityReceived: initialQuantity,
+              quantityRemaining: initialQuantity,
+              referenceType: 'opening_stock',
+              referenceId: productId,
+            });
+          }
 
           await qr.commitTransaction();
           imported++;
