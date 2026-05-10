@@ -1,17 +1,23 @@
 import { Repository, DataSource } from 'typeorm';
 import type { QueryRunner } from 'typeorm';
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InventoryItem } from './entities/inventory-item.entity';
 import { InventoryHistory, InventoryMovementType } from './entities/inventory-history.entity';
 import { InventoryBatch } from './entities/inventory-batch.entity';
+import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 import { StockAdjustmentDto } from './dto/inventory.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { COSTING_STRATEGY } from 'src/common/modules/costing/costing-strategy.interface';
 import type { ICostingStrategy } from 'src/common/modules/costing/costing-strategy.interface';
+import { NotificationService } from 'src/modules/notifications/notification.service';
+import { User, UserRole } from 'src/modules/users/entities/user.entity';
+import { Shop } from 'src/modules/shops/entities/shop.entity';
 
 @Injectable()
 export class InventoryService {
+  private readonly logger = new Logger(InventoryService.name);
+
   constructor(
     @InjectRepository(InventoryItem)
     private inventoryRepository: Repository<InventoryItem>,
@@ -21,6 +27,7 @@ export class InventoryService {
     private batchRepository: Repository<InventoryBatch>,
     private dataSource: DataSource,
     @Inject(COSTING_STRATEGY) private costingStrategy: ICostingStrategy,
+    @Optional() private readonly notificationService: NotificationService,
   ) {}
 
   async getInventory(shopId: string, page = 1, limit = 20) {
@@ -193,6 +200,14 @@ export class InventoryService {
       }
 
       await queryRunner.commitTransaction();
+
+      // Fire-and-forget low stock alert for outbound movements
+      if (!isInbound && this.notificationService) {
+        this.checkAndNotifyLowStock(inventoryItem, shopId).catch((err) =>
+          this.logger.warn(`Low stock notification failed: ${err?.message}`),
+        );
+      }
+
       return inventoryItem;
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -200,6 +215,34 @@ export class InventoryService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private async checkAndNotifyLowStock(inventoryItem: InventoryItem, shopId: string): Promise<void> {
+    const variant = await this.dataSource.getRepository(ProductVariant).findOne({
+      where: { id: inventoryItem.variantId },
+      relations: ['product'],
+    });
+
+    if (!variant || !variant.trackInventory || !variant.minStockLevel) return;
+    if (Number(inventoryItem.quantityAvailable) > Number(variant.minStockLevel)) return;
+
+    const shop = await this.dataSource.getRepository(Shop).findOne({ where: { id: shopId } });
+    if (!shop) return;
+
+    const admin = await this.dataSource.getRepository(User).findOne({
+      where: { organizationId: shop.organizationId, role: UserRole.ADMIN },
+      select: ['email'],
+    });
+    if (!admin?.email) return;
+
+    await this.notificationService.notifyLowStock({
+      shopId,
+      productName: variant.product?.name ?? 'Unknown',
+      variantSku: variant.sku,
+      current: Number(inventoryItem.quantityAvailable),
+      minimum: Number(variant.minStockLevel),
+      adminEmail: admin.email,
+    });
   }
 
   async getBatches(shopId: string, productId?: string, variantId?: string, page = 1, limit = 20) {

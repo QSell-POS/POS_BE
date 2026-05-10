@@ -39,6 +39,12 @@ export const uploadConfig = registerAs('upload', () => ({
   allowedMimes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
 }));
 
+export const redisConfig = registerAs('redis', () => ({
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+  password: process.env.REDIS_PASSWORD || undefined,
+}));
+
 export const storageConfig = registerAs('storage', () => ({
   accountId:       process.env.R2_ACCOUNT_ID || '',
   accessKeyId:     process.env.R2_ACCESS_KEY_ID || '',

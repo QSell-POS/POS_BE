@@ -3,6 +3,9 @@ import { IdempotencyMiddleware } from './common/middleware/idempotency.middlewar
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 // Modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -65,7 +68,7 @@ import { LoyaltyTransaction, LoyaltySettings } from './modules/loyalty/entities/
 import { AuditLog } from './modules/audit/entities/audit-log.entity';
 import { Subscription } from './modules/subscriptions/entities/subscription.entity';
 
-import { appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, storageConfig, uploadConfig } from './config/app.config';
+import { appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, redisConfig, storageConfig, uploadConfig } from './config/app.config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards/auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -82,12 +85,28 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     // Config
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, storageConfig, uploadConfig],
+      load: [appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, redisConfig, storageConfig, uploadConfig],
       envFilePath: ['.env', '.env.example'],
     }),
 
     // Rate limiting
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+
+    // Cron jobs
+    ScheduleModule.forRoot(),
+
+    // BullMQ — Redis-backed job queue
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get<string>('redis.host'),
+          port: config.get<number>('redis.port'),
+          password: config.get<string>('redis.password'),
+        },
+      }),
+    }),
 
     // Database
     TypeOrmModule.forRootAsync({
@@ -176,6 +195,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     ReportsModule,
     StaffModule,
     SubscriptionsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [
