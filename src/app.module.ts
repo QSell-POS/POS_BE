@@ -69,6 +69,7 @@ import { appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, uploadC
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards/auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { AppController } from './app.controller';
 import { SupplierLedger } from './modules/purchases/entities/supplier-ledger.entity';
@@ -180,6 +181,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
