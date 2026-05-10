@@ -54,7 +54,7 @@ export class ShopsController {
   @ApiOperation({ summary: 'Get a shop by ID (super admin: any shop, admin: own shop only)' })
   async findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return {
-      data: await this.shopsService.findOne(id, user.id, user.role === UserRole.SUPER_ADMIN),
+      data: await this.shopsService.findOne(id, user.organizationId, user.role === UserRole.SUPER_ADMIN),
     };
   }
 
@@ -95,6 +95,6 @@ export class ShopsController {
   @ApiOperation({ summary: 'Update a shop (admin updates own shop, super admin updates any)' })
   update(@Param('id') id: string, @Body() dto: UpdateShopDto, @CurrentUser() user: any) {
     const isSuperAdmin = user.role === UserRole.SUPER_ADMIN;
-    return this.shopsService.update(id, dto, user.id, isSuperAdmin);
+    return this.shopsService.update(id, dto, user.organizationId, isSuperAdmin);
   }
 }
