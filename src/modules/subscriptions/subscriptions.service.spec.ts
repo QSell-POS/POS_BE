@@ -7,7 +7,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { SubscriptionsService } from './subscriptions.service';
 import { Subscription, SubscriptionStatus, SubscriptionDuration } from './entities/subscription.entity';
 import { Organization } from 'src/modules/organizations/entities/organization.entity';
-import { ShopPlan } from 'src/common/plans/plan.config';
+import { ShopPlan } from 'src/common/modules/plans/plan.config';
 import { ESEWA_CONFIG } from './subscriptions.config';
 
 jest.mock('axios');

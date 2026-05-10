@@ -2,7 +2,7 @@ import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@ne
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard, CurrentUser, Roles, Permissions } from 'src/common/guards/auth.guard';
 import { Permission } from 'src/common/permissions/permission.enum';
-import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
+import { PlanGuard, RequiresPlan } from 'src/common/modules/plans/plan.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
 import { StockTransferService } from './stock-transfer.service';
 import {

@@ -10,7 +10,7 @@ import { ProductPrice } from './entities/product-price.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { Product } from './entities/product.entity';
 import { ProductVariant } from './entities/product-variant.entity';
-import { PlanModule } from 'src/common/plans/plan.module';
+import { PlanModule } from 'src/common/modules/plans/plan.module';
 
 @Module({
   controllers: [ProductsController],

@@ -1,4 +1,4 @@
-import { ShopPlan } from 'src/common/plans/plan.config';
+import { ShopPlan } from 'src/common/modules/plans/plan.config';
 import { SubscriptionDuration } from './entities/subscription.entity';
 
 /** Pricing in Nepali Rupees (NPR) */

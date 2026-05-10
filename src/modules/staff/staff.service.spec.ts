@@ -5,7 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { StaffService } from './staff.service';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { Shop } from '../shops/entities/shop.entity';
-import { PlanService } from 'src/common/plans/plan.service';
+import { PlanService } from 'src/common/modules/plans/plan.service';
 import { DEFAULT_PERMISSIONS } from 'src/common/permissions/permission.enum';
 
 const ORG_ID = 'org-uuid';

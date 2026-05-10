@@ -7,8 +7,8 @@ import { InventoryHistory, InventoryMovementType } from './entities/inventory-hi
 import { InventoryBatch } from './entities/inventory-batch.entity';
 import { StockAdjustmentDto } from './dto/inventory.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
-import { COSTING_STRATEGY } from 'src/common/costing/costing-strategy.interface';
-import type { ICostingStrategy } from 'src/common/costing/costing-strategy.interface';
+import { COSTING_STRATEGY } from 'src/common/modules/costing/costing-strategy.interface';
+import type { ICostingStrategy } from 'src/common/modules/costing/costing-strategy.interface';
 
 @Injectable()
 export class InventoryService {

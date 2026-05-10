@@ -4,7 +4,7 @@ import { StockTransfer, StockTransferItem } from './entities/stock-transfer.enti
 import { StockTransferService } from './stock-transfer.service';
 import { StockTransferController } from './stock-transfer.controller';
 import { InventoryModule } from '../inventory/inventory.module';
-import { PlanModule } from 'src/common/plans/plan.module';
+import { PlanModule } from 'src/common/modules/plans/plan.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([StockTransfer, StockTransferItem]), InventoryModule, PlanModule],

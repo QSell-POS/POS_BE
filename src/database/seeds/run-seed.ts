@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
 import { Organization, OrgStatus } from 'src/modules/organizations/entities/organization.entity';
 import { User, UserRole, UserStatus } from 'src/modules/users/entities/user.entity';
 import { Shop, ShopStatus } from 'src/modules/shops/entities/shop.entity';
-import { ShopPlan } from 'src/common/plans/plan.config';
+import { ShopPlan } from 'src/common/modules/plans/plan.config';
 import { DEFAULT_PERMISSIONS } from 'src/common/permissions/permission.enum';
 import { Brand } from 'src/modules/brands/entities/brand.entity';
 import { Category } from 'src/modules/categories/entities/category.entity';

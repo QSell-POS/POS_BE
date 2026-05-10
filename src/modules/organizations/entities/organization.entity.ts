@@ -1,6 +1,6 @@
 import { Entity, Column, OneToMany } from 'typeorm';
 import { BaseEntity } from 'src/common/entities/base.entity';
-import { ShopPlan } from 'src/common/plans/plan.config';
+import { ShopPlan } from 'src/common/modules/plans/plan.config';
 import { Shop } from 'src/modules/shops/entities/shop.entity';
 
 export enum OrgStatus {

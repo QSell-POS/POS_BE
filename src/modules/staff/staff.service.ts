@@ -8,7 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../users/entities/user.entity';
 import { Shop } from '../shops/entities/shop.entity';
 import { DEFAULT_PERMISSIONS, Permission, PERMISSION_META } from 'src/common/permissions/permission.enum';
-import { PlanService } from 'src/common/plans/plan.service';
+import { PlanService } from 'src/common/modules/plans/plan.service';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { CreateStaffDto, SetPermissionsDto, StaffFilterDto, UpdateStaffDto } from './staff.dto';
 

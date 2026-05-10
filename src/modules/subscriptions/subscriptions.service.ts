@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { Subscription, SubscriptionStatus, SubscriptionDuration } from './entities/subscription.entity';
 import { Organization } from 'src/modules/organizations/entities/organization.entity';
-import { ShopPlan } from 'src/common/plans/plan.config';
+import { ShopPlan } from 'src/common/modules/plans/plan.config';
 import {
   ESEWA_CONFIG, SUBSCRIPTION_PRICING, DURATION_MONTHS,
 } from './subscriptions.config';

@@ -5,7 +5,7 @@ import { User } from 'src/modules/users/entities/user.entity';
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { CreateShopDto, ShopFilterDto, UpdateShopDto } from './dto/shop.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
-import { PlanService } from 'src/common/plans/plan.service';
+import { PlanService } from 'src/common/modules/plans/plan.service';
 
 @Injectable()
 export class ShopsService {

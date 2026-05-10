@@ -6,7 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ShopsController } from './shops.controller';
 import { Shop } from './entities/shop.entity';
 import { User } from '../users/entities/user.entity';
-import { PlanModule } from 'src/common/plans/plan.module';
+import { PlanModule } from 'src/common/modules/plans/plan.module';
 
 @Module({
   imports: [

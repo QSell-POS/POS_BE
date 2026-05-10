@@ -4,7 +4,7 @@ import { User } from '../users/entities/user.entity';
 import { Shop } from '../shops/entities/shop.entity';
 import { StaffService } from './staff.service';
 import { StaffController } from './staff.controller';
-import { PlanModule } from 'src/common/plans/plan.module';
+import { PlanModule } from 'src/common/modules/plans/plan.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, Shop]), PlanModule],

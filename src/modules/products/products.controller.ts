@@ -2,7 +2,7 @@ import { ProductsService } from './products.service';
 
 import { UserRole } from '../users/entities/user.entity';
 import { CurrentUser, JwtAuthGuard, Permissions, Roles, RolesGuard } from 'src/common/guards/auth.guard';
-import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
+import { PlanGuard, RequiresPlan } from 'src/common/modules/plans/plan.guard';
 import { Permission } from 'src/common/permissions/permission.enum';
 import {
   Get,

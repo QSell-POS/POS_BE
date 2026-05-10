@@ -3,7 +3,7 @@ import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from 'src/common/guards/
 import { UserRole } from '../users/entities/user.entity';
 import { CreateShopDto, ShopFilterDto, UpdateShopDto } from './dto/shop.dto';
 import { ShopsService } from './shops.service';
-import { PlanService } from 'src/common/plans/plan.service';
+import { PlanService } from 'src/common/modules/plans/plan.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';

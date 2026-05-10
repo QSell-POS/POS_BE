@@ -7,7 +7,7 @@ import { InventoryService } from './inventory.service';
 import { InventoryItem } from './entities/inventory-item.entity';
 import { InventoryHistory, InventoryMovementType } from './entities/inventory-history.entity';
 import { InventoryBatch } from './entities/inventory-batch.entity';
-import { COSTING_STRATEGY } from 'src/common/costing/costing-strategy.interface';
+import { COSTING_STRATEGY } from 'src/common/modules/costing/costing-strategy.interface';
 
 const SHOP_ID = 'shop-uuid';
 

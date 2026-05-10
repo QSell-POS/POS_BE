@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard, CurrentUser, Roles, Permissions } from 'src/common/guards/auth.guard';
 import { Permission } from 'src/common/permissions/permission.enum';
-import { PlanGuard, RequiresPlan } from 'src/common/plans/plan.guard';
+import { PlanGuard, RequiresPlan } from 'src/common/modules/plans/plan.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
 import { ReportsService } from './reports.service';
 
