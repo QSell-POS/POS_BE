@@ -65,7 +65,7 @@ import { LoyaltyTransaction, LoyaltySettings } from './modules/loyalty/entities/
 import { AuditLog } from './modules/audit/entities/audit-log.entity';
 import { Subscription } from './modules/subscriptions/entities/subscription.entity';
 
-import { appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, uploadConfig } from './config/app.config';
+import { appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, storageConfig, uploadConfig } from './config/app.config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards/auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -82,7 +82,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     // Config
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, uploadConfig],
+      load: [appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, storageConfig, uploadConfig],
       envFilePath: ['.env', '.env.example'],
     }),
 

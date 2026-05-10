@@ -39,6 +39,14 @@ export const uploadConfig = registerAs('upload', () => ({
   allowedMimes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
 }));
 
+export const storageConfig = registerAs('storage', () => ({
+  accountId:       process.env.R2_ACCOUNT_ID || '',
+  accessKeyId:     process.env.R2_ACCESS_KEY_ID || '',
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+  bucket:          process.env.R2_BUCKET || '',
+  publicUrl:       process.env.R2_PUBLIC_URL || '',  // e.g. https://pub.r2.dev/your-bucket or custom domain
+}));
+
 export const authConfig = registerAs('auth', () => ({
   maxLoginAttempts: parseInt(process.env.AUTH_MAX_LOGIN_ATTEMPTS, 10) || 5,
   lockDurationMinutes: parseInt(process.env.AUTH_LOCK_DURATION_MINUTES, 10) || 15,
