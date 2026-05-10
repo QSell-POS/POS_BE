@@ -139,14 +139,14 @@ async function seed() {
           name:           'Demo Organization',
           ownerId:        superAdmin.id,
           status:         OrgStatus.ACTIVE,
-          plan:           ShopPlan.PRO,          // PRO so all features work in demos
-          planExpiresAt:  new Date('2030-12-31'),
+          plan:           ShopPlan.FREE,
+          planExpiresAt:  null,
           email:          'org@pos.com',
           phone:          '9800000000',
           address:        'Kathmandu, Nepal',
         }),
       );
-      console.log('✅ Organization created  →  plan: PRO, expires: 2030-12-31');
+      console.log('✅ Organization created  →  plan: FREE');
     } else {
       console.log('⏭  Organization already exists');
     }
@@ -364,7 +364,7 @@ async function seed() {
     console.log('\n══════════════════════════════════════════════════════');
     console.log('  SEED COMPLETE');
     console.log('══════════════════════════════════════════════════════');
-    console.log('  Organization : Demo Organization (PRO plan until 2030)');
+    console.log('  Organization : Demo Organization (FREE plan)');
     console.log('  Shop         : Demo Shop (demo-shop)');
     console.log('──────────────────────────────────────────────────────');
     console.log('  Credentials:');
