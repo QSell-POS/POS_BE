@@ -40,5 +40,8 @@ export class Customer extends TenantBaseEntity {
   isActive: boolean;
 
   @Column({ nullable: true, type: 'text' })
+  avatar: string;
+
+  @Column({ nullable: true, type: 'text' })
   notes: string;
 }
