@@ -1,6 +1,7 @@
 import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '../entities/sale.entity';
+import { CustomerType } from '../entities/customer.entity';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class CreateSaleItemDto {
@@ -141,6 +142,11 @@ export class CreateCustomerDto {
   @IsNumber()
   @Min(0)
   discountRate?: number;
+
+  @ApiPropertyOptional({ enum: CustomerType })
+  @IsOptional()
+  @IsEnum(CustomerType)
+  customerType?: CustomerType;
 
   @ApiPropertyOptional()
   @IsOptional()
