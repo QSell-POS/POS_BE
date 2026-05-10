@@ -22,14 +22,14 @@ export class UnitsController {
   }
 
   @Get()
-  @Permissions(Permission.SETTINGS_VIEW)
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get all units for the current shop' })
   findAll(@Query() filters: UnitFilterDto, @CurrentUser() user: any) {
     return this.service.findAll(user.shopId, filters);
   }
 
   @Get(':id')
-  @Permissions(Permission.SETTINGS_VIEW)
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get a unit by ID' })
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return this.service.findOne(id, user.shopId);

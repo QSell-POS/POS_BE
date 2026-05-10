@@ -15,14 +15,14 @@ export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}
 
   @Get()
-  @Permissions(Permission.SETTINGS_VIEW)
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get all brands' })
   findAll(@Query() filters: BrandFilterDto, @CurrentUser() user: any) {
     return this.brandsService.findAll(user.shopId, filters);
   }
 
   @Get(':id')
-  @Permissions(Permission.SETTINGS_VIEW)
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get brand by ID' })
   findOne(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
     return this.brandsService.findOne(id, user.shopId);

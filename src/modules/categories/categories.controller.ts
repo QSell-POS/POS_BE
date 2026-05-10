@@ -15,7 +15,7 @@ export class CategoriesController {
   constructor(private readonly categoryService: CategoriesService) {}
 
   @Get()
-  @Permissions(Permission.SETTINGS_VIEW)
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get category list' })
   getFlat(@Query() filters: CategoryFilterDto, @CurrentUser() user: any) {
     return this.categoryService.findFlat(user.shopId, filters);
@@ -30,14 +30,14 @@ export class CategoriesController {
   }
 
   @Get('tree')
-  @Permissions(Permission.SETTINGS_VIEW)
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get category tree' })
   getTree(@CurrentUser() user: any) {
     return this.categoryService.findAll(user.shopId);
   }
 
   @Get(':id')
-  @Permissions(Permission.SETTINGS_VIEW)
+  @Permissions(Permission.PRODUCTS_VIEW)
   @ApiOperation({ summary: 'Get category by ID' })
   findOne(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
     return this.categoryService.findOne(id, user.shopId);
