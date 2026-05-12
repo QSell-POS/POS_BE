@@ -42,9 +42,8 @@ export class ProductsService {
       .leftJoinAndSelect('p.brand', 'brand')
       .leftJoinAndSelect('p.category', 'category')
       .leftJoinAndSelect('p.unit', 'unit')
-      .leftJoinAndSelect('p.prices', 'price', 'price.isCurrent = true')
-      .leftJoinAndSelect('p.variants', 'variant', 'variant.isDefault = true')
-      .leftJoinAndSelect('p.inventoryItems', 'inv', 'inv.variantId = variant.id')
+      .leftJoinAndSelect('p.variants', 'variant')
+      .leftJoinAndSelect('p.inventoryItems', 'inv')
       .where('p.shopId = :shopId', { shopId })
       .andWhere('p.deletedAt IS NULL');
 
@@ -66,19 +65,14 @@ export class ProductsService {
       .getMany();
 
     const data = rawData.map((p) => {
-      const priceMap = (p.prices || []).reduce(
-        (acc, pr) => {
-          acc[pr.priceType] = Number(pr.price);
-          return acc;
-        },
-        {} as Record<string, number>,
-      );
-      const defaultVariant = p.variants?.[0];
-      const inventory = p.inventoryItems?.[0];
+      const defaultVariant = p.variants?.find((v) => v.isDefault) ?? p.variants?.[0];
+      const totalOnHand = (p.inventoryItems ?? []).reduce((sum, i) => sum + Number(i.quantityOnHand), 0);
+      const totalReserved = (p.inventoryItems ?? []).reduce((sum, i) => sum + Number(i.quantityReserved), 0);
+      const totalAvailable = (p.inventoryItems ?? []).reduce((sum, i) => sum + Number(i.quantityAvailable), 0);
+
       return {
         id: p.id,
         createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
         shopId: p.shopId,
         name: p.name,
         description: p.description,
@@ -89,27 +83,17 @@ export class ProductsService {
         unitId: p.unitId,
         taxRate: p.taxRate,
         hasVariants: p.hasVariants,
-        brand: p.brand?.name,
-        category: p.category?.name,
-        unit: p.unit?.symbol,
-        variantId: defaultVariant?.id ?? null,
-        sku: defaultVariant?.sku ?? null,
+        brand: p.brand?.name ?? null,
+        category: p.category?.name ?? null,
+        unit: p.unit?.symbol ?? null,
         barcode: defaultVariant?.barcode ?? null,
         status: defaultVariant?.status ?? null,
-        minStockLevel: defaultVariant?.minStockLevel ?? null,
-        maxStockLevel: defaultVariant?.maxStockLevel ?? null,
-        reorderPoint: defaultVariant?.reorderPoint ?? null,
         trackInventory: defaultVariant?.trackInventory ?? true,
-        purchasePrice: priceMap[PriceType.PURCHASE] ?? null,
-        retailPrice: priceMap[PriceType.RETAIL] ?? null,
-        wholesalePrice: priceMap[PriceType.WHOLESALE] ?? null,
-        inventory: inventory
-          ? {
-              quantityOnHand: inventory.quantityOnHand,
-              quantityReserved: inventory.quantityReserved,
-              quantityAvailable: inventory.quantityAvailable,
-            }
-          : null,
+        inventory: {
+          quantityOnHand: totalOnHand,
+          quantityReserved: totalReserved,
+          quantityAvailable: totalAvailable,
+        },
       };
     });
 
