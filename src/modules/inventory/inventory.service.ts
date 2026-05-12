@@ -52,7 +52,7 @@ export class InventoryService {
       minStockLevel: p.variant?.minStockLevel ?? null,
       maxStockLevel: p.variant?.maxStockLevel ?? null,
       product: {
-        name: p.product.name,
+        name: p.variant.name,
         sku: p.variant?.sku ?? null,
         barcode: p.variant?.barcode ?? null,
         brand: p.product.brand?.name,
