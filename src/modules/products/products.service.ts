@@ -490,6 +490,15 @@ export class ProductsService {
     return { data: saved, message: 'Variant created successfully' };
   }
 
+  async getVariant(productId: string, variantId: string, shopId: string) {
+    const variant = await this.variantRepository.findOne({
+      where: { id: variantId, productId, shopId },
+      relations: ['product', 'product.brand', 'product.category', 'product.unit', 'inventoryItems'],
+    });
+    if (!variant) throw new NotFoundException('Variant not found');
+    return { data: variant, message: 'Variant retrieved successfully' };
+  }
+
   async updateVariant(productId: string, variantId: string, dto: UpdateVariantDto, shopId: string) {
     const variant = await this.variantRepository.findOne({ where: { id: variantId, productId, shopId } });
     if (!variant) throw new NotFoundException('Variant not found');

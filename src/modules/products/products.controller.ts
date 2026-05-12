@@ -171,6 +171,17 @@ export class ProductsController {
     return this.productsService.getVariants(id, user.shopId);
   }
 
+  @Get(':id/variants/:variantId')
+  @Permissions(Permission.VARIANTS_VIEW)
+  @ApiOperation({ summary: 'Get a single variant' })
+  getVariant(
+    @Param('id', UuidParamPipe) id: string,
+    @Param('variantId', UuidParamPipe) variantId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.productsService.getVariant(id, variantId, user.shopId);
+  }
+
   @Post(':id/variants')
   @Permissions(Permission.VARIANTS_MANAGE)
   @ApiOperation({ summary: 'Add a variant to a product' })
