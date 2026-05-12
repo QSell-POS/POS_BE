@@ -345,6 +345,12 @@ export class ProductsService {
     return { message: 'Product restored' };
   }
 
+  async getVariantById(variantId: string, shopId: string): Promise<ProductVariant> {
+    const variant = await this.variantRepository.findOne({ where: { id: variantId, shopId } });
+    if (!variant) throw new NotFoundException(`Variant not found: ${variantId}`);
+    return variant;
+  }
+
   async getDefaultVariantId(productId: string, shopId: string): Promise<string> {
     const variant = await this.variantRepository.findOne({
       where: [

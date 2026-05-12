@@ -72,10 +72,10 @@ export class PurchasesService {
       const saved = await queryRunner.manager.save(Purchase, purchase);
 
       const itemsWithVariants = await Promise.all(
-        itemsWithTotals.map(async (item) => ({
-          ...item,
-          variantId: item.variantId ?? (await this.productsService.getDefaultVariantId(item.productId, shopId)),
-        })),
+        itemsWithTotals.map(async (item) => {
+          const variant = await this.productsService.getVariantById(item.variantId, shopId);
+          return { ...item, productId: variant.productId, variantId: variant.id };
+        }),
       );
 
       await queryRunner.manager.save(
@@ -139,9 +139,8 @@ export class PurchasesService {
     if (purchase.status === PurchaseStatus.CANCELLED) throw new BadRequestException('Cannot receive a cancelled purchase');
 
     for (const item of purchase.items) {
-      const variantId = item.variantId ?? (await this.productsService.getDefaultVariantId(item.productId, shopId));
       await this.inventoryService.adjustStock(
-        { productId: item.productId, variantId, quantity: Number(item.quantity), movementType: InventoryMovementType.PURCHASE, unitCost: Number(item.unitCost), referenceId: dto.supplierBillNumber || purchase.referenceNumber, referenceType: 'purchase', notes: dto.notes, performedBy: userId },
+        { productId: item.productId, variantId: item.variantId, quantity: Number(item.quantity), movementType: InventoryMovementType.PURCHASE, unitCost: Number(item.unitCost), referenceId: dto.supplierBillNumber || purchase.referenceNumber, referenceType: 'purchase', notes: dto.notes, performedBy: userId },
         shopId,
       );
     }

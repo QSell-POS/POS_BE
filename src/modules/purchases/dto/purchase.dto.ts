@@ -6,12 +6,7 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
 export class CreatePurchaseItemDto {
   @ApiProperty()
   @IsUUID()
-  productId: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUUID()
-  variantId?: string;
+  variantId: string;
 
   @ApiProperty()
   @IsNumber()
@@ -119,7 +114,7 @@ export class CreatePurchaseReturnDto {
 
   @ApiProperty({ description: 'Array of {productId, variantId?, quantity, unitCost, reason}' })
   @IsArray()
-  items: { productId: string; variantId?: string; quantity: number; unitCost: number; reason?: string }[];
+  items: { variantId: string; quantity: number; unitCost: number; reason?: string }[];
 
   @ApiPropertyOptional()
   @IsOptional()

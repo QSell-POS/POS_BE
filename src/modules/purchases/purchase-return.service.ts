@@ -58,8 +58,15 @@ export class PurchaseReturnService {
       }),
     );
 
+    const itemsWithProducts = await Promise.all(
+      dto.items.map(async (item) => {
+        const variant = await this.productsService.getVariantById(item.variantId, shopId);
+        return { ...item, productId: variant.productId };
+      }),
+    );
+
     await this.returnItemRepository.save(
-      dto.items.map((item) =>
+      itemsWithProducts.map((item) =>
         this.returnItemRepository.create({
           purchaseReturnId: savedReturn.id,
           productId: item.productId,
@@ -72,10 +79,9 @@ export class PurchaseReturnService {
       ),
     );
 
-    for (const item of dto.items) {
-      const variantId = item.variantId ?? (await this.productsService.getDefaultVariantId(item.productId, shopId));
+    for (const item of itemsWithProducts) {
       await this.inventoryService.adjustStock(
-        { productId: item.productId, variantId, quantity: item.quantity, movementType: InventoryMovementType.RETURN_OUT, unitCost: item.unitCost, referenceId: savedReturn.referenceNumber, referenceType: 'purchase_return', performedBy: userId },
+        { productId: item.productId, variantId: item.variantId, quantity: item.quantity, movementType: InventoryMovementType.RETURN_OUT, unitCost: item.unitCost, referenceId: savedReturn.referenceNumber, referenceType: 'purchase_return', performedBy: userId },
         shopId,
       );
     }
