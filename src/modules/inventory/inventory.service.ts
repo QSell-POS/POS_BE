@@ -309,6 +309,10 @@ export class InventoryService {
     const qb = this.historyRepository
       .createQueryBuilder('h')
       .leftJoinAndSelect('h.product', 'product')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.unit', 'unit')
+      .leftJoinAndSelect('h.variant', 'variant')
       .leftJoinAndSelect('h.performedByUser', 'performedByUser')
       .where('h.shopId = :shopId', { shopId });
 
@@ -324,9 +328,33 @@ export class InventoryService {
       .orderBy('h.createdAt', 'DESC')
       .getMany();
 
-    const data = rawData.map(({ performedByUser, ...h }) => ({
-      ...h,
-      performedBy: performedByUser ? `${performedByUser.firstName} ${performedByUser.lastName}` : null,
+    const data = rawData.map((h) => ({
+      id: h.id,
+      createdAt: h.createdAt,
+      shopId: h.shopId,
+      inventoryItemId: h.inventoryItemId,
+      productId: h.productId,
+      variantId: h.variantId,
+      movementType: h.movementType,
+      quantity: h.quantity,
+      quantityBefore: h.quantityBefore,
+      quantityAfter: h.quantityAfter,
+      unitCost: h.unitCost,
+      referenceId: h.referenceId,
+      referenceType: h.referenceType,
+      notes: h.notes,
+      performedByUserId: h.performedByUserId,
+      productName: h.product?.name ?? null,
+      productDescription: h.product?.description ?? null,
+      name: h.variant?.name ?? null,
+      image: h.product?.image ?? null,
+      productType: h.product?.type ?? null,
+      brandId: h.product?.brandId ?? null,
+      categoryId: h.product?.categoryId ?? null,
+      unitId: h.product?.unitId ?? null,
+      taxRate: h.product?.taxRate ?? null,
+      hasVariants: h.product?.hasVariants ?? null,
+      performedBy: h.performedByUser ? `${h.performedByUser.firstName} ${h.performedByUser.lastName}` : null,
     }));
 
     return {
