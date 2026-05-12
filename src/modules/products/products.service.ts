@@ -348,8 +348,8 @@ export class ProductsService {
   async getDefaultVariantId(productId: string, shopId: string): Promise<string> {
     const variant = await this.variantRepository.findOne({
       where: [
-        { productId, shopId, isDefault: true },
-        { productId, shopId },
+        { productId, isDefault: true },
+        { productId },
       ],
       order: { isDefault: 'DESC', createdAt: 'ASC' },
     });
@@ -360,8 +360,8 @@ export class ProductsService {
   async getDefaultVariant(productId: string, shopId: string): Promise<ProductVariant> {
     const variant = await this.variantRepository.findOne({
       where: [
-        { productId, shopId, isDefault: true },
-        { productId, shopId },
+        { productId, isDefault: true },
+        { productId },
       ],
       order: { isDefault: 'DESC', createdAt: 'ASC' },
     });
