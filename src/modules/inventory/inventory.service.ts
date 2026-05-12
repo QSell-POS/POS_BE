@@ -352,7 +352,7 @@ export class InventoryService {
       brandId: h.product?.brandId ?? null,
       categoryId: h.product?.categoryId ?? null,
       unitId: h.product?.unitId ?? null,
-      taxRate: h.product?.taxRate ?? null,
+      taxRate: h.variant?.taxRate ?? null,
       hasVariants: h.product?.hasVariants ?? null,
       performedBy: h.performedByUser ? `${h.performedByUser.firstName} ${h.performedByUser.lastName}` : null,
     }));

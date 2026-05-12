@@ -53,7 +53,7 @@ export class SalesService {
 
         const discountAmount = (retailPrice * item.quantity * (item.discountRate || 0)) / 100;
         const lineSubtotal = retailPrice * item.quantity - discountAmount;
-        const taxAmount = (lineSubtotal * Number(product.taxRate)) / 100;
+        const taxAmount = (lineSubtotal * Number(variant.taxRate)) / 100;
         const lineProfit = lineSubtotal - lineCogs;
 
         subtotal += lineSubtotal;
@@ -67,7 +67,7 @@ export class SalesService {
           quantity: item.quantity,
           unitPrice: retailPrice,
           costPrice,
-          taxRate: product.taxRate,
+          taxRate: variant.taxRate,
           taxAmount,
           discountRate: item.discountRate || 0,
           discountAmount,

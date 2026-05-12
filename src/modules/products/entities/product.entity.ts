@@ -39,15 +39,6 @@ export class Product extends TenantBaseEntity {
   @Column({ name: 'unit_id', nullable: true })
   unitId: string;
 
-  @Column({
-    name: 'tax_rate',
-    type: 'decimal',
-    precision: 5,
-    scale: 2,
-    default: 0,
-  })
-  taxRate: number;
-
   @Column({ name: 'has_variants', default: false })
   hasVariants: boolean;
 

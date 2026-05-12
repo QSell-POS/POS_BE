@@ -21,11 +21,6 @@ export class CreateProductVariantDto {
   @IsString()
   barcode?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  image?: string;
-
   @ApiProperty()
   @IsNumber()
   @Min(0)
@@ -205,11 +200,6 @@ export class CreateVariantDto {
   @IsOptional()
   @IsString()
   barcode?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  image?: string;
 
   @ApiPropertyOptional({ enum: ProductStatus })
   @IsOptional()

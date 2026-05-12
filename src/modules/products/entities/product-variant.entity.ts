@@ -26,9 +26,6 @@ export class ProductVariant extends TenantBaseEntity {
   @Column({ nullable: true, length: 100 })
   barcode: string;
 
-  @Column({ nullable: true, length: 255 })
-  image: string;
-
   @Column({ type: 'enum', enum: ProductStatus, default: ProductStatus.ACTIVE })
   status: ProductStatus;
 
@@ -65,6 +62,9 @@ export class ProductVariant extends TenantBaseEntity {
   // e.g. { "color": "Red", "size": "M" }
   @Column({ type: 'jsonb', nullable: true })
   attributes: Record<string, string>;
+
+  @Column({ name: 'tax_rate', type: 'decimal', precision: 5, scale: 2, default: 0 })
+  taxRate: number;
 
   @Column({ name: 'is_default', default: false })
   isDefault: boolean;
