@@ -97,7 +97,9 @@ export class StorageService {
 
   getPublicUrl(key: string): string {
     if (!this.publicUrl || !key) return '';
-    return `${this.publicUrl.replace(/\/$/, '')}/${key}`;
+    const base = this.publicUrl.replace(/\/$/, '');
+    const withScheme = base.startsWith('http') ? base : `https://${base}`;
+    return `${withScheme}/${key}`;
   }
 
   // ── Key builder ───────────────────────────────────────────────────────────
