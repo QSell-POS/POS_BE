@@ -24,6 +24,9 @@ export class Product extends TenantBaseEntity {
   @Column({ nullable: true, type: 'text' })
   description: string;
 
+  @Column({ nullable: true, type: 'text' })
+  image: string;
+
   @Column({ type: 'enum', enum: ProductType, default: ProductType.STANDARD })
   type: ProductType;
 

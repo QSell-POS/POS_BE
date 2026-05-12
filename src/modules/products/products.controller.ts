@@ -28,6 +28,7 @@ import {
   UpdateProductDto,
   UpdateProductPriceDto,
   UpdateVariantDto,
+  VariantFilterDto,
 } from './dto/product.dto';
 import { UuidParamPipe } from 'src/common/validator';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -45,6 +46,14 @@ export class ProductsController {
   @ApiQuery({ name: 'filters', required: false, type: () => ProductFilterDto })
   findAll(@Query() filters: ProductFilterDto, @CurrentUser() user: any) {
     return this.productsService.findAll(filters, user.shopId);
+  }
+
+  @Get('variants')
+  @Permissions(Permission.VARIANTS_VIEW)
+  @ApiOperation({ summary: 'Get all variants across all products' })
+  @ApiQuery({ name: 'filters', required: false, type: () => VariantFilterDto })
+  getAllVariants(@Query() filters: VariantFilterDto, @CurrentUser() user: any) {
+    return this.productsService.getAllVariants(filters, user.shopId);
   }
 
   // Import endpoints declared BEFORE :id to avoid route collision

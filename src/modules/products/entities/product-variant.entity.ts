@@ -1,6 +1,7 @@
-import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index, OneToMany } from 'typeorm';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Product } from './product.entity';
+import { InventoryItem } from 'src/modules/inventory/entities/inventory-item.entity';
 
 export enum ProductStatus {
   ACTIVE = 'active',
@@ -74,4 +75,7 @@ export class ProductVariant extends TenantBaseEntity {
   @ManyToOne(() => Product, (product) => product.variants)
   @JoinColumn({ name: 'product_id' })
   product: Product;
+
+  @OneToMany(() => InventoryItem, (inv) => inv.variant)
+  inventoryItems: InventoryItem[];
 }

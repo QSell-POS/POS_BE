@@ -82,6 +82,7 @@ export class ProductsService {
         shopId: p.shopId,
         name: p.name,
         description: p.description,
+        image: p.image ?? null,
         type: p.type,
         brandId: p.brandId,
         categoryId: p.categoryId,
@@ -94,7 +95,6 @@ export class ProductsService {
         variantId: defaultVariant?.id ?? null,
         sku: defaultVariant?.sku ?? null,
         barcode: defaultVariant?.barcode ?? null,
-        image: defaultVariant?.image ?? null,
         status: defaultVariant?.status ?? null,
         minStockLevel: defaultVariant?.minStockLevel ?? null,
         maxStockLevel: defaultVariant?.maxStockLevel ?? null,
@@ -171,6 +171,7 @@ export class ProductsService {
       const product = queryRunner.manager.create(Product, {
         name: dto.name,
         description: dto.description,
+        image: dto.image,
         type: dto.type,
         brandId: dto.brandId,
         categoryId: dto.categoryId,
@@ -288,14 +289,13 @@ export class ProductsService {
   async update(id: string, dto: UpdateProductDto, shopId: string) {
     const product = await this.findOne(id, shopId);
 
-    const { sku, barcode, image, status, minStockLevel, maxStockLevel, reorderPoint, trackInventory, ...productFields } = dto;
+    const { sku, barcode, status, minStockLevel, maxStockLevel, reorderPoint, trackInventory, ...productFields } = dto;
     Object.assign(product, productFields);
     await this.productRepository.save(product);
 
     const variantUpdate: Partial<ProductVariant> = {};
     if (sku !== undefined) variantUpdate.sku = sku;
     if (barcode !== undefined) variantUpdate.barcode = barcode;
-    if (image !== undefined) variantUpdate.image = image;
     if (status !== undefined) variantUpdate.status = status;
     if (minStockLevel !== undefined) variantUpdate.minStockLevel = minStockLevel;
     if (maxStockLevel !== undefined) variantUpdate.maxStockLevel = maxStockLevel;
@@ -379,6 +379,75 @@ export class ProductsService {
     });
     if (!variant) throw new NotFoundException(`No default variant found for product ${productId}`);
     return variant;
+  }
+
+  async getAllVariants(filters: import('./dto/product.dto').VariantFilterDto, shopId: string) {
+    const { search, productId, categoryId, brandId, status, page = 1, limit = 20 } = filters;
+
+    const qb = this.variantRepository
+      .createQueryBuilder('v')
+      .leftJoinAndSelect('v.product', 'product')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.unit', 'unit')
+      .leftJoinAndSelect('v.inventoryItems', 'inv')
+      .where('v.shopId = :shopId', { shopId })
+      .andWhere('v.deletedAt IS NULL');
+
+    if (search) {
+      qb.andWhere(
+        '(v.sku ILIKE :search OR v.barcode ILIKE :search OR product.name ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+    if (productId) qb.andWhere('v.productId = :productId', { productId });
+    if (categoryId) qb.andWhere('product.categoryId = :categoryId', { categoryId });
+    if (brandId) qb.andWhere('product.brandId = :brandId', { brandId });
+    if (status) qb.andWhere('v.status = :status', { status });
+
+    const total = await qb.getCount();
+    const rawData = await qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy('product.name', 'ASC')
+      .addOrderBy('v.isDefault', 'DESC')
+      .getMany();
+
+    const data = rawData.map((v) => ({
+      id: v.id,
+      productId: v.productId,
+      productName: v.product?.name ?? null,
+      brand: v.product?.brand?.name ?? null,
+      category: v.product?.category?.name ?? null,
+      unit: v.product?.unit?.symbol ?? null,
+      name: v.name,
+      sku: v.sku,
+      barcode: v.barcode,
+      image: v.image,
+      status: v.status,
+      isDefault: v.isDefault,
+      isActive: v.isActive,
+      minStockLevel: v.minStockLevel,
+      maxStockLevel: v.maxStockLevel,
+      reorderPoint: v.reorderPoint,
+      trackInventory: v.trackInventory,
+      attributes: v.attributes,
+      inventory: v.inventoryItems?.[0]
+        ? {
+            quantityOnHand: v.inventoryItems[0].quantityOnHand,
+            quantityAvailable: v.inventoryItems[0].quantityAvailable,
+            quantityReserved: v.inventoryItems[0].quantityReserved,
+          }
+        : null,
+      createdAt: v.createdAt,
+      updatedAt: v.updatedAt,
+    }));
+
+    return {
+      data,
+      message: 'Variants retrieved successfully',
+      meta: buildPaginationMeta(total, page, limit),
+    };
   }
 
   async getVariants(productId: string, shopId: string) {
