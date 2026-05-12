@@ -50,9 +50,10 @@ export class StorageService {
   async upload(
     file: Express.Multer.File,
     folder: StorageFolder,
+    shopId?: string,
   ): Promise<{ key: string; url: string }> {
     const ext = extname(file.originalname).toLowerCase();
-    const key = this.buildKey(folder, file.originalname, ext);
+    const key = this.buildKey(folder, file.originalname, ext, shopId);
 
     if (!this.configured) {
       this.logger.log(`[STORAGE SKIPPED] Would upload: ${key}`);
@@ -101,10 +102,11 @@ export class StorageService {
 
   // ── Key builder ───────────────────────────────────────────────────────────
 
-  private buildKey(folder: StorageFolder, originalName: string, ext = ''): string {
+  private buildKey(folder: StorageFolder, originalName: string, ext = '', shopId?: string): string {
     const date = new Date().toISOString().slice(0, 10);
     const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', 'T').slice(0, 15);
     const baseName = originalName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
-    return `${folder}/${date}/${timestamp}-${baseName}${ext}`;
+    const prefix = shopId ? `${folder}/${shopId}/${date}` : `${folder}/${date}`;
+    return `${prefix}/${timestamp}-${baseName}${ext}`;
   }
 }

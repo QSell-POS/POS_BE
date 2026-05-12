@@ -44,7 +44,7 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const result = await this.storage.upload(file, 'products');
+    const result = await this.storage.upload(file, 'products', user.shopId);
     return { data: result, message: 'Product image uploaded' };
   }
 
@@ -60,7 +60,7 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const result = await this.storage.upload(file, 'avatars');
+    const result = await this.storage.upload(file, 'avatars', user.shopId);
     return { data: result, message: 'Avatar uploaded' };
   }
 
@@ -77,7 +77,7 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const result = await this.storage.upload(file, 'invoices');
+    const result = await this.storage.upload(file, 'invoices', user.shopId);
     const url = await this.storage.getPresignedUrl(result.key, 3600);
     return { data: { ...result, url }, message: 'Invoice uploaded' };
   }
@@ -95,7 +95,7 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const result = await this.storage.upload(file, 'attachments');
+    const result = await this.storage.upload(file, 'attachments', user.shopId);
     return { data: result, message: 'Attachment uploaded' };
   }
 
