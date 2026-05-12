@@ -347,17 +347,25 @@ export class ProductsService {
 
   async getDefaultVariantId(productId: string, shopId: string): Promise<string> {
     const variant = await this.variantRepository.findOne({
-      where: { productId, shopId, isDefault: true },
+      where: [
+        { productId, shopId, isDefault: true },
+        { productId, shopId },
+      ],
+      order: { isDefault: 'DESC', createdAt: 'ASC' },
     });
-    if (!variant) throw new NotFoundException(`No default variant found for product ${productId}`);
+    if (!variant) throw new NotFoundException(`No variant found for product ${productId}`);
     return variant.id;
   }
 
   async getDefaultVariant(productId: string, shopId: string): Promise<ProductVariant> {
     const variant = await this.variantRepository.findOne({
-      where: { productId, shopId, isDefault: true },
+      where: [
+        { productId, shopId, isDefault: true },
+        { productId, shopId },
+      ],
+      order: { isDefault: 'DESC', createdAt: 'ASC' },
     });
-    if (!variant) throw new NotFoundException(`No default variant found for product ${productId}`);
+    if (!variant) throw new NotFoundException(`No variant found for product ${productId}`);
     return variant;
   }
 
