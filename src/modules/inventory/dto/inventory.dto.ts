@@ -5,10 +5,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class AdjustStockDto {
   @ApiProperty()
   @IsUUID()
-  productId: string;
-
-  @ApiProperty()
-  @IsUUID()
   variantId: string;
 
   @ApiProperty()
@@ -32,8 +28,8 @@ export class AdjustStockDto {
 }
 
 export interface StockAdjustmentDto {
-  productId: string;
-  variantId?: string;
+  productId?: string;
+  variantId: string;
   quantity: number;
   movementType: InventoryMovementType;
   notes?: string;

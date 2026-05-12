@@ -15,9 +15,9 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { TransferStatus } from '../entities/stock-transfer.entity';
 
 export class CreateTransferItemDto {
-  @ApiProperty({ description: 'Product UUID' })
+  @ApiProperty({ description: 'Variant UUID' })
   @IsUUID()
-  productId: string;
+  variantId: string;
 
   @ApiProperty({ description: 'Quantity to transfer', minimum: 0.01 })
   @IsNumber()

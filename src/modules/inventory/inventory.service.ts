@@ -77,6 +77,14 @@ export class InventoryService {
     return item;
   }
 
+  async getInventoryByVariant(variantId: string, shopId: string) {
+    const item = await this.inventoryRepository.findOne({
+      where: { variantId, shopId },
+    });
+    if (!item) throw new NotFoundException('Inventory item not found');
+    return item;
+  }
+
   async getLowStockProducts(shopId: string, page = 1, limit = 20) {
     const qb = this.inventoryRepository
       .createQueryBuilder('inv')
@@ -113,8 +121,14 @@ export class InventoryService {
       });
 
       if (!inventoryItem) {
+        // Resolve productId from variant if not provided
+        let productId = dto.productId;
+        if (!productId) {
+          const variant = await queryRunner.manager.findOne(ProductVariant, { where: { id: dto.variantId } });
+          productId = variant?.productId;
+        }
         inventoryItem = queryRunner.manager.create(InventoryItem, {
-          productId: dto.productId,
+          productId,
           variantId: dto.variantId,
           shopId,
           quantityOnHand: 0,

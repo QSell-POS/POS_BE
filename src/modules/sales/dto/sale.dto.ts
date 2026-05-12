@@ -7,12 +7,7 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 export class CreateSaleItemDto {
   @ApiProperty()
   @IsUUID()
-  productId: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUUID()
-  variantId?: string;
+  variantId: string;
 
   @ApiProperty()
   @IsNumber()
@@ -82,7 +77,7 @@ export class CreateSaleReturnDto {
 
   @ApiProperty()
   @IsArray()
-  items: { productId: string; quantity: number; unitPrice: number; reason?: string }[];
+  items: { variantId: string; quantity: number; unitPrice: number; reason?: string }[];
 
   @ApiPropertyOptional()
   @IsOptional()

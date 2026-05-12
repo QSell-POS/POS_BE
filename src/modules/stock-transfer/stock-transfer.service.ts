@@ -5,6 +5,7 @@ import { StockTransfer, StockTransferItem, TransferStatus } from './entities/sto
 import { CreateStockTransferDto, ReceiveTransferDto, StockTransferFilterDto } from './dto/stock-transfer.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { InventoryService } from '../inventory/inventory.service';
+import { ProductsService } from '../products/products.service';
 import { InventoryMovementType } from '../inventory/entities/inventory-history.entity';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class StockTransferService {
     @InjectRepository(StockTransferItem)
     private readonly itemRepo: Repository<StockTransferItem>,
     private readonly inventoryService: InventoryService,
+    private readonly productsService: ProductsService,
   ) {}
 
   async create(dto: CreateStockTransferDto, fromShopId: string, userId: string) {
@@ -22,15 +24,19 @@ export class StockTransferService {
       throw new BadRequestException('Source and destination shops cannot be the same');
     }
 
-    for (const item of dto.items) {
-      const inv = await this.inventoryService.getInventoryByProduct(item.productId, fromShopId).catch(() => null);
-      const available = inv ? Number(inv.quantityAvailable) : 0;
-      if (available < item.quantity) {
-        throw new BadRequestException(
-          `Insufficient stock for product ${item.productId}. Available: ${available}, requested: ${item.quantity}`,
-        );
-      }
-    }
+    const itemsWithProducts = await Promise.all(
+      dto.items.map(async (item) => {
+        const variant = await this.productsService.getVariantById(item.variantId, fromShopId);
+        const inv = await this.inventoryService.getInventoryByVariant(item.variantId, fromShopId).catch(() => null);
+        const available = inv ? Number(inv.quantityAvailable) : 0;
+        if (available < item.quantity) {
+          throw new BadRequestException(
+            `Insufficient stock for variant ${item.variantId}. Available: ${available}, requested: ${item.quantity}`,
+          );
+        }
+        return { ...item, productId: variant.productId };
+      }),
+    );
 
     const ref = `TRF-${Date.now()}`;
     const transfer = this.repo.create({
@@ -43,10 +49,11 @@ export class StockTransferService {
     });
     const saved = await this.repo.save(transfer);
 
-    const items = dto.items.map((i) =>
+    const items = itemsWithProducts.map((i) =>
       this.itemRepo.create({
         transferId: saved.id,
         productId: i.productId,
+        variantId: i.variantId,
         quantity: i.quantity,
         notes: i.notes,
       }),
@@ -68,6 +75,7 @@ export class StockTransferService {
       await this.inventoryService.adjustStock(
         {
           productId: item.productId,
+          variantId: item.variantId,
           quantity: Number(item.quantity),
           movementType: InventoryMovementType.TRANSFER_OUT,
           referenceId: t.referenceNumber,
@@ -101,14 +109,13 @@ export class StockTransferService {
         );
       }
 
-      await this.itemRepo.update(recv.transferItemId, {
-        receivedQuantity: recv.receivedQuantity,
-      });
+      await this.itemRepo.update(recv.transferItemId, { receivedQuantity: recv.receivedQuantity });
 
       if (recv.receivedQuantity > 0) {
         await this.inventoryService.adjustStock(
           {
             productId: item.productId,
+            variantId: item.variantId,
             quantity: recv.receivedQuantity,
             movementType: InventoryMovementType.TRANSFER_IN,
             referenceId: t.referenceNumber,
@@ -125,6 +132,7 @@ export class StockTransferService {
         await this.inventoryService.adjustStock(
           {
             productId: item.productId,
+            variantId: item.variantId,
             quantity: shortfall,
             movementType: InventoryMovementType.TRANSFER_IN,
             referenceId: t.referenceNumber,
@@ -166,6 +174,7 @@ export class StockTransferService {
         await this.inventoryService.adjustStock(
           {
             productId: item.productId,
+            variantId: item.variantId,
             quantity: Number(item.quantity),
             movementType: InventoryMovementType.TRANSFER_IN,
             referenceId: t.referenceNumber,

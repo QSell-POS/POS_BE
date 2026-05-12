@@ -39,17 +39,16 @@ export class SalesService {
       const enrichedItems = [];
 
       for (const item of dto.items) {
-        const product = await this.productsService.findOne(item.productId, shopId);
-        const variant = await this.productsService.getDefaultVariant(item.productId, shopId);
-        const variantId = item.variantId ?? variant.id;
+        const variant = await this.productsService.getVariantById(item.variantId, shopId);
+        const product = await this.productsService.findOne(variant.productId, shopId);
 
-        const inv = product.inventoryItems?.find((i) => i.variantId === variantId) ?? product.inventoryItems?.[0];
+        const inv = product.inventoryItems?.find((i) => i.variantId === item.variantId) ?? product.inventoryItems?.[0];
         if (variant.trackInventory && inv && Number(inv.quantityAvailable) < item.quantity) {
           throw new BadRequestException(`Insufficient stock for "${product.name}". Available: ${inv.quantityAvailable}`);
         }
 
-        const retailPrice = item.unitPrice ?? (await this.productsService.getCurrentPrice(item.productId, PriceType.RETAIL, shopId));
-        const lineCogs = await this.inventoryService.consumeBatchesFIFO(variantId, shopId, item.quantity, queryRunner);
+        const retailPrice = item.unitPrice ?? (await this.productsService.getCurrentPrice(variant.productId, PriceType.RETAIL, shopId));
+        const lineCogs = await this.inventoryService.consumeBatchesFIFO(item.variantId, shopId, item.quantity, queryRunner);
         const costPrice = item.quantity > 0 ? lineCogs / item.quantity : 0;
 
         const discountAmount = (retailPrice * item.quantity * (item.discountRate || 0)) / 100;
@@ -63,8 +62,8 @@ export class SalesService {
         totalCogs += lineCogs;
 
         enrichedItems.push({
-          productId: item.productId,
-          variantId,
+          productId: variant.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           unitPrice: retailPrice,
           costPrice,
@@ -207,7 +206,7 @@ export class SalesService {
 
     for (const item of sale.items) {
       await this.inventoryService.adjustStock(
-        { productId: item.productId, variantId: item.variantId ?? await this.productsService.getDefaultVariantId(item.productId, shopId), quantity: item.quantity, movementType: InventoryMovementType.RETURN_IN, unitCost: Number(item.costPrice), referenceId: sale.invoiceNumber, referenceType: 'sale_cancel', performedBy: userId },
+        { productId: item.productId, variantId: item.variantId, quantity: item.quantity, movementType: InventoryMovementType.RETURN_IN, unitCost: Number(item.costPrice), referenceId: sale.invoiceNumber, referenceType: 'sale_cancel', performedBy: userId },
         shopId,
       );
     }

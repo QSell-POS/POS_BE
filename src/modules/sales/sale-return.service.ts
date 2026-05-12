@@ -62,29 +62,29 @@ export class SaleReturnService {
       }),
     );
 
+    const saleItemByVariant = Object.fromEntries(
+      sale.items.map((i) => [i.variantId, { costPrice: Number(i.costPrice), productId: i.productId }]),
+    );
+
     await this.returnItemRepository.save(
-      dto.items.map((item) =>
-        this.returnItemRepository.create({
+      dto.items.map((item) => {
+        const original = saleItemByVariant[item.variantId];
+        return this.returnItemRepository.create({
           saleReturnId: savedReturn.id,
-          productId: item.productId,
+          productId: original?.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           subtotal: item.quantity * item.unitPrice,
           reason: item.reason,
           shopId,
-        }),
-      ),
-    );
-
-    const saleItemByProduct = Object.fromEntries(
-      sale.items.map((i) => [i.productId, { costPrice: Number(i.costPrice), variantId: i.variantId }]),
+        });
+      }),
     );
 
     for (const item of dto.items) {
-      const original = saleItemByProduct[item.productId];
-      const variantId = original?.variantId ?? (await this.productsService.getDefaultVariantId(item.productId, shopId));
+      const original = saleItemByVariant[item.variantId];
       await this.inventoryService.adjustStock(
-        { productId: item.productId, variantId, quantity: item.quantity, movementType: InventoryMovementType.RETURN_IN, unitCost: original?.costPrice ?? 0, referenceId: savedReturn.referenceNumber, referenceType: 'sale_return', performedBy: userId },
+        { productId: original?.productId, variantId: item.variantId, quantity: item.quantity, movementType: InventoryMovementType.RETURN_IN, unitCost: original?.costPrice ?? 0, referenceId: savedReturn.referenceNumber, referenceType: 'sale_return', performedBy: userId },
         shopId,
       );
     }

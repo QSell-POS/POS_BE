@@ -46,8 +46,11 @@ export class StockTransferItem extends BaseEntity {
   @Column({ name: 'transfer_id' })
   transferId: string;
 
-  @Column({ name: 'product_id' })
+  @Column({ name: 'product_id', nullable: true })
   productId: string;
+
+  @Column({ name: 'variant_id' })
+  variantId: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   quantity: number;
