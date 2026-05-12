@@ -370,6 +370,7 @@ export class ProductsService {
       .leftJoinAndSelect('product.brand', 'brand')
       .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('product.unit', 'unit')
+      .leftJoinAndSelect('product.prices', 'price', 'price.isCurrent = true')
       .leftJoinAndSelect('v.inventoryItems', 'inv')
       .where('v.shopId = :shopId', { shopId })
       .andWhere('v.deletedAt IS NULL');
@@ -393,35 +394,44 @@ export class ProductsService {
       .addOrderBy('v.isDefault', 'DESC')
       .getMany();
 
-    const data = rawData.map((v) => ({
-      id: v.id,
-      productId: v.productId,
-      productName: v.product?.name ?? null,
-      brand: v.product?.brand?.name ?? null,
-      category: v.product?.category?.name ?? null,
-      unit: v.product?.unit?.symbol ?? null,
-      name: v.name,
-      sku: v.sku,
-      barcode: v.barcode,
-      image: v.image,
-      status: v.status,
-      isDefault: v.isDefault,
-      isActive: v.isActive,
-      minStockLevel: v.minStockLevel,
-      maxStockLevel: v.maxStockLevel,
-      reorderPoint: v.reorderPoint,
-      trackInventory: v.trackInventory,
-      attributes: v.attributes,
-      inventory: v.inventoryItems?.[0]
-        ? {
-            quantityOnHand: v.inventoryItems[0].quantityOnHand,
-            quantityAvailable: v.inventoryItems[0].quantityAvailable,
-            quantityReserved: v.inventoryItems[0].quantityReserved,
-          }
-        : null,
-      createdAt: v.createdAt,
-      updatedAt: v.updatedAt,
-    }));
+    const data = rawData.map((v) => {
+      const priceMap = (v.product?.prices ?? []).reduce(
+        (acc, pr) => { acc[pr.priceType] = Number(pr.price); return acc; },
+        {} as Record<string, number>,
+      );
+      return {
+        id: v.id,
+        productId: v.productId,
+        productName: v.product?.name ?? null,
+        brand: v.product?.brand?.name ?? null,
+        category: v.product?.category?.name ?? null,
+        unit: v.product?.unit?.symbol ?? null,
+        name: v.name,
+        sku: v.sku,
+        barcode: v.barcode,
+        image: v.image,
+        status: v.status,
+        isDefault: v.isDefault,
+        isActive: v.isActive,
+        minStockLevel: v.minStockLevel,
+        maxStockLevel: v.maxStockLevel,
+        reorderPoint: v.reorderPoint,
+        trackInventory: v.trackInventory,
+        attributes: v.attributes,
+        retailPrice: priceMap[PriceType.RETAIL] ?? null,
+        purchasePrice: priceMap[PriceType.PURCHASE] ?? null,
+        wholesalePrice: priceMap[PriceType.WHOLESALE] ?? null,
+        inventory: v.inventoryItems?.[0]
+          ? {
+              quantityOnHand: v.inventoryItems[0].quantityOnHand,
+              quantityAvailable: v.inventoryItems[0].quantityAvailable,
+              quantityReserved: v.inventoryItems[0].quantityReserved,
+            }
+          : null,
+        createdAt: v.createdAt,
+        updatedAt: v.updatedAt,
+      };
+    });
 
     return {
       data,
