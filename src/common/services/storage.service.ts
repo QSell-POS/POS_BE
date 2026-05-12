@@ -103,10 +103,9 @@ export class StorageService {
   // ── Key builder ───────────────────────────────────────────────────────────
 
   private buildKey(folder: StorageFolder, originalName: string, ext = '', shopId?: string): string {
-    const date = new Date().toISOString().slice(0, 10);
-    const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', 'T').slice(0, 15);
+    const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, '').replace('T', 'T').slice(0, 15);
     const baseName = originalName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const prefix = shopId ? `${folder}/${shopId}/${date}` : `${folder}/${date}`;
+    const prefix = shopId ? `${shopId}/${folder}` : folder;
     return `${prefix}/${timestamp}-${baseName}${ext}`;
   }
 }
