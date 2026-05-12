@@ -65,7 +65,6 @@ export class ProductsService {
       .getMany();
 
     const data = rawData.map((p) => {
-      const defaultVariant = p.variants?.find((v) => v.isDefault) ?? p.variants?.[0];
       const totalOnHand = (p.inventoryItems ?? []).reduce((sum, i) => sum + Number(i.quantityOnHand), 0);
       const totalReserved = (p.inventoryItems ?? []).reduce((sum, i) => sum + Number(i.quantityReserved), 0);
       const totalAvailable = (p.inventoryItems ?? []).reduce((sum, i) => sum + Number(i.quantityAvailable), 0);
@@ -86,9 +85,6 @@ export class ProductsService {
         brand: p.brand?.name ?? null,
         category: p.category?.name ?? null,
         unit: p.unit?.symbol ?? null,
-        barcode: defaultVariant?.barcode ?? null,
-        status: defaultVariant?.status ?? null,
-        trackInventory: defaultVariant?.trackInventory ?? true,
         inventory: {
           quantityOnHand: totalOnHand,
           quantityReserved: totalReserved,
