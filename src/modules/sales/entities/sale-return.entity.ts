@@ -60,8 +60,11 @@ export class SaleReturnItem extends TenantBaseEntity {
   @Column({ name: 'sale_return_id' })
   saleReturnId: string;
 
-  @Column({ name: 'product_id' })
+  @Column({ name: 'product_id', nullable: true })
   productId: string;
+
+  @Column({ name: 'variant_id', nullable: true })
+  variantId: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   quantity: number;

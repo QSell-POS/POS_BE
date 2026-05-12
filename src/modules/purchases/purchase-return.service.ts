@@ -70,6 +70,7 @@ export class PurchaseReturnService {
         this.returnItemRepository.create({
           purchaseReturnId: savedReturn.id,
           productId: item.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           unitCost: item.unitCost,
           subtotal: item.quantity * item.unitCost,

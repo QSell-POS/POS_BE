@@ -23,7 +23,7 @@ export class InventoryController {
 
   @Get('low-stock')
   @Permissions(Permission.INVENTORY_VIEW)
-  @ApiOperation({ summary: 'Get low stock products' })
+  @ApiOperation({ summary: 'Get low stock variants' })
   getLowStock(@Query() pagination: PaginationDto, @CurrentUser() user: any) {
     return this.inventoryService.getLowStockProducts(user.shopId, pagination.page, pagination.limit);
   }
@@ -37,28 +37,21 @@ export class InventoryController {
 
   @Get('batches')
   @Permissions(Permission.INVENTORY_VIEW)
-  @ApiOperation({ summary: 'Get all inventory batches (purchase cost layers for FIFO)' })
-  getBatches(@Query('productId') productId: string, @Query('variantId') variantId: string, @Query() pagination: PaginationDto, @CurrentUser() user: any) {
-    return this.inventoryService.getBatches(user.shopId, productId, variantId, pagination.page, pagination.limit);
+  @ApiOperation({ summary: 'Get inventory batches (FIFO cost layers)' })
+  getBatches(@Query('variantId') variantId: string, @Query() pagination: PaginationDto, @CurrentUser() user: any) {
+    return this.inventoryService.getBatches(user.shopId, undefined, variantId, pagination.page, pagination.limit);
   }
 
-  @Get('batches/product/:productId')
+  @Get('variant/:variantId')
   @Permissions(Permission.INVENTORY_VIEW)
-  @ApiOperation({ summary: 'Get inventory batches for a specific product' })
-  getBatchesByProduct(@Param('productId') productId: string, @Query() pagination: PaginationDto, @CurrentUser() user: any) {
-    return this.inventoryService.getBatches(user.shopId, productId, undefined, pagination.page, pagination.limit);
-  }
-
-  @Get('product/:productId')
-  @Permissions(Permission.INVENTORY_VIEW)
-  @ApiOperation({ summary: 'Get inventory by product ID' })
-  getByProduct(@Param('productId') productId: string, @CurrentUser() user: any) {
-    return this.inventoryService.getInventoryByProduct(productId, user.shopId);
+  @ApiOperation({ summary: 'Get inventory for a specific variant' })
+  getByVariant(@Param('variantId') variantId: string, @CurrentUser() user: any) {
+    return this.inventoryService.getInventoryByVariant(variantId, user.shopId);
   }
 
   @Post('adjust')
   @Permissions(Permission.INVENTORY_ADJUST)
-  @ApiOperation({ summary: 'Adjust stock for a product' })
+  @ApiOperation({ summary: 'Manually adjust stock for a variant' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   adjustStock(@Body() dto: AdjustStockDto, @CurrentUser() user: any) {
     return this.inventoryService.adjustStock({ ...dto, performedBy: user.id }, user.shopId);

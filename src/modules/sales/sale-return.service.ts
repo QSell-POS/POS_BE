@@ -72,6 +72,7 @@ export class SaleReturnService {
         return this.returnItemRepository.create({
           saleReturnId: savedReturn.id,
           productId: original?.productId,
+          variantId: item.variantId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           subtotal: item.quantity * item.unitPrice,
