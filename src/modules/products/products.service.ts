@@ -148,6 +148,8 @@ export class ProductsService {
     await queryRunner.startTransaction();
 
     try {
+      const v = dto.variants[0]; // always exactly one variant on creation
+
       const product = queryRunner.manager.create(Product, {
         name: dto.name,
         description: dto.description,
@@ -156,7 +158,7 @@ export class ProductsService {
         brandId: dto.brandId,
         categoryId: dto.categoryId,
         unitId: dto.unitId,
-        taxRate: dto.taxRate,
+        taxRate: v.taxRate ?? 0,
         shopId,
       });
       const saved = await queryRunner.manager.save(Product, product);
@@ -165,29 +167,29 @@ export class ProductsService {
       prices.push({
         productId: saved.id,
         priceType: PriceType.RETAIL,
-        price: dto.retailPrice,
-        costPrice: dto.purchasePrice,
+        price: v.retailPrice,
+        costPrice: v.purchasePrice,
         isCurrent: true,
         changedBy: userId,
         shopId,
       });
 
-      if (dto.purchasePrice) {
+      if (v.purchasePrice) {
         prices.push({
           productId: saved.id,
           priceType: PriceType.PURCHASE,
-          price: dto.purchasePrice,
+          price: v.purchasePrice,
           isCurrent: true,
           changedBy: userId,
           shopId,
         });
       }
 
-      if (dto.wholesalePrice) {
+      if (v.wholesalePrice) {
         prices.push({
           productId: saved.id,
           priceType: PriceType.WHOLESALE,
-          price: dto.wholesalePrice,
+          price: v.wholesalePrice,
           isCurrent: true,
           changedBy: userId,
           shopId,
@@ -198,22 +200,23 @@ export class ProductsService {
 
       const defaultVariant = await queryRunner.manager.save(ProductVariant, {
         productId: saved.id,
-        name: 'Default',
-        sku: dto.sku,
-        barcode: dto.barcode,
-        image: dto.image,
+        name: v.name || dto.name,
+        sku: v.sku,
+        barcode: v.barcode,
+        image: v.image,
         status: dto.status ?? ProductStatus.ACTIVE,
-        minStockLevel: dto.minStockLevel ?? 0,
-        maxStockLevel: dto.maxStockLevel,
-        reorderPoint: dto.reorderPoint ?? 0,
-        trackInventory: dto.trackInventory ?? true,
+        minStockLevel: v.minStockLevel ?? 0,
+        maxStockLevel: v.maxStockLevel,
+        reorderPoint: v.reorderPoint ?? 0,
+        trackInventory: v.trackInventory ?? true,
+        attributes: v.attributes,
         isDefault: true,
         isActive: true,
         shopId,
       });
 
       if (dto.type !== 'service' && dto.type !== 'digital') {
-        const qty = dto.initialQuantity || 0;
+        const qty = v.initialQuantity || 0;
         const inventoryItem = await queryRunner.manager.save(InventoryItem, {
           shopId,
           productId: saved.id,
@@ -221,7 +224,7 @@ export class ProductsService {
           quantityOnHand: qty,
           quantityAvailable: qty,
           quantityReserved: 0,
-          averageCost: dto.purchasePrice || 0,
+          averageCost: v.purchasePrice || 0,
           lastRestockedAt: qty > 0 ? new Date() : null,
         });
 
@@ -235,7 +238,7 @@ export class ProductsService {
             quantity: qty,
             quantityBefore: 0,
             quantityAfter: qty,
-            unitCost: dto.purchasePrice || 0,
+            unitCost: v.purchasePrice || 0,
             referenceType: 'opening_stock',
             notes: 'Initial stock on product creation',
           });
@@ -244,7 +247,7 @@ export class ProductsService {
             shopId,
             productId: saved.id,
             variantId: defaultVariant.id,
-            purchasePrice: dto.purchasePrice || 0,
+            purchasePrice: v.purchasePrice || 0,
             quantityReceived: qty,
             quantityRemaining: qty,
             referenceType: 'opening_stock',
@@ -269,22 +272,8 @@ export class ProductsService {
   async update(id: string, dto: UpdateProductDto, shopId: string) {
     const product = await this.findOne(id, shopId);
 
-    const { sku, barcode, status, minStockLevel, maxStockLevel, reorderPoint, trackInventory, ...productFields } = dto;
-    Object.assign(product, productFields);
+    Object.assign(product, dto);
     await this.productRepository.save(product);
-
-    const variantUpdate: Partial<ProductVariant> = {};
-    if (sku !== undefined) variantUpdate.sku = sku;
-    if (barcode !== undefined) variantUpdate.barcode = barcode;
-    if (status !== undefined) variantUpdate.status = status;
-    if (minStockLevel !== undefined) variantUpdate.minStockLevel = minStockLevel;
-    if (maxStockLevel !== undefined) variantUpdate.maxStockLevel = maxStockLevel;
-    if (reorderPoint !== undefined) variantUpdate.reorderPoint = reorderPoint;
-    if (trackInventory !== undefined) variantUpdate.trackInventory = trackInventory;
-
-    if (Object.keys(variantUpdate).length > 0) {
-      await this.variantRepository.update({ productId: id, isDefault: true, shopId }, variantUpdate);
-    }
 
     return {
       data: await this.findOne(id, shopId),

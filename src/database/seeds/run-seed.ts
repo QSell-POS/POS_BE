@@ -56,12 +56,11 @@ const CATEGORIES = ['Electronics', 'Foods', 'Beverages', 'General'];
 const BRANDS     = ['Apple', 'Samsung', 'Sony', 'General', 'Coca-Cola', 'Tuborg', 'Other'];
 
 const PRODUCTS = [
-  { name: 'iPhone 13',          sku: 'IPH13',            retailPrice: 120000, purchasePrice: 90000,  wholesalePrice: 110000, quantity: 10, brand: 'Apple',     category: 'Electronics', unit: 'pc',  minStockLevel: 5  },
-  { name: 'Samsung Galaxy S22', sku: 'SGS22',            retailPrice: 95000,  purchasePrice: 75000,  wholesalePrice: 92000,  quantity: 15, brand: 'Samsung',   category: 'Electronics', unit: 'pc',  minStockLevel: 4  },
-  { name: 'Sony Headphones',    sku: 'SONY-HDP',         retailPrice: 2000,   purchasePrice: 1200,   wholesalePrice: 1800,   quantity: 25, brand: 'Sony',      category: 'Electronics', unit: 'pc',  minStockLevel: 10 },
-  { name: 'Dal Masuro',         sku: 'DAL-MASURO',       retailPrice: 200,    purchasePrice: 130,    wholesalePrice: 180,    quantity: 50, brand: 'General',   category: 'Foods',       unit: 'kg',  minStockLevel: 10 },
-  { name: 'Coca Cola 500ml',    sku: 'COKE-500',         retailPrice: 100,    purchasePrice: 90,     wholesalePrice: 90,     quantity: 30, brand: 'Coca-Cola', category: 'Beverages',   unit: 'pc',  minStockLevel: 8  },
-  { name: 'Tuborg Gold 660ml',  sku: 'TUBORG-GOLD-660',  retailPrice: 550,    purchasePrice: 450,    wholesalePrice: 500,    quantity: 50, brand: 'Tuborg',    category: 'Beverages',   unit: 'pc',  minStockLevel: 20 },
+  { name: 'iPhone 13',          sku: 'IPH13',            retailPrice: 120000, purchasePrice: 90000,  wholesalePrice: 110000, quantity: 10, brand: 'Apple',   category: 'Electronics', unit: 'pc',  minStockLevel: 5  },
+  { name: 'Samsung Galaxy S22', sku: 'SGS22',            retailPrice: 95000,  purchasePrice: 75000,  wholesalePrice: 92000,  quantity: 15, brand: 'Samsung', category: 'Electronics', unit: 'pc',  minStockLevel: 4  },
+  { name: 'Sony Headphones',    sku: 'SONY-HDP',         retailPrice: 2000,   purchasePrice: 1200,   wholesalePrice: 1800,   quantity: 25, brand: 'Sony',    category: 'Electronics', unit: 'pc',  minStockLevel: 10 },
+  { name: 'Dal Masuro',         sku: 'DAL-MASURO',       retailPrice: 200,    purchasePrice: 130,    wholesalePrice: 180,    quantity: 50, brand: 'General', category: 'Foods',       unit: 'kg',  minStockLevel: 10 },
+  { name: 'Tuborg Gold 660ml',  sku: 'TUBORG-GOLD-660',  retailPrice: 550,    purchasePrice: 450,    wholesalePrice: 500,    quantity: 50, brand: 'Tuborg',  category: 'Beverages',   unit: 'pc',  minStockLevel: 20 },
 ];
 
 const SUPPLIERS = [
