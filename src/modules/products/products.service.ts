@@ -142,13 +142,31 @@ export class ProductsService {
     return price?.price ?? 0;
   }
 
+  private resolveVariantName(productName: string, v: { name?: string; attributes?: Record<string, string> }, isMultiple: boolean): string {
+    if (v.name) return v.name;
+    if (!isMultiple) return productName;
+    const attrValues = Object.values(v.attributes ?? {}).join(' ');
+    return attrValues ? `${productName} ${attrValues}` : productName;
+  }
+
   async create(dto: CreateProductDto, shopId: string, userId: string) {
+    if (dto.variants.length === 0) throw new BadRequestException('At least one variant is required');
+
+    const isMultiple = dto.variants.length > 1;
+    if (isMultiple) {
+      for (const v of dto.variants) {
+        if (!v.attributes || Object.keys(v.attributes).length === 0) {
+          throw new BadRequestException('Each variant must have at least one attribute when creating multiple variants');
+        }
+      }
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const v = dto.variants[0]; // always exactly one variant on creation
+      const firstVariant = dto.variants[0];
 
       const product = queryRunner.manager.create(Product, {
         name: dto.name,
@@ -158,38 +176,40 @@ export class ProductsService {
         brandId: dto.brandId,
         categoryId: dto.categoryId,
         unitId: dto.unitId,
-        taxRate: v.taxRate ?? 0,
+        taxRate: firstVariant.taxRate ?? 0,
+        hasVariants: isMultiple,
         shopId,
       });
       const saved = await queryRunner.manager.save(Product, product);
 
+      // Use first variant's prices for the product-level price history
       const prices: Partial<ProductPrice>[] = [];
       prices.push({
         productId: saved.id,
         priceType: PriceType.RETAIL,
-        price: v.retailPrice,
-        costPrice: v.purchasePrice,
+        price: firstVariant.retailPrice,
+        costPrice: firstVariant.purchasePrice,
         isCurrent: true,
         changedBy: userId,
         shopId,
       });
 
-      if (v.purchasePrice) {
+      if (firstVariant.purchasePrice) {
         prices.push({
           productId: saved.id,
           priceType: PriceType.PURCHASE,
-          price: v.purchasePrice,
+          price: firstVariant.purchasePrice,
           isCurrent: true,
           changedBy: userId,
           shopId,
         });
       }
 
-      if (v.wholesalePrice) {
+      if (firstVariant.wholesalePrice) {
         prices.push({
           productId: saved.id,
           priceType: PriceType.WHOLESALE,
-          price: v.wholesalePrice,
+          price: firstVariant.wholesalePrice,
           isCurrent: true,
           changedBy: userId,
           shopId,
@@ -198,61 +218,66 @@ export class ProductsService {
 
       await queryRunner.manager.save(ProductPrice, prices);
 
-      const defaultVariant = await queryRunner.manager.save(ProductVariant, {
-        productId: saved.id,
-        name: v.name || dto.name,
-        sku: v.sku,
-        barcode: v.barcode,
-        image: v.image,
-        status: dto.status ?? ProductStatus.ACTIVE,
-        minStockLevel: v.minStockLevel ?? 0,
-        maxStockLevel: v.maxStockLevel,
-        reorderPoint: v.reorderPoint ?? 0,
-        trackInventory: v.trackInventory ?? true,
-        attributes: v.attributes,
-        isDefault: true,
-        isActive: true,
-        shopId,
-      });
+      for (let i = 0; i < dto.variants.length; i++) {
+        const v = dto.variants[i];
+        const variantName = this.resolveVariantName(dto.name, v, isMultiple);
 
-      if (dto.type !== 'service' && dto.type !== 'digital') {
-        const qty = v.initialQuantity || 0;
-        const inventoryItem = await queryRunner.manager.save(InventoryItem, {
-          shopId,
+        const savedVariant = await queryRunner.manager.save(ProductVariant, {
           productId: saved.id,
-          variantId: defaultVariant.id,
-          quantityOnHand: qty,
-          quantityAvailable: qty,
-          quantityReserved: 0,
-          averageCost: v.purchasePrice || 0,
-          lastRestockedAt: qty > 0 ? new Date() : null,
+          name: variantName,
+          sku: v.sku,
+          barcode: v.barcode,
+          image: v.image,
+          status: dto.status ?? ProductStatus.ACTIVE,
+          minStockLevel: v.minStockLevel ?? 0,
+          maxStockLevel: v.maxStockLevel,
+          reorderPoint: v.reorderPoint ?? 0,
+          trackInventory: v.trackInventory ?? true,
+          attributes: v.attributes,
+          isDefault: i === 0,
+          isActive: true,
+          shopId,
         });
 
-        if (qty > 0) {
-          await queryRunner.manager.save(InventoryHistory, {
+        if (dto.type !== 'service' && dto.type !== 'digital') {
+          const qty = v.initialQuantity || 0;
+          const inventoryItem = await queryRunner.manager.save(InventoryItem, {
             shopId,
-            inventoryItemId: inventoryItem.id,
             productId: saved.id,
-            variantId: defaultVariant.id,
-            movementType: InventoryMovementType.OPENING_STOCK,
-            quantity: qty,
-            quantityBefore: 0,
-            quantityAfter: qty,
-            unitCost: v.purchasePrice || 0,
-            referenceType: 'opening_stock',
-            notes: 'Initial stock on product creation',
+            variantId: savedVariant.id,
+            quantityOnHand: qty,
+            quantityAvailable: qty,
+            quantityReserved: 0,
+            averageCost: v.purchasePrice || 0,
+            lastRestockedAt: qty > 0 ? new Date() : null,
           });
 
-          await queryRunner.manager.save(InventoryBatch, {
-            shopId,
-            productId: saved.id,
-            variantId: defaultVariant.id,
-            purchasePrice: v.purchasePrice || 0,
-            quantityReceived: qty,
-            quantityRemaining: qty,
-            referenceType: 'opening_stock',
-            referenceId: saved.id,
-          });
+          if (qty > 0) {
+            await queryRunner.manager.save(InventoryHistory, {
+              shopId,
+              inventoryItemId: inventoryItem.id,
+              productId: saved.id,
+              variantId: savedVariant.id,
+              movementType: InventoryMovementType.OPENING_STOCK,
+              quantity: qty,
+              quantityBefore: 0,
+              quantityAfter: qty,
+              unitCost: v.purchasePrice || 0,
+              referenceType: 'opening_stock',
+              notes: 'Initial stock on product creation',
+            });
+
+            await queryRunner.manager.save(InventoryBatch, {
+              shopId,
+              productId: saved.id,
+              variantId: savedVariant.id,
+              purchasePrice: v.purchasePrice || 0,
+              quantityReceived: qty,
+              quantityRemaining: qty,
+              referenceType: 'opening_stock',
+              referenceId: saved.id,
+            });
+          }
         }
       }
 
