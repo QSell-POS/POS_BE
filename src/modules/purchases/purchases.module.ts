@@ -10,6 +10,7 @@ import { PurchaseItem } from './entities/purchase-item.entity';
 import { Purchase } from './entities/purchase.entity';
 import { ExpensesModule } from '../expenses/expenses.module';
 import { SuppliersModule } from '../suppliers/suppliers.module';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SuppliersModule } from '../suppliers/suppliers.module';
     ProductsModule,
     ExpensesModule,
     SuppliersModule,
+    CommonModule,
   ],
   providers: [PurchasesService, PurchaseReturnService],
   controllers: [PurchasesController],

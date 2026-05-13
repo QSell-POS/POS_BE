@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { StorageService } from 'src/common/services/storage.service';
 import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductsService } from '../products/products.service';
@@ -22,6 +23,7 @@ export class PurchasesService {
     private readonly productsService: ProductsService,
     private readonly referenceNumberService: ReferenceNumberService,
     private readonly dataSource: DataSource,
+    private readonly storage: StorageService,
   ) {}
 
   async create(dto: CreatePurchaseDto, shopId: string, userId: string) {
@@ -176,9 +178,44 @@ export class PurchasesService {
   async findOne(id: string, shopId: string) {
     const purchase = await this.purchaseRepository.findOne({
       where: { id, shopId },
-      relations: ['supplier', 'items', 'items.product', 'items.variant'],
+      relations: ['supplier', 'items', 'items.product', 'items.product.brand', 'items.product.category', 'items.product.unit', 'items.variant'],
     });
     if (!purchase) throw new NotFoundException('Purchase not found');
-    return purchase;
+
+    return {
+      ...purchase,
+      items: purchase.items.map((item) => ({
+        id: item.id,
+        createdAt: item.createdAt,
+        shopId: item.shopId,
+        purchaseId: item.purchaseId,
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        receivedQuantity: item.receivedQuantity,
+        unitCost: item.unitCost,
+        taxRate: item.taxRate,
+        taxAmount: item.taxAmount,
+        discountRate: item.discountRate,
+        discountAmount: item.discountAmount,
+        subtotal: item.subtotal,
+        notes: item.notes,
+        product: item.product ? {
+          name: item.product.name,
+          description: item.product.description,
+          image: this.storage.resolveUrl(item.product.image),
+          type: item.product.type,
+          brand: item.product.brand?.name ?? null,
+          category: item.product.category?.name ?? null,
+          unit: item.product.unit?.symbol ?? null,
+        } : null,
+        variant: item.variant ? {
+          name: item.variant.name,
+          sku: item.variant.sku,
+          barcode: item.variant.barcode,
+          attributes: item.variant.attributes,
+        } : null,
+      })),
+    };
   }
 }
