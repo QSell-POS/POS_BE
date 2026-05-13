@@ -57,6 +57,19 @@ export class SaleReturnService {
       alreadyReturnedByVariant[row.variantId] = Number(row.returned);
     }
 
+    // Fetch variant info (name + unit) for readable error messages
+    const variantInfoMap: Record<string, { name: string; unit: string }> = {};
+    for (const item of dto.items) {
+      if (item.variantId && !variantInfoMap[item.variantId]) {
+        const variant = await this.productsService.getVariantById(item.variantId, shopId);
+        const product = await this.productsService.findOne(variant.productId, shopId);
+        variantInfoMap[item.variantId] = {
+          name: variant.name,
+          unit: product.unit?.symbol ?? 'pcs',
+        };
+      }
+    }
+
     for (const item of dto.items) {
       if (!item.variantId) throw new BadRequestException('Each return item must include a variantId');
       const sold = soldQtyByVariant[item.variantId];
@@ -66,9 +79,10 @@ export class SaleReturnService {
       const alreadyReturned = alreadyReturnedByVariant[item.variantId] ?? 0;
       const remaining = sold - alreadyReturned;
       if (item.quantity > remaining) {
+        const { name, unit } = variantInfoMap[item.variantId] ?? { name: item.variantId, unit: 'pcs' };
         throw new BadRequestException(
-          `Cannot return ${item.quantity} units for variant ${item.variantId}. ` +
-          `Originally sold: ${sold}, already returned: ${alreadyReturned}, remaining: ${remaining}.`,
+          `Cannot return ${item.quantity} ${unit} for product ${name}. ` +
+          `Originally sold: ${sold} ${unit}, already returned: ${alreadyReturned} ${unit}, remaining: ${remaining} ${unit}.`,
         );
       }
     }
