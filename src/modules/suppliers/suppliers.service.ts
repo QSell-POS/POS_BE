@@ -75,9 +75,6 @@ export class SuppliersService {
     const supplier = await this.findOne(dto.supplierId, shopId);
     const balance = await this.getBalance(dto.supplierId, shopId);
 
-    if (dto.amount > balance) {
-      throw new BadRequestException(`Payment (${dto.amount}) exceeds outstanding balance (${balance})`);
-    }
 
     const balanceAfter = balance - dto.amount;
 
@@ -187,9 +184,9 @@ export class SuppliersService {
     entry: { type: SupplierLedgerType; referenceType: string; referenceId: string; description: string; createdBy: string },
   ) {
     const prevBalance = await this.getBalance(supplierId, shopId);
-    const balanceAfter = Math.max(0, prevBalance - amount);
+    const balanceAfter = prevBalance - amount;
     await this.addLedgerEntry({ supplierId, ...entry, amount, balanceAfter }, shopId);
-    await this.decrementTotalDue(supplierId, amount);
+    await this.supplierRepository.update(supplierId, { totalDue: balanceAfter });
     return balanceAfter;
   }
 }
