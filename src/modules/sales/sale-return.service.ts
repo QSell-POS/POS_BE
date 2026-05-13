@@ -33,6 +33,38 @@ export class SaleReturnService {
       throw new BadRequestException('Cannot return a cancelled sale');
     }
 
+    // Validate return quantities don't exceed what was originally sold
+    const soldQtyByVariant: Record<string, number> = {};
+    for (const item of sale.items) {
+      soldQtyByVariant[item.variantId] = (soldQtyByVariant[item.variantId] ?? 0) + Number(item.quantity);
+    }
+
+    const existingReturns = await this.returnItemRepository
+      .createQueryBuilder('ri')
+      .innerJoin('ri.saleReturn', 'sr')
+      .where('sr.saleId = :saleId', { saleId: dto.saleId })
+      .select('ri.variantId', 'variantId')
+      .addSelect('SUM(ri.quantity)', 'returned')
+      .groupBy('ri.variantId')
+      .getRawMany();
+
+    const alreadyReturnedByVariant: Record<string, number> = {};
+    for (const row of existingReturns) {
+      alreadyReturnedByVariant[row.variantId] = Number(row.returned);
+    }
+
+    for (const item of dto.items) {
+      const sold = soldQtyByVariant[item.variantId] ?? 0;
+      const alreadyReturned = alreadyReturnedByVariant[item.variantId] ?? 0;
+      const remaining = sold - alreadyReturned;
+      if (item.quantity > remaining) {
+        throw new BadRequestException(
+          `Cannot return ${item.quantity} units for variant ${item.variantId}. ` +
+          `Originally sold: ${sold}, already returned: ${alreadyReturned}, remaining: ${remaining}.`,
+        );
+      }
+    }
+
     const totalAmount = dto.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
     const amountPaidToCustomer = dto.amountPaidToCustomer ?? totalAmount;
     const amountToAccount = totalAmount - amountPaidToCustomer;

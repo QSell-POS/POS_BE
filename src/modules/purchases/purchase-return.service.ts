@@ -29,6 +29,38 @@ export class PurchaseReturnService {
   async createReturn(dto: CreatePurchaseReturnDto, shopId: string, userId: string) {
     const purchase = await this.purchasesService.findOne(dto.purchaseId, shopId);
 
+    // Validate return quantities don't exceed what was originally purchased
+    const purchasedQtyByVariant: Record<string, number> = {};
+    for (const item of purchase.items) {
+      purchasedQtyByVariant[item.variantId] = (purchasedQtyByVariant[item.variantId] ?? 0) + Number(item.quantity);
+    }
+
+    const existingReturns = await this.returnItemRepository
+      .createQueryBuilder('ri')
+      .innerJoin('ri.purchaseReturn', 'pr')
+      .where('pr.purchaseId = :purchaseId', { purchaseId: dto.purchaseId })
+      .select('ri.variantId', 'variantId')
+      .addSelect('SUM(ri.quantity)', 'returned')
+      .groupBy('ri.variantId')
+      .getRawMany();
+
+    const alreadyReturnedByVariant: Record<string, number> = {};
+    for (const row of existingReturns) {
+      alreadyReturnedByVariant[row.variantId] = Number(row.returned);
+    }
+
+    for (const item of dto.items) {
+      const purchased = purchasedQtyByVariant[item.variantId] ?? 0;
+      const alreadyReturned = alreadyReturnedByVariant[item.variantId] ?? 0;
+      const remaining = purchased - alreadyReturned;
+      if (item.quantity > remaining) {
+        throw new BadRequestException(
+          `Cannot return ${item.quantity} units for variant ${item.variantId}. ` +
+          `Originally purchased: ${purchased}, already returned: ${alreadyReturned}, remaining: ${remaining}.`,
+        );
+      }
+    }
+
     const totalAmount = dto.items.reduce((s, i) => s + i.quantity * i.unitCost, 0);
     const amountReceivedFromSupplier = dto.amountReceivedFromSupplier ?? totalAmount;
     const amountToAccount = totalAmount - amountReceivedFromSupplier;
