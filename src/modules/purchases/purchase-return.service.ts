@@ -135,20 +135,30 @@ export class PurchaseReturnService {
       );
     }
 
-    if (amountReceivedFromSupplier > 0 && purchase.supplierId) {
-      await this.suppliersService.recordCredit(purchase.supplierId, shopId, amountReceivedFromSupplier, {
-        type: SupplierLedgerType.PURCHASE_RETURN_CREDIT,
-        referenceType: 'purchase_return',
-        referenceId: savedReturn.id,
-        description: `Return cash received: ${refNum}`,
-        createdBy: userId,
-      });
+    if (amountReceivedFromSupplier > 0) {
+      // Record cash income regardless of supplier
       await this.expensesService.recordSystemExpense(
         { typeName: 'Purchase Return', title: `Purchase Return: ${refNum}`, amount: amountReceivedFromSupplier, referenceId: savedReturn.id, referenceType: 'purchase_return', isIncome: true },
         shopId, userId,
       );
+
+      // Only reduce supplier balance up to existing debt — cash already received, don't create a receivable
+      if (purchase.supplierId) {
+        const existingBalance = await this.suppliersService.getBalance(purchase.supplierId, shopId);
+        const debtToSettle = Math.min(amountReceivedFromSupplier, Math.max(0, existingBalance));
+        if (debtToSettle > 0) {
+          await this.suppliersService.recordCredit(purchase.supplierId, shopId, debtToSettle, {
+            type: SupplierLedgerType.PURCHASE_RETURN_CREDIT,
+            referenceType: 'purchase_return',
+            referenceId: savedReturn.id,
+            description: `Return cash received: ${refNum}`,
+            createdBy: userId,
+          });
+        }
+      }
     }
 
+    // amountToAccount: supplier still owes us this as a future credit offset
     if (amountToAccount > 0 && purchase.supplierId) {
       await this.suppliersService.recordCredit(purchase.supplierId, shopId, amountToAccount, {
         type: SupplierLedgerType.PURCHASE_RETURN_CREDIT,
