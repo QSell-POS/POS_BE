@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Sale, SaleItem } from '../sales/entities/sale.entity';
-import { SaleReturn } from '../sales/entities/sale-return.entity';
+import { SaleReturn, SaleReturnItem } from '../sales/entities/sale-return.entity';
 import { Purchase } from '../purchases/entities/purchase.entity';
 import { PurchaseReturn } from '../purchases/entities/purchase-return.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
@@ -18,6 +18,7 @@ import { AnalyticsController } from './analytics.controller';
       Sale,
       SaleItem,
       SaleReturn,
+      SaleReturnItem,
       Purchase,
       PurchaseReturn,
       InventoryItem,

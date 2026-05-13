@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Sale, SaleStatus } from '../sales/entities/sale.entity';
-import { SaleItem } from '../sales/entities/sale.entity';
-import { SaleReturn } from '../sales/entities/sale-return.entity';
+import { Sale, SaleStatus, SaleItem } from '../sales/entities/sale.entity';
+import { SaleReturn, SaleReturnItem } from '../sales/entities/sale-return.entity';
 import { Purchase } from '../purchases/entities/purchase.entity';
 import { PurchaseReturn } from '../purchases/entities/purchase-return.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
@@ -21,6 +20,8 @@ export class AnalyticsService {
     private saleItemRepository: Repository<SaleItem>,
     @InjectRepository(SaleReturn)
     private saleReturnRepository: Repository<SaleReturn>,
+    @InjectRepository(SaleReturnItem)
+    private saleReturnItemRepository: Repository<SaleReturnItem>,
     @InjectRepository(Purchase)
     private purchaseRepository: Repository<Purchase>,
     @InjectRepository(PurchaseReturn)
@@ -418,80 +419,84 @@ export class AnalyticsService {
 
   // ── Profit & Loss Report ──────────────────────────────────
   async getProfitLossReport(shopId: string, startDate: string, endDate: string) {
-    // Normalize to full-day range so timestamp comparisons include the entire endDate
     const start = startDate.includes('T') ? startDate : `${startDate}T00:00:00`;
     const end = endDate.includes('T') ? endDate : `${endDate}T23:59:59`;
 
-    const [salesData, expenseRows, purchaseData, saleReturnData, purchaseReturnData] = await Promise.all([
+    const [salesData, saleCOGSData, returnCOGSData, expenseRows, saleReturnData, purchaseReturnData] = await Promise.all([
+      // Revenue and sale count
       this.saleRepository
         .createQueryBuilder('s')
         .select('COALESCE(SUM(s.grandTotal),0)', 'totalRevenue')
-        .addSelect('COALESCE(SUM(s.profit),0)', 'grossProfit')
         .addSelect('COALESCE(SUM(s.taxAmount),0)', 'totalTax')
         .addSelect('COALESCE(SUM(s.discountAmount),0)', 'totalDiscount')
         .addSelect('COUNT(*)', 'saleCount')
-        .where("s.shopId = :shopId AND s.saleDate BETWEEN :start AND :end AND s.status != 'cancelled'", {
-          shopId, start, end,
-        })
+        .where("s.shopId = :shopId AND s.saleDate BETWEEN :start AND :end AND s.status != 'cancelled'", { shopId, start, end })
         .getRawOne(),
 
-      // Only real operating expenses (exclude system income/payment entries)
+      // COGS from actual sale items (costPrice * quantity)
+      this.saleItemRepository
+        .createQueryBuilder('si')
+        .innerJoin('si.sale', 's', "s.shopId = :shopId AND s.saleDate BETWEEN :start AND :end AND s.status != 'cancelled'", { shopId, start, end })
+        .select('COALESCE(SUM(si.costPrice * si.quantity),0)', 'totalCOGS')
+        .getRawOne(),
+
+      // COGS of returned items (join SaleReturnItem → SaleReturn → SaleItem to get original cost)
+      this.saleReturnItemRepository
+        .createQueryBuilder('sri')
+        .innerJoin('sri.saleReturn', 'sr', "sr.shopId = :shopId AND sr.returnDate BETWEEN :start AND :end AND sr.status != 'cancelled'", { shopId, start, end })
+        .innerJoin(SaleItem, 'si', 'si.saleId = sr.saleId AND si.variantId = sri.variantId')
+        .select('COALESCE(SUM(si.costPrice * sri.quantity),0)', 'returnCOGS')
+        .getRawOne(),
+
+      // Operating expenses only — exclude system entries (isIncome=true) and COGS (already computed above)
       this.expenseRepository
         .createQueryBuilder('e')
         .leftJoin('e.expenseType', 'type')
         .select("COALESCE(type.name, 'Uncategorized')", 'category')
         .addSelect('COALESCE(SUM(e.amount),0)', 'total')
-        .where('e.shopId = :shopId AND e.transactionDate BETWEEN :start AND :end AND e.isIncome = false', {
-          shopId, start, end,
-        })
+        .where(
+          "e.shopId = :shopId AND e.transactionDate BETWEEN :start AND :end AND e.isIncome = false AND COALESCE(type.name,'') != 'Cost of Goods Sold'",
+          { shopId, start, end },
+        )
         .groupBy('type.name')
         .getRawMany(),
 
-      this.purchaseRepository
-        .createQueryBuilder('p')
-        .select('COALESCE(SUM(p.grandTotal),0)', 'totalPurchases')
-        .where("p.shopId = :shopId AND p.purchaseDate BETWEEN :start AND :end AND p.status != 'cancelled' AND p.isReceived = true", {
-          shopId, start, end,
-        })
-        .getRawOne(),
-
+      // Sale returns summary
       this.saleReturnRepository
         .createQueryBuilder('sr')
         .select('COALESCE(SUM(sr.totalAmount),0)', 'totalReturned')
         .addSelect('COALESCE(SUM(sr.amountPaidToCustomer),0)', 'totalCashRefunded')
         .addSelect('COALESCE(SUM(sr.amountToAccount),0)', 'totalCreditKept')
         .addSelect('COUNT(*)', 'returnCount')
-        .where("sr.shopId = :shopId AND sr.returnDate BETWEEN :start AND :end AND sr.status != 'cancelled'", {
-          shopId, start, end,
-        })
+        .where("sr.shopId = :shopId AND sr.returnDate BETWEEN :start AND :end AND sr.status != 'cancelled'", { shopId, start, end })
         .getRawOne(),
 
+      // Purchase returns summary
       this.purchaseReturnRepository
         .createQueryBuilder('pr')
         .select('COALESCE(SUM(pr.totalAmount),0)', 'totalReturned')
         .addSelect('COALESCE(SUM(pr.amountReceivedFromSupplier),0)', 'totalCashReceived')
         .addSelect('COALESCE(SUM(pr.amountToAccount),0)', 'totalCreditKept')
         .addSelect('COUNT(*)', 'returnCount')
-        .where("pr.shopId = :shopId AND pr.returnDate BETWEEN :start AND :end AND pr.status != 'cancelled'", {
-          shopId, start, end,
-        })
+        .where("pr.shopId = :shopId AND pr.returnDate BETWEEN :start AND :end AND pr.status != 'cancelled'", { shopId, start, end })
         .getRawOne(),
     ]);
 
-    const totalRevenue = Number(salesData.totalRevenue);
+    const grossRevenue = Number(salesData.totalRevenue);
     const saleReturnsTotal = Number(saleReturnData.totalReturned);
-    const netRevenue = totalRevenue - saleReturnsTotal;
-    // grossProfit from sale items (selling price - cost) minus what we returned
-    const grossProfit = Number(salesData.grossProfit) - saleReturnsTotal;
-    const purchaseReturnsTotal = Number(purchaseReturnData.totalReturned);
+    const netRevenue = grossRevenue - saleReturnsTotal;
 
-    const expenses = expenseRows.reduce(
-      (acc, r) => {
-        acc[r.category] = Number(r.total);
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
+    // Net COGS = cost of goods sold minus cost of returned goods
+    const saleCOGS = Number(saleCOGSData.totalCOGS);
+    const returnCOGS = Number(returnCOGSData.returnCOGS);
+    const netCOGS = saleCOGS - returnCOGS;
+
+    const grossProfit = netRevenue - netCOGS;
+
+    const expenses = expenseRows.reduce((acc, r) => {
+      acc[r.category] = Number(r.total);
+      return acc;
+    }, {} as Record<string, number>);
 
     const totalOperatingExpenses = Number(Object.values(expenses).reduce((a: any, b: any) => a + b, 0));
     const netProfit = grossProfit - totalOperatingExpenses;
@@ -501,7 +506,7 @@ export class AnalyticsService {
     return {
       period: { startDate, endDate },
       revenue: {
-        grossRevenue: totalRevenue,
+        grossRevenue,
         saleReturns: saleReturnsTotal,
         netRevenue,
         totalDiscount: Number(salesData.totalDiscount),
@@ -515,12 +520,12 @@ export class AnalyticsService {
         returnCount: Number(saleReturnData.returnCount),
       },
       purchaseReturns: {
-        totalReturned: purchaseReturnsTotal,
+        totalReturned: Number(purchaseReturnData.totalReturned),
         totalCashReceived: Number(purchaseReturnData.totalCashReceived),
         totalCreditKept: Number(purchaseReturnData.totalCreditKept),
         returnCount: Number(purchaseReturnData.returnCount),
       },
-      costOfGoodsSold: Number(purchaseData.totalPurchases) - purchaseReturnsTotal,
+      costOfGoodsSold: { saleCOGS, returnCOGS, netCOGS },
       grossProfit,
       grossMargin: Math.round(grossMargin * 100) / 100,
       operatingExpenses: expenses,
