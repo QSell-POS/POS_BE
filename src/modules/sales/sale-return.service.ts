@@ -74,12 +74,23 @@ export class SaleReturnService {
     }
 
     const totalAmount = dto.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-    const amountPaidToCustomer = dto.amountPaidToCustomer ?? totalAmount;
-    const amountToAccount = totalAmount - amountPaidToCustomer;
 
-    if (amountPaidToCustomer > totalAmount) {
-      throw new BadRequestException('Amount paid to customer cannot exceed total return amount');
+    // For credit sales: first reduce outstanding debt, only pay cash for remainder
+    let amountPaidToCustomer: number;
+    let creditReduction = 0;
+
+    if (sale.customerId && Number(sale.creditAmount) > 0) {
+      const outstandingBalance = await this.customersService.getBalance(sale.customerId, shopId);
+      creditReduction = Math.min(totalAmount, outstandingBalance);
+      amountPaidToCustomer = totalAmount - creditReduction;
+    } else {
+      amountPaidToCustomer = dto.amountPaidToCustomer ?? totalAmount;
+      if (amountPaidToCustomer > totalAmount) {
+        throw new BadRequestException('Amount paid to customer cannot exceed total return amount');
+      }
     }
+
+    const amountToAccount = totalAmount - amountPaidToCustomer - creditReduction;
 
     const refNum = await this.referenceNumberService.generate('SRN', shopId, {
       table: 'sale_returns',
@@ -94,7 +105,7 @@ export class SaleReturnService {
         status: SaleReturnStatus.COMPLETED,
         totalAmount,
         amountPaidToCustomer,
-        amountToAccount,
+        amountToAccount: amountToAccount > 0 ? amountToAccount : 0,
         reason: dto.reason,
         notes: dto.notes,
         createdBy: userId,
@@ -130,6 +141,18 @@ export class SaleReturnService {
       );
     }
 
+    // Reduce customer outstanding debt first (credit sale return)
+    if (creditReduction > 0 && sale.customerId) {
+      await this.customersService.recordCredit(sale.customerId, shopId, creditReduction, {
+        type: CustomerLedgerType.SALE_RETURN_CREDIT,
+        referenceType: 'sale_return',
+        referenceId: savedReturn.id,
+        description: `Return debt reduction: ${refNum}`,
+        createdBy: userId,
+      });
+    }
+
+    // Pay remaining amount to customer in cash
     if (amountPaidToCustomer > 0) {
       await this.expensesService.recordSystemExpense(
         { typeName: 'Sale Return', title: `Sale Return: ${refNum}`, amount: amountPaidToCustomer, referenceId: savedReturn.id, referenceType: 'sale_return' },
