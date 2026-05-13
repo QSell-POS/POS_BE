@@ -89,6 +89,10 @@ export class SaleReturnService {
 
     const totalAmount = dto.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
+    if (dto.amountPaidToCustomer !== undefined && dto.amountPaidToCustomer > totalAmount) {
+      throw new BadRequestException('Amount paid to customer cannot exceed total return amount');
+    }
+
     // For credit sales: first reduce outstanding debt, only pay cash for remainder
     let amountPaidToCustomer: number;
     let creditReduction = 0;
@@ -99,9 +103,6 @@ export class SaleReturnService {
       amountPaidToCustomer = totalAmount - creditReduction;
     } else {
       amountPaidToCustomer = dto.amountPaidToCustomer ?? totalAmount;
-      if (amountPaidToCustomer > totalAmount) {
-        throw new BadRequestException('Amount paid to customer cannot exceed total return amount');
-      }
     }
 
     const amountToAccount = totalAmount - amountPaidToCustomer - creditReduction;
