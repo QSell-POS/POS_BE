@@ -176,7 +176,7 @@ export class PurchasesService {
   async findOne(id: string, shopId: string) {
     const purchase = await this.purchaseRepository.findOne({
       where: { id, shopId },
-      relations: ['supplier', 'items', 'items.product'],
+      relations: ['supplier', 'items', 'items.product', 'items.variant'],
     });
     if (!purchase) throw new NotFoundException('Purchase not found');
     return purchase;
