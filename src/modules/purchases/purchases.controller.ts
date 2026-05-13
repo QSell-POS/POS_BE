@@ -38,6 +38,13 @@ export class PurchasesController {
     return this.purchaseReturnService.getReturns(user.shopId, filters);
   }
 
+  @Get('returns/:id')
+  @Permissions(Permission.PURCHASES_VIEW)
+  @ApiOperation({ summary: 'Get a specific purchase return' })
+  async getReturn(@Param('id', UuidParamPipe) id: string, @CurrentUser() user: any) {
+    return { data: await this.purchaseReturnService.findOne(id, user.shopId), message: 'Purchase return fetched successfully' };
+  }
+
   @Get(':id')
   @Permissions(Permission.PURCHASES_VIEW)
   @ApiOperation({ summary: 'Get a specific purchase' })

@@ -1,4 +1,5 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { StorageService } from 'src/common/services/storage.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SaleReturn, SaleReturnItem, SaleReturnStatus } from './entities/sale-return.entity';
@@ -25,6 +26,7 @@ export class SaleReturnService {
     private readonly productsService: ProductsService,
     private readonly expensesService: ExpensesService,
     private readonly referenceNumberService: ReferenceNumberService,
+    private readonly storage: StorageService,
   ) {}
 
   async createReturn(dto: CreateSaleReturnDto, shopId: string, userId: string) {
@@ -151,5 +153,44 @@ export class SaleReturnService {
       order: { createdAt: 'DESC' },
     });
     return { data, message: 'Sale returns fetched successfully', meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  async findOne(id: string, shopId: string) {
+    const ret = await this.returnRepository.findOne({
+      where: { id, shopId },
+      relations: ['customer', 'sale', 'items', 'items.product', 'items.product.brand', 'items.product.category', 'items.product.unit', 'items.variant'],
+    });
+    if (!ret) throw new NotFoundException('Sale return not found');
+
+    return {
+      ...ret,
+      items: ret.items.map((item) => ({
+        id: item.id,
+        createdAt: item.createdAt,
+        shopId: item.shopId,
+        saleReturnId: item.saleReturnId,
+        productId: item.productId,
+        variantId: item.variantId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+        reason: item.reason,
+        product: item.product ? {
+          name: item.product.name,
+          description: item.product.description,
+          image: this.storage.resolveUrl(item.product.image),
+          type: item.product.type,
+          brand: item.product.brand?.name ?? null,
+          category: item.product.category?.name ?? null,
+          unit: item.product.unit?.symbol ?? null,
+        } : null,
+        variant: item.variant ? {
+          name: item.variant.name,
+          sku: item.variant.sku,
+          barcode: item.variant.barcode,
+          attributes: item.variant.attributes,
+        } : null,
+      })),
+    };
   }
 }

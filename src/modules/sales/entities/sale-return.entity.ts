@@ -2,6 +2,8 @@ import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Customer } from './customer.entity';
 import { Sale } from './sale.entity';
+import { Product } from 'src/modules/products/entities/product.entity';
+import { ProductVariant } from 'src/modules/products/entities/product-variant.entity';
 
 export enum SaleReturnStatus {
   COMPLETED = 'completed',
@@ -81,4 +83,12 @@ export class SaleReturnItem extends TenantBaseEntity {
   @ManyToOne(() => SaleReturn, (sr) => sr.items)
   @JoinColumn({ name: 'sale_return_id' })
   saleReturn: SaleReturn;
+
+  @ManyToOne(() => Product)
+  @JoinColumn({ name: 'product_id' })
+  product: Product;
+
+  @ManyToOne(() => ProductVariant)
+  @JoinColumn({ name: 'variant_id' })
+  variant: ProductVariant;
 }

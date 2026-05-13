@@ -31,6 +31,13 @@ export class SalesController {
     return this.saleReturnService.getReturns(user.shopId, page, limit);
   }
 
+  @Get('returns/:id')
+  @Permissions(Permission.SALES_VIEW)
+  @ApiOperation({ summary: 'Get a specific sale return' })
+  async getReturn(@Param('id') id: string, @CurrentUser() user: any) {
+    return { data: await this.saleReturnService.findOne(id, user.shopId), message: 'Sale return fetched successfully' };
+  }
+
   @Get(':id')
   @Permissions(Permission.SALES_VIEW)
   @ApiOperation({ summary: 'Get sale details by ID' })

@@ -9,6 +9,7 @@ import { InventoryModule } from '../inventory/inventory.module';
 import { ProductsModule } from '../products/products.module';
 import { ExpensesModule } from '../expenses/expenses.module';
 import { CustomersModule } from '../customers/customers.module';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CustomersModule } from '../customers/customers.module';
     ProductsModule,
     ExpensesModule,
     CustomersModule,
+    CommonModule,
   ],
   controllers: [SalesController],
   providers: [SalesService, SaleReturnService],
