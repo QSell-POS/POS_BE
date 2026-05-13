@@ -135,7 +135,14 @@ export class PurchaseReturnService {
       );
     }
 
-    if (amountReceivedFromSupplier > 0) {
+    if (amountReceivedFromSupplier > 0 && purchase.supplierId) {
+      await this.suppliersService.recordCredit(purchase.supplierId, shopId, amountReceivedFromSupplier, {
+        type: SupplierLedgerType.PURCHASE_RETURN_CREDIT,
+        referenceType: 'purchase_return',
+        referenceId: savedReturn.id,
+        description: `Return cash received: ${refNum}`,
+        createdBy: userId,
+      });
       await this.expensesService.recordSystemExpense(
         { typeName: 'Purchase Return', title: `Purchase Return: ${refNum}`, amount: amountReceivedFromSupplier, referenceId: savedReturn.id, referenceType: 'purchase_return', isIncome: true },
         shopId, userId,
