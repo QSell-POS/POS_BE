@@ -374,9 +374,8 @@ export class AnalyticsService {
       this.saleReturnRepository
         .createQueryBuilder('sr')
         .select('COALESCE(SUM(sr.totalAmount),0)', 'totalReturned')
-        .addSelect('COALESCE(SUM(sr.refundedAmount),0)', 'totalRefunded')
-        .addSelect('COALESCE(SUM(sr.appliedToDueAmount),0)', 'totalAppliedToDue')
-        .addSelect('COALESCE(SUM(sr.storeCreditIssued),0)', 'totalStoreCredit')
+        .addSelect('COALESCE(SUM(sr.amountPaidToCustomer),0)', 'totalCashRefunded')
+        .addSelect('COALESCE(SUM(sr.amountToAccount),0)', 'totalCreditKept')
         .addSelect('COUNT(*)', 'returnCount')
         .where("sr.shopId = :shopId AND sr.returnDate BETWEEN :startDate AND :endDate AND sr.status != 'cancelled'", {
           shopId,
@@ -388,9 +387,8 @@ export class AnalyticsService {
       this.purchaseReturnRepository
         .createQueryBuilder('pr')
         .select('COALESCE(SUM(pr.totalAmount),0)', 'totalReturned')
-        .addSelect('COALESCE(SUM(pr.refundedAmount),0)', 'totalRefunded')
-        .addSelect('COALESCE(SUM(pr.appliedToDueAmount),0)', 'totalAppliedToDue')
-        .addSelect('COALESCE(SUM(pr.supplierCreditIssued),0)', 'totalSupplierCredit')
+        .addSelect('COALESCE(SUM(pr.amountReceivedFromSupplier),0)', 'totalCashReceived')
+        .addSelect('COALESCE(SUM(pr.amountToAccount),0)', 'totalCreditKept')
         .addSelect('COUNT(*)', 'returnCount')
         .where("pr.shopId = :shopId AND pr.returnDate BETWEEN :startDate AND :endDate AND pr.status != 'cancelled'", {
           shopId,
@@ -403,8 +401,9 @@ export class AnalyticsService {
     const totalRevenue = Number(salesData.totalRevenue);
     const saleReturnsTotal = Number(saleReturnData.totalReturned);
     const netRevenue = totalRevenue - saleReturnsTotal;
+    // grossProfit from sale items (selling price - cost) minus what we returned
     const grossProfit = Number(salesData.grossProfit) - saleReturnsTotal;
-    const totalPurchases = Number(purchaseData.totalPurchases) - Number(purchaseReturnData.totalReturned);
+    const purchaseReturnsTotal = Number(purchaseReturnData.totalReturned);
 
     const expenses = expenseRows.reduce(
       (acc, r) => {
@@ -431,19 +430,17 @@ export class AnalyticsService {
       },
       saleReturns: {
         totalReturned: saleReturnsTotal,
-        totalRefunded: Number(saleReturnData.totalRefunded),
-        totalAppliedToDue: Number(saleReturnData.totalAppliedToDue),
-        totalStoreCredit: Number(saleReturnData.totalStoreCredit),
+        totalCashRefunded: Number(saleReturnData.totalCashRefunded),
+        totalCreditKept: Number(saleReturnData.totalCreditKept),
         returnCount: Number(saleReturnData.returnCount),
       },
       purchaseReturns: {
-        totalReturned: Number(purchaseReturnData.totalReturned),
-        totalRefunded: Number(purchaseReturnData.totalRefunded),
-        totalAppliedToDue: Number(purchaseReturnData.totalAppliedToDue),
-        totalSupplierCredit: Number(purchaseReturnData.totalSupplierCredit),
+        totalReturned: purchaseReturnsTotal,
+        totalCashReceived: Number(purchaseReturnData.totalCashReceived),
+        totalCreditKept: Number(purchaseReturnData.totalCreditKept),
         returnCount: Number(purchaseReturnData.returnCount),
       },
-      costOfGoodsSold: totalPurchases,
+      costOfGoodsSold: Number(purchaseData.totalPurchases) - purchaseReturnsTotal,
       grossProfit,
       grossMargin: Math.round(grossMargin * 100) / 100,
       operatingExpenses: expenses,
