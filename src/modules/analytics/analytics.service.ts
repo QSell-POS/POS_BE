@@ -195,6 +195,9 @@ export class AnalyticsService {
 
   // ── Most Selling Products (aggregates ALL variants per product) ──
   async getMostSellingProducts(shopId: string, limit = 10, startDate?: string, endDate?: string) {
+    const end = endDate && !endDate.includes('T') ? `${endDate}T23:59:59` : endDate;
+    const start = startDate && !startDate.includes('T') ? `${startDate}T00:00:00` : startDate;
+
     const qb = this.saleItemRepository
       .createQueryBuilder('si')
       .innerJoin('si.sale', 's', 's.shopId = :shopId AND s.status != :cancelled', {
@@ -211,8 +214,8 @@ export class AnalyticsService {
       .orderBy('SUM(si.quantity)', 'DESC')
       .limit(limit);
 
-    if (startDate) qb.andWhere('s.saleDate >= :startDate', { startDate });
-    if (endDate) qb.andWhere('s.saleDate <= :endDate', { endDate });
+    if (start) qb.andWhere('s.saleDate >= :start', { start });
+    if (end) qb.andWhere('s.saleDate <= :end', { end });
 
     const rows = await qb.getRawMany();
     if (!rows.length) return { data: [] };
@@ -251,6 +254,9 @@ export class AnalyticsService {
 
   // ── Variant Performance (drill-down for a single variant) ─
   async getVariantPerformance(shopId: string, variantId: string, startDate?: string, endDate?: string) {
+    const start = startDate ? (startDate.includes('T') ? startDate : `${startDate}T00:00:00`) : undefined;
+    const end = endDate ? (endDate.includes('T') ? endDate : `${endDate}T23:59:59`) : undefined;
+    startDate = start; endDate = end;
     const variant = await this.variantRepository.findOne({
       where: { id: variantId },
       relations: ['product', 'product.brand', 'product.category', 'product.unit'],
@@ -412,6 +418,10 @@ export class AnalyticsService {
 
   // ── Profit & Loss Report ──────────────────────────────────
   async getProfitLossReport(shopId: string, startDate: string, endDate: string) {
+    // Normalize to full-day range so timestamp comparisons include the entire endDate
+    const start = startDate.includes('T') ? startDate : `${startDate}T00:00:00`;
+    const end = endDate.includes('T') ? endDate : `${endDate}T23:59:59`;
+
     const [salesData, expenseRows, purchaseData, saleReturnData, purchaseReturnData] = await Promise.all([
       this.saleRepository
         .createQueryBuilder('s')
@@ -420,22 +430,19 @@ export class AnalyticsService {
         .addSelect('COALESCE(SUM(s.taxAmount),0)', 'totalTax')
         .addSelect('COALESCE(SUM(s.discountAmount),0)', 'totalDiscount')
         .addSelect('COUNT(*)', 'saleCount')
-        .where("s.shopId = :shopId AND s.saleDate BETWEEN :startDate AND :endDate AND s.status != 'cancelled'", {
-          shopId,
-          startDate,
-          endDate,
+        .where("s.shopId = :shopId AND s.saleDate BETWEEN :start AND :end AND s.status != 'cancelled'", {
+          shopId, start, end,
         })
         .getRawOne(),
 
+      // Only real operating expenses (exclude system income/payment entries)
       this.expenseRepository
         .createQueryBuilder('e')
         .leftJoin('e.expenseType', 'type')
-        .select("COALESCE(type.name, 'uncategorized')", 'category')
+        .select("COALESCE(type.name, 'Uncategorized')", 'category')
         .addSelect('COALESCE(SUM(e.amount),0)', 'total')
-        .where('e.shopId = :shopId AND e.transactionDate BETWEEN :startDate AND :endDate', {
-          shopId,
-          startDate,
-          endDate,
+        .where('e.shopId = :shopId AND e.transactionDate BETWEEN :start AND :end AND e.isIncome = false', {
+          shopId, start, end,
         })
         .groupBy('type.name')
         .getRawMany(),
@@ -443,10 +450,8 @@ export class AnalyticsService {
       this.purchaseRepository
         .createQueryBuilder('p')
         .select('COALESCE(SUM(p.grandTotal),0)', 'totalPurchases')
-        .where("p.shopId = :shopId AND p.purchaseDate BETWEEN :startDate AND :endDate AND p.status != 'cancelled' AND p.isReceived = true", {
-          shopId,
-          startDate,
-          endDate,
+        .where("p.shopId = :shopId AND p.purchaseDate BETWEEN :start AND :end AND p.status != 'cancelled' AND p.isReceived = true", {
+          shopId, start, end,
         })
         .getRawOne(),
 
@@ -456,10 +461,8 @@ export class AnalyticsService {
         .addSelect('COALESCE(SUM(sr.amountPaidToCustomer),0)', 'totalCashRefunded')
         .addSelect('COALESCE(SUM(sr.amountToAccount),0)', 'totalCreditKept')
         .addSelect('COUNT(*)', 'returnCount')
-        .where("sr.shopId = :shopId AND sr.returnDate BETWEEN :startDate AND :endDate AND sr.status != 'cancelled'", {
-          shopId,
-          startDate,
-          endDate,
+        .where("sr.shopId = :shopId AND sr.returnDate BETWEEN :start AND :end AND sr.status != 'cancelled'", {
+          shopId, start, end,
         })
         .getRawOne(),
 
@@ -469,10 +472,8 @@ export class AnalyticsService {
         .addSelect('COALESCE(SUM(pr.amountReceivedFromSupplier),0)', 'totalCashReceived')
         .addSelect('COALESCE(SUM(pr.amountToAccount),0)', 'totalCreditKept')
         .addSelect('COUNT(*)', 'returnCount')
-        .where("pr.shopId = :shopId AND pr.returnDate BETWEEN :startDate AND :endDate AND pr.status != 'cancelled'", {
-          shopId,
-          startDate,
-          endDate,
+        .where("pr.shopId = :shopId AND pr.returnDate BETWEEN :start AND :end AND pr.status != 'cancelled'", {
+          shopId, start, end,
         })
         .getRawOne(),
     ]);
@@ -531,17 +532,18 @@ export class AnalyticsService {
 
   // ── Category Performance ──────────────────────────────────
   async getCategoryPerformance(shopId: string, startDate: string, endDate: string) {
+    const start = startDate.includes('T') ? startDate : `${startDate}T00:00:00`;
+    const end = endDate.includes('T') ? endDate : `${endDate}T23:59:59`;
+
     const data = await this.saleItemRepository
       .createQueryBuilder('si')
-      .innerJoin('si.sale', 's', "s.shopId = :shopId AND s.saleDate BETWEEN :startDate AND :endDate AND s.status != 'cancelled'", {
-        shopId,
-        startDate,
-        endDate,
+      .innerJoin('si.sale', 's', "s.shopId = :shopId AND s.saleDate BETWEEN :start AND :end AND s.status != 'cancelled'", {
+        shopId, start, end,
       })
-      .innerJoin(Product, 'p', 'p.id = si.productId')
-      .innerJoin('p.category', 'cat')
-      .select('cat.id', 'categoryId')
-      .addSelect('cat.name', 'categoryName')
+      .innerJoin('si.product', 'p')
+      .leftJoin('p.category', 'cat')
+      .select("COALESCE(cat.id::text, 'none')", 'categoryId')
+      .addSelect("COALESCE(cat.name, 'Uncategorized')", 'categoryName')
       .addSelect('SUM(si.quantity)', 'totalQuantity')
       .addSelect('SUM(si.subtotal)', 'totalRevenue')
       .addSelect('SUM(si.profit)', 'totalProfit')
@@ -550,7 +552,16 @@ export class AnalyticsService {
       .orderBy('SUM(si.subtotal)', 'DESC')
       .getRawMany();
 
-    return { data };
+    return {
+      data: data.map((r) => ({
+        categoryId: r.categoryId === 'none' ? null : r.categoryId,
+        categoryName: r.categoryName,
+        totalQuantity: Number(r.totalQuantity),
+        totalRevenue: Number(r.totalRevenue),
+        totalProfit: Number(r.totalProfit),
+        orderCount: Number(r.orderCount),
+      })),
+    };
   }
 
   // ── Stock Valuation ───────────────────────────────────────
@@ -599,8 +610,8 @@ export class AnalyticsService {
       .orderBy('"totalSpent"', 'DESC')
       .limit(limit);
 
-    if (startDate) qb.andWhere('s.saleDate >= :startDate', { startDate });
-    if (endDate) qb.andWhere('s.saleDate <= :endDate', { endDate });
+    if (startDate) qb.andWhere('s.saleDate >= :start', { start: startDate.includes('T') ? startDate : `${startDate}T00:00:00` });
+    if (endDate) qb.andWhere('s.saleDate <= :end', { end: endDate.includes('T') ? endDate : `${endDate}T23:59:59` });
 
     const rows = await qb.getRawMany();
     return rows.map((r) => ({
