@@ -32,7 +32,7 @@ export class InventoryBatch extends TenantBaseEntity {
   @JoinColumn({ name: 'product_id' })
   product: Product;
 
-  @ManyToOne(() => ProductVariant)
+  @ManyToOne(() => ProductVariant, (variant) => variant.batches)
   @JoinColumn({ name: 'variant_id' })
   variant: ProductVariant;
 }

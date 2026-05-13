@@ -2,6 +2,7 @@ import { Entity, Column, ManyToOne, JoinColumn, Index, OneToMany } from 'typeorm
 import { TenantBaseEntity } from 'src/common/entities/base.entity';
 import { Product } from './product.entity';
 import { InventoryItem } from 'src/modules/inventory/entities/inventory-item.entity';
+import { InventoryBatch } from 'src/modules/inventory/entities/inventory-batch.entity';
 
 export enum ProductStatus {
   ACTIVE = 'active',
@@ -78,4 +79,7 @@ export class ProductVariant extends TenantBaseEntity {
 
   @OneToMany(() => InventoryItem, (inv) => inv.variant)
   inventoryItems: InventoryItem[];
+
+  @OneToMany(() => InventoryBatch, (batch) => batch.variant)
+  batches: InventoryBatch[];
 }
