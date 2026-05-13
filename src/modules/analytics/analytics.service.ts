@@ -8,6 +8,7 @@ import { Purchase } from '../purchases/entities/purchase.entity';
 import { PurchaseReturn } from '../purchases/entities/purchase-return.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { Product } from '../products/entities/product.entity';
+import { ProductVariant } from '../products/entities/product-variant.entity';
 import { ProductPrice } from '../products/entities/product-price.entity';
 import { Expense } from '../expenses/entities/expense.entity';
 
@@ -28,6 +29,8 @@ export class AnalyticsService {
     private inventoryRepository: Repository<InventoryItem>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    @InjectRepository(ProductVariant)
+    private variantRepository: Repository<ProductVariant>,
     @InjectRepository(ProductPrice)
     private priceRepository: Repository<ProductPrice>,
     @InjectRepository(Expense)
@@ -190,7 +193,7 @@ export class AnalyticsService {
     return grouped;
   }
 
-  // ── Most Selling Products (MVP) ───────────────────────────
+  // ── Most Selling Products (aggregates ALL variants per product) ──
   async getMostSellingProducts(shopId: string, limit = 10, startDate?: string, endDate?: string) {
     const qb = this.saleItemRepository
       .createQueryBuilder('si')
@@ -198,27 +201,13 @@ export class AnalyticsService {
         shopId,
         cancelled: SaleStatus.CANCELLED,
       })
-      .leftJoin('si.product', 'p')
-      .leftJoin('p.brand', 'brand')
-      .leftJoin('p.category', 'category')
-      .leftJoin('p.unit', 'unit')
-
-      .select('p.id', 'productId')
-      .addSelect('p.name', 'productName')
-      .addSelect('brand.name', 'brandName')
-      .addSelect('category.name', 'categoryName')
-      .addSelect('unit.symbol', 'unitSymbol')
-
+      .select('si.productId', 'productId')
       .addSelect('SUM(si.quantity)', 'totalQuantity')
       .addSelect('SUM(si.subtotal)', 'totalRevenue')
       .addSelect('SUM(si.profit)', 'totalProfit')
       .addSelect('COUNT(DISTINCT s.id)', 'orderCount')
-
-      .groupBy('p.id')
-      .addGroupBy('brand.id')
-      .addGroupBy('category.id')
-      .addGroupBy('unit.id')
-
+      .addSelect('COUNT(DISTINCT si.variantId)', 'variantCount')
+      .groupBy('si.productId')
       .orderBy('SUM(si.quantity)', 'DESC')
       .limit(limit);
 
@@ -226,18 +215,108 @@ export class AnalyticsService {
     if (endDate) qb.andWhere('s.saleDate <= :endDate', { endDate });
 
     const rows = await qb.getRawMany();
+    if (!rows.length) return { data: [] };
+
+    // Batch-load product details
+    const productIds = rows.map((r) => r.productId);
+    const products = await this.productRepository
+      .createQueryBuilder('p')
+      .leftJoin('p.brand', 'brand')
+      .leftJoin('p.category', 'category')
+      .leftJoin('p.unit', 'unit')
+      .select(['p.id', 'p.name', 'brand.name', 'category.name', 'unit.symbol'])
+      .whereInIds(productIds)
+      .getMany();
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
 
     return {
-      data: rows.map((row) => ({
-        productId: row.productId,
-        name: row.productName,
-        brandName: row.brandName,
-        categoryName: row.categoryName,
-        unitSymbol: row.unitSymbol,
-        totalQuantity: Number(row.totalQuantity),
-        totalRevenue: Number(row.totalRevenue),
-        totalProfit: Number(row.totalProfit),
-        orderCount: Number(row.orderCount),
+      data: rows.map((row) => {
+        const p = productMap.get(row.productId);
+        return {
+          productId: row.productId,
+          name: p?.name ?? null,
+          brandName: (p as any)?.brand?.name ?? null,
+          categoryName: (p as any)?.category?.name ?? null,
+          unitSymbol: (p as any)?.unit?.symbol ?? null,
+          variantCount: Number(row.variantCount),
+          totalQuantity: Number(row.totalQuantity),
+          totalRevenue: Number(row.totalRevenue),
+          totalProfit: Number(row.totalProfit),
+          orderCount: Number(row.orderCount),
+        };
+      }),
+    };
+  }
+
+  // ── Variant Performance (drill-down for a single variant) ─
+  async getVariantPerformance(shopId: string, variantId: string, startDate?: string, endDate?: string) {
+    const variant = await this.variantRepository.findOne({
+      where: { id: variantId },
+      relations: ['product', 'product.brand', 'product.category', 'product.unit'],
+    });
+
+    const qb = this.saleItemRepository
+      .createQueryBuilder('si')
+      .innerJoin('si.sale', 's', 's.shopId = :shopId AND s.status != :cancelled', {
+        shopId,
+        cancelled: SaleStatus.CANCELLED,
+      })
+      .select('SUM(si.quantity)', 'totalQuantity')
+      .addSelect('SUM(si.subtotal)', 'totalRevenue')
+      .addSelect('SUM(si.profit)', 'totalProfit')
+      .addSelect('COUNT(DISTINCT s.id)', 'orderCount')
+      .addSelect('AVG(si.unitPrice)', 'avgSellingPrice')
+      .addSelect('AVG(si.costPrice)', 'avgCostPrice')
+      .where('si.variantId = :variantId', { variantId });
+
+    if (startDate) qb.andWhere('s.saleDate >= :startDate', { startDate });
+    if (endDate) qb.andWhere('s.saleDate <= :endDate', { endDate });
+
+    // Monthly sales breakdown
+    const monthlyQb = this.saleItemRepository
+      .createQueryBuilder('si')
+      .innerJoin('si.sale', 's', 's.shopId = :shopId AND s.status != :cancelled', {
+        shopId,
+        cancelled: SaleStatus.CANCELLED,
+      })
+      .select("DATE_TRUNC('month', s.saleDate)", 'month')
+      .addSelect('SUM(si.quantity)', 'qty')
+      .addSelect('SUM(si.subtotal)', 'revenue')
+      .addSelect('SUM(si.profit)', 'profit')
+      .where('si.variantId = :variantId', { variantId })
+      .groupBy("DATE_TRUNC('month', s.saleDate)")
+      .orderBy("DATE_TRUNC('month', s.saleDate)", 'ASC');
+
+    if (startDate) monthlyQb.andWhere('s.saleDate >= :startDate', { startDate });
+    if (endDate) monthlyQb.andWhere('s.saleDate <= :endDate', { endDate });
+
+    const [stats, monthly] = await Promise.all([qb.getRawOne(), monthlyQb.getRawMany()]);
+
+    return {
+      variant: variant ? {
+        variantId: variant.id,
+        variantName: variant.name,
+        sku: variant.sku,
+        productId: variant.productId,
+        productName: variant.product?.name ?? null,
+        brandName: variant.product?.brand?.name ?? null,
+        categoryName: variant.product?.category?.name ?? null,
+        unitSymbol: variant.product?.unit?.symbol ?? null,
+      } : null,
+      summary: {
+        totalQuantity: Number(stats?.totalQuantity ?? 0),
+        totalRevenue: Number(stats?.totalRevenue ?? 0),
+        totalProfit: Number(stats?.totalProfit ?? 0),
+        orderCount: Number(stats?.orderCount ?? 0),
+        avgSellingPrice: Math.round(Number(stats?.avgSellingPrice ?? 0) * 100) / 100,
+        avgCostPrice: Math.round(Number(stats?.avgCostPrice ?? 0) * 100) / 100,
+      },
+      monthly: monthly.map((r) => ({
+        month: new Date(r.month).toISOString().slice(0, 7),
+        qty: Number(r.qty),
+        revenue: Number(r.revenue),
+        profit: Number(r.profit),
       })),
     };
   }

@@ -32,7 +32,7 @@ export class AnalyticsController {
   }
 
   @Get('most-selling')
-  @ApiOperation({ summary: 'Most selling / MVP products by quantity and revenue' })
+  @ApiOperation({ summary: 'Most selling products (all variants aggregated per product)' })
   getMostSelling(
     @Query('limit') limit: number,
     @Query('startDate') startDate: string,
@@ -40,6 +40,19 @@ export class AnalyticsController {
     @CurrentUser() user: any,
   ) {
     return this.analyticsService.getMostSellingProducts(user.shopId, limit || 10, startDate, endDate);
+  }
+
+  @Get('variant-performance/:variantId')
+  @ApiOperation({ summary: 'Detailed sales performance for a single variant (drill-down)' })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  getVariantPerformance(
+    @Param('variantId') variantId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.analyticsService.getVariantPerformance(user.shopId, variantId, startDate, endDate);
   }
 
   @Get('slow-moving')
