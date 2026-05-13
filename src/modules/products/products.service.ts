@@ -2,6 +2,7 @@ import { Repository, DataSource } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as XLSX from 'xlsx';
+import { StorageService } from 'src/common/services/storage.service';
 
 import { Product, ProductType } from 'src/modules/products/entities/product.entity';
 import { PriceType, ProductPrice } from './entities/product-price.entity';
@@ -77,7 +78,7 @@ export class ProductsService {
         shopId: p.shopId,
         name: p.name,
         description: p.description,
-        image: p.image ?? null,
+        image: StorageService.normalizeUrl(p.image),
         type: p.type,
         brandId: p.brandId,
         categoryId: p.categoryId,
@@ -484,7 +485,7 @@ export class ProductsService {
         name: v.name,
         sku: v.sku,
         barcode: v.barcode,
-        image: v.product?.image ?? null,
+        image: StorageService.normalizeUrl(v.product?.image),
         status: v.status,
         isDefault: v.isDefault,
         isActive: v.isActive,

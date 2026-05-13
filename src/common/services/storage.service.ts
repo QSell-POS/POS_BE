@@ -102,6 +102,12 @@ export class StorageService {
     return `${withScheme}/${key}`;
   }
 
+  static normalizeUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `https://${url}`;
+  }
+
   // ── Key builder ───────────────────────────────────────────────────────────
 
   private buildKey(folder: StorageFolder, originalName: string, ext = '', shopId?: string): string {

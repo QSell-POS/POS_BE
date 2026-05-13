@@ -1,6 +1,7 @@
 import { Repository, DataSource } from 'typeorm';
 import type { QueryRunner } from 'typeorm';
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { StorageService } from 'src/common/services/storage.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InventoryItem } from './entities/inventory-item.entity';
 import { InventoryHistory, InventoryMovementType } from './entities/inventory-history.entity';
@@ -347,7 +348,7 @@ export class InventoryService {
       productName: h.product?.name ?? null,
       productDescription: h.product?.description ?? null,
       name: h.variant?.name ?? null,
-      image: h.product?.image ?? null,
+      image: StorageService.normalizeUrl(h.product?.image),
       productType: h.product?.type ?? null,
       brandId: h.product?.brandId ?? null,
       categoryId: h.product?.categoryId ?? null,
