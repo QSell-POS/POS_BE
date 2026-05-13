@@ -38,7 +38,9 @@ export class SaleReturnService {
     // Validate return quantities don't exceed what was originally sold
     const soldQtyByVariant: Record<string, number> = {};
     for (const item of sale.items) {
-      soldQtyByVariant[item.variantId] = (soldQtyByVariant[item.variantId] ?? 0) + Number(item.quantity);
+      if (item.variantId) {
+        soldQtyByVariant[item.variantId] = (soldQtyByVariant[item.variantId] ?? 0) + Number(item.quantity);
+      }
     }
 
     const existingReturns = await this.returnItemRepository
@@ -56,7 +58,11 @@ export class SaleReturnService {
     }
 
     for (const item of dto.items) {
-      const sold = soldQtyByVariant[item.variantId] ?? 0;
+      if (!item.variantId) throw new BadRequestException('Each return item must include a variantId');
+      const sold = soldQtyByVariant[item.variantId];
+      if (sold === undefined) {
+        throw new BadRequestException(`Variant ${item.variantId} was not part of the original sale`);
+      }
       const alreadyReturned = alreadyReturnedByVariant[item.variantId] ?? 0;
       const remaining = sold - alreadyReturned;
       if (item.quantity > remaining) {
