@@ -29,6 +29,7 @@ export class InventoryService {
     private dataSource: DataSource,
     @Inject(COSTING_STRATEGY) private costingStrategy: ICostingStrategy,
     @Optional() private readonly notificationService: NotificationService,
+    @Optional() private readonly storage: StorageService,
   ) {}
 
   async getInventory(shopId: string, page = 1, limit = 20) {
@@ -348,7 +349,7 @@ export class InventoryService {
       productName: h.product?.name ?? null,
       productDescription: h.product?.description ?? null,
       name: h.variant?.name ?? null,
-      image: StorageService.normalizeUrl(h.product?.image),
+      image: this.storage?.resolveUrl(h.product?.image) ?? null,
       productType: h.product?.type ?? null,
       brandId: h.product?.brandId ?? null,
       categoryId: h.product?.categoryId ?? null,

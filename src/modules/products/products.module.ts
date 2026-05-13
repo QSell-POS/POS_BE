@@ -12,6 +12,7 @@ import { InventoryBatch } from '../inventory/entities/inventory-batch.entity';
 import { Product } from './entities/product.entity';
 import { ProductVariant } from './entities/product-variant.entity';
 import { PlanModule } from 'src/common/modules/plans/plan.module';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   controllers: [ProductsController],
@@ -21,6 +22,7 @@ import { PlanModule } from 'src/common/modules/plans/plan.module';
     TypeOrmModule.forFeature([Product, ProductPrice, InventoryItem, ProductVariant, InventoryBatch]),
     InventoryModule,
     PlanModule,
+    CommonModule,
     MulterModule.register({
       storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB

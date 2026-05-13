@@ -44,8 +44,8 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const result = await this.storage.upload(file, 'products', user.shopId);
-    return { data: result, message: 'Product image uploaded' };
+    const { key } = await this.storage.upload(file, 'products', user.shopId);
+    return { data: { key }, message: 'Product image uploaded' };
   }
 
   // ── Avatar (staff / customer / supplier / user profile) ──────────────────
@@ -60,8 +60,8 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const result = await this.storage.upload(file, 'avatars', user.shopId);
-    return { data: result, message: 'Avatar uploaded' };
+    const { key } = await this.storage.upload(file, 'avatars', user.shopId);
+    return { data: { key }, message: 'Avatar uploaded' };
   }
 
   // ── Invoice / PDF ─────────────────────────────────────────────────────────
@@ -95,8 +95,8 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const result = await this.storage.upload(file, 'attachments', user.shopId);
-    return { data: result, message: 'Attachment uploaded' };
+    const { key } = await this.storage.upload(file, 'attachments', user.shopId);
+    return { data: { key }, message: 'Attachment uploaded' };
   }
 
   // ── Delete by key ─────────────────────────────────────────────────────────

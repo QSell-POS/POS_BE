@@ -6,11 +6,13 @@ import { InventoryItem } from './entities/inventory-item.entity';
 import { InventoryHistory } from './entities/inventory-history.entity';
 import { InventoryBatch } from './entities/inventory-batch.entity';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([InventoryItem, InventoryHistory, InventoryBatch]),
     NotificationsModule,
+    CommonModule,
   ],
   controllers: [InventoryController],
   providers: [InventoryService],

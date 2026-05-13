@@ -102,10 +102,19 @@ export class StorageService {
     return `${withScheme}/${key}`;
   }
 
-  static normalizeUrl(url: string | null | undefined): string | null {
-    if (!url) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `https://${url}`;
+  // ── Resolve a stored path/key to a full URL ───────────────────────────────
+  // Accepts a storage key (path) OR a legacy full URL.
+  // Always returns a fully-qualified https:// URL, or null if empty.
+  resolveUrl(pathOrUrl: string | null | undefined): string | null {
+    if (!pathOrUrl) return null;
+    // Already a full URL (legacy data stored as complete URL)
+    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) return pathOrUrl;
+    // Legacy: stored without scheme but with domain (cdn.qsellpos.com/path)
+    if (!pathOrUrl.startsWith('/') && pathOrUrl.includes('.') && pathOrUrl.indexOf('/') > 0) {
+      return `https://${pathOrUrl}`;
+    }
+    // Normal storage key/path — prepend configured public URL
+    return this.getPublicUrl(pathOrUrl);
   }
 
   // ── Key builder ───────────────────────────────────────────────────────────

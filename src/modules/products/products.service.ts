@@ -35,6 +35,7 @@ export class ProductsService {
     @InjectRepository(InventoryBatch)
     private batchRepository: Repository<InventoryBatch>,
     private dataSource: DataSource,
+    private readonly storage: StorageService,
   ) {}
 
   async findAll(filters: ProductFilterDto, shopId: string) {
@@ -78,7 +79,7 @@ export class ProductsService {
         shopId: p.shopId,
         name: p.name,
         description: p.description,
-        image: StorageService.normalizeUrl(p.image),
+        image: this.storage.resolveUrl(p.image),
         type: p.type,
         brandId: p.brandId,
         categoryId: p.categoryId,
@@ -485,7 +486,7 @@ export class ProductsService {
         name: v.name,
         sku: v.sku,
         barcode: v.barcode,
-        image: StorageService.normalizeUrl(v.product?.image),
+        image: this.storage.resolveUrl(v.product?.image),
         status: v.status,
         isDefault: v.isDefault,
         isActive: v.isActive,
