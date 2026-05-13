@@ -31,6 +31,8 @@ export class ProductsService {
     private variantRepository: Repository<ProductVariant>,
     @InjectRepository(InventoryItem)
     private inventoryRepository: Repository<InventoryItem>,
+    @InjectRepository(InventoryBatch)
+    private batchRepository: Repository<InventoryBatch>,
     private dataSource: DataSource,
   ) {}
 
@@ -341,6 +343,35 @@ export class ProductsService {
     }
   }
 
+  async syncPricesOnPurchase(
+    productId: string,
+    shopId: string,
+    userId: string,
+    unitCost: number,
+    sellingPrice?: number,
+  ): Promise<void> {
+    const updates: Array<{ priceType: PriceType; newPrice: number }> = [];
+
+    const currentPurchase = await this.priceRepository.findOne({ where: { productId, priceType: PriceType.PURCHASE, isCurrent: true, shopId } });
+    if (!currentPurchase || Number(currentPurchase.price) !== unitCost) {
+      updates.push({ priceType: PriceType.PURCHASE, newPrice: unitCost });
+    }
+
+    if (sellingPrice !== undefined) {
+      const currentRetail = await this.priceRepository.findOne({ where: { productId, priceType: PriceType.RETAIL, isCurrent: true, shopId } });
+      if (!currentRetail || Number(currentRetail.price) !== sellingPrice) {
+        updates.push({ priceType: PriceType.RETAIL, newPrice: sellingPrice });
+      }
+    }
+
+    for (const { priceType, newPrice } of updates) {
+      await this.priceRepository.update({ productId, priceType, isCurrent: true, shopId }, { isCurrent: false, effectiveTo: new Date() });
+      await this.priceRepository.save(
+        this.priceRepository.create({ productId, priceType, price: newPrice, isCurrent: true, changedBy: userId, reason: 'Updated via purchase', shopId }),
+      );
+    }
+  }
+
   async remove(id: string, shopId: string) {
     const product = await this.findOne(id, shopId);
     if (!product) throw new NotFoundException('Product not found');
@@ -420,6 +451,24 @@ export class ProductsService {
       .addOrderBy('v.isDefault', 'DESC')
       .getMany();
 
+    // Get oldest remaining batch purchase price per variant (FIFO)
+    const variantIds = rawData.map((v) => v.id);
+    const batchPriceMap: Record<string, number> = {};
+    if (variantIds.length > 0) {
+      const batches = await this.batchRepository
+        .createQueryBuilder('b')
+        .select('DISTINCT ON (b.variant_id) b.variant_id', 'variantId')
+        .addSelect('b.purchase_price', 'purchasePrice')
+        .where('b.variant_id IN (:...variantIds)', { variantIds })
+        .andWhere('b.quantity_remaining > 0')
+        .orderBy('b.variant_id')
+        .addOrderBy('b.created_at', 'ASC')
+        .getRawMany();
+      for (const row of batches) {
+        batchPriceMap[row.variantId] = Number(row.purchasePrice);
+      }
+    }
+
     const data = rawData.map((v) => {
       const priceMap = (v.product?.prices ?? []).reduce(
         (acc, pr) => { acc[pr.priceType] = Number(pr.price); return acc; },
@@ -445,7 +494,7 @@ export class ProductsService {
         trackInventory: v.trackInventory,
         attributes: v.attributes,
         retailPrice: priceMap[PriceType.RETAIL] ?? null,
-        purchasePrice: priceMap[PriceType.PURCHASE] ?? null,
+        purchasePrice: batchPriceMap[v.id] ?? priceMap[PriceType.PURCHASE] ?? null,
         wholesalePrice: priceMap[PriceType.WHOLESALE] ?? null,
         inventory: v.inventoryItems?.[0]
           ? {

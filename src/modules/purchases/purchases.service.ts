@@ -107,6 +107,7 @@ export class PurchasesService {
             { productId: item.productId, variantId: item.variantId, quantity: item.quantity, movementType: InventoryMovementType.PURCHASE, unitCost: item.unitCost, referenceId: refNum, referenceType: 'purchase', performedBy: userId },
             shopId,
           );
+          await this.productsService.syncPricesOnPurchase(item.productId, shopId, userId, item.unitCost, item.sellingPrice);
         }
       }
 
@@ -143,6 +144,7 @@ export class PurchasesService {
         { productId: item.productId, variantId: item.variantId, quantity: Number(item.quantity), movementType: InventoryMovementType.PURCHASE, unitCost: Number(item.unitCost), referenceId: dto.supplierBillNumber || purchase.referenceNumber, referenceType: 'purchase', notes: dto.notes, performedBy: userId },
         shopId,
       );
+      await this.productsService.syncPricesOnPurchase(item.productId, shopId, userId, Number(item.unitCost));
     }
 
     await this.purchaseRepository.update(id, {

@@ -8,6 +8,7 @@ import { ProductsController } from './products.controller';
 import { InventoryModule } from '../inventory/inventory.module';
 import { ProductPrice } from './entities/product-price.entity';
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
+import { InventoryBatch } from '../inventory/entities/inventory-batch.entity';
 import { Product } from './entities/product.entity';
 import { ProductVariant } from './entities/product-variant.entity';
 import { PlanModule } from 'src/common/modules/plans/plan.module';
@@ -17,7 +18,7 @@ import { PlanModule } from 'src/common/modules/plans/plan.module';
   providers: [ProductsService],
   exports: [ProductsService],
   imports: [
-    TypeOrmModule.forFeature([Product, ProductPrice, InventoryItem, ProductVariant]),
+    TypeOrmModule.forFeature([Product, ProductPrice, InventoryItem, ProductVariant, InventoryBatch]),
     InventoryModule,
     PlanModule,
     MulterModule.register({
