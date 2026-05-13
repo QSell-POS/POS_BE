@@ -443,7 +443,7 @@ export class AnalyticsService {
       this.purchaseRepository
         .createQueryBuilder('p')
         .select('COALESCE(SUM(p.grandTotal),0)', 'totalPurchases')
-        .where("p.shopId = :shopId AND p.purchaseDate BETWEEN :startDate AND :endDate AND p.status = 'received'", {
+        .where("p.shopId = :shopId AND p.purchaseDate BETWEEN :startDate AND :endDate AND p.status != 'cancelled' AND p.isReceived = true", {
           shopId,
           startDate,
           endDate,
