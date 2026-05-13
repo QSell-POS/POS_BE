@@ -5,7 +5,7 @@ import { Permission } from 'src/common/permissions/permission.enum';
 import { UserRole } from '../users/entities/user.entity';
 import { UuidParamPipe } from 'src/common/validator';
 import { SuppliersService } from './suppliers.service';
-import { CreateSupplierDto, UpdateSupplierDto, CreateSupplierPaymentDto, SupplierFilterDto } from '../purchases/dto/purchase.dto';
+import { CreateSupplierDto, UpdateSupplierDto, CreateSupplierPaymentDto, ReceiveFromSupplierDto, SupplierFilterDto } from '../purchases/dto/purchase.dto';
 
 @ApiTags('Suppliers')
 @ApiBearerAuth()
@@ -60,9 +60,17 @@ export class SuppliersController {
 
   @Post('payments')
   @Permissions(Permission.SUPPLIERS_PAYMENTS)
-  @ApiOperation({ summary: 'Record a payment to a supplier' })
+  @ApiOperation({ summary: 'Record a payment sent to a supplier (reduces what we owe)' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
   recordPayment(@Body() dto: CreateSupplierPaymentDto, @CurrentUser() user: any) {
     return this.suppliersService.recordPayment(dto, user.shopId, user.id);
+  }
+
+  @Post('receive')
+  @Permissions(Permission.SUPPLIERS_PAYMENTS)
+  @ApiOperation({ summary: 'Record cash received from supplier (when supplier owes us — negative balance)' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SUPER_ADMIN)
+  receiveFromSupplier(@Body() dto: ReceiveFromSupplierDto, @CurrentUser() user: any) {
+    return this.suppliersService.receiveFromSupplier(dto, user.shopId, user.id);
   }
 }

@@ -10,6 +10,7 @@ import {
   CreateSupplierDto,
   UpdateSupplierDto,
   CreateSupplierPaymentDto,
+  ReceiveFromSupplierDto,
   SupplierFilterDto,
 } from '../purchases/dto/purchase.dto';
 
@@ -117,6 +118,55 @@ export class SuppliersService {
     );
 
     return { data: payment, message: 'Supplier payment recorded successfully' };
+  }
+
+  async receiveFromSupplier(dto: ReceiveFromSupplierDto, shopId: string, userId: string) {
+    const supplier = await this.findOne(dto.supplierId, shopId);
+    const prevBalance = await this.getBalance(dto.supplierId, shopId);
+    const runningBalance = prevBalance + dto.amount;
+
+    const payment = await this.paymentRepository.save(
+      this.paymentRepository.create({
+        supplierId: dto.supplierId,
+        amount: dto.amount,
+        paymentMethod: dto.paymentMethod ?? 'cash',
+        notes: dto.notes,
+        createdBy: userId,
+        shopId,
+      }),
+    );
+
+    await this.ledgerRepository.save(
+      this.ledgerRepository.create({
+        supplierId: dto.supplierId,
+        type: SupplierLedgerType.PAYMENT_RECEIVED,
+        direction: LedgerDirection.DEBIT,
+        amount: dto.amount,
+        runningBalance,
+        referenceType: 'supplier_receipt',
+        referenceId: payment.id,
+        description: `Payment received from supplier: ${supplier.name}`,
+        createdBy: userId,
+        shopId,
+      }),
+    );
+
+    await this.supplierRepository.update(dto.supplierId, { totalDue: runningBalance });
+
+    await this.expensesService.recordSystemExpense(
+      {
+        typeName: 'Supplier Receipt',
+        title: `Payment received from supplier: ${supplier.name}`,
+        amount: dto.amount,
+        referenceId: payment.id,
+        referenceType: 'supplier_receipt',
+        isIncome: true,
+      },
+      shopId,
+      userId,
+    );
+
+    return { data: payment, message: 'Payment received from supplier recorded successfully' };
   }
 
   async getBalance(supplierId: string, shopId: string): Promise<number> {

@@ -11,6 +11,7 @@ import {
   CreateCustomerDto,
   UpdateCustomerDto,
   CreateCustomerPaymentDto,
+  RefundToCustomerDto,
 } from '../sales/dto/sale.dto';
 
 @Injectable()
@@ -117,6 +118,54 @@ export class CustomersService {
     );
 
     return { data: payment, message: 'Payment recorded successfully' };
+  }
+
+  async refundToCustomer(dto: RefundToCustomerDto, shopId: string, userId: string) {
+    const customer = await this.findOne(dto.customerId, shopId);
+    const prevBalance = await this.getBalance(dto.customerId, shopId);
+    const runningBalance = prevBalance + dto.amount;
+
+    const payment = await this.paymentRepository.save(
+      this.paymentRepository.create({
+        customerId: dto.customerId,
+        amount: dto.amount,
+        paymentMethod: dto.paymentMethod ?? PaymentMethod.CASH,
+        notes: dto.notes,
+        createdBy: userId,
+        shopId,
+      }),
+    );
+
+    await this.ledgerRepository.save(
+      this.ledgerRepository.create({
+        customerId: dto.customerId,
+        type: CustomerLedgerType.PAYMENT_SENT,
+        direction: LedgerDirection.DEBIT,
+        amount: dto.amount,
+        runningBalance,
+        referenceType: 'customer_refund',
+        referenceId: payment.id,
+        description: `Refund paid to customer: ${customer.name}`,
+        createdBy: userId,
+        shopId,
+      }),
+    );
+
+    await this.customerRepository.update(dto.customerId, { totalDue: runningBalance });
+
+    await this.expensesService.recordSystemExpense(
+      {
+        typeName: 'Customer Refund',
+        title: `Refund to customer: ${customer.name}`,
+        amount: dto.amount,
+        referenceId: payment.id,
+        referenceType: 'customer_refund',
+      },
+      shopId,
+      userId,
+    );
+
+    return { data: payment, message: 'Refund to customer recorded successfully' };
   }
 
   async getBalance(customerId: string, shopId: string): Promise<number> {

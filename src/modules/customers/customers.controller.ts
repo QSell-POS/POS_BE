@@ -4,7 +4,7 @@ import { CurrentUser, JwtAuthGuard, Roles, RolesGuard, Permissions } from 'src/c
 import { Permission } from 'src/common/permissions/permission.enum';
 import { UserRole } from '../users/entities/user.entity';
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto, UpdateCustomerDto, CreateCustomerPaymentDto } from '../sales/dto/sale.dto';
+import { CreateCustomerDto, UpdateCustomerDto, CreateCustomerPaymentDto, RefundToCustomerDto } from '../sales/dto/sale.dto';
 
 @ApiTags('Customers')
 @ApiBearerAuth()
@@ -57,9 +57,17 @@ export class CustomersController {
 
   @Post('payments')
   @Permissions(Permission.CUSTOMERS_PAYMENTS)
-  @ApiOperation({ summary: 'Record a customer payment to settle their credit balance' })
+  @ApiOperation({ summary: 'Record payment received from customer (reduces what they owe)' })
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.SUPER_ADMIN)
   recordPayment(@Body() dto: CreateCustomerPaymentDto, @CurrentUser() user: any) {
     return this.customersService.recordPayment(dto, user.shopId, user.id);
+  }
+
+  @Post('refund')
+  @Permissions(Permission.CUSTOMERS_PAYMENTS)
+  @ApiOperation({ summary: 'Refund cash to customer (when we owe them — negative balance)' })
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.SUPER_ADMIN)
+  refundToCustomer(@Body() dto: RefundToCustomerDto, @CurrentUser() user: any) {
+    return this.customersService.refundToCustomer(dto, user.shopId, user.id);
   }
 }

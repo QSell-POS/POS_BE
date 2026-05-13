@@ -154,6 +154,27 @@ export class CreateSupplierPaymentDto {
   notes?: string;
 }
 
+export class ReceiveFromSupplierDto {
+  @ApiProperty()
+  @IsUUID()
+  supplierId: string;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
 export class CreateSupplierDto {
   @ApiProperty()
   @IsString()

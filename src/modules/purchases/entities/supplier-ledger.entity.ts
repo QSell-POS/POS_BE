@@ -6,6 +6,7 @@ import { LedgerDirection } from 'src/modules/sales/entities/customer-ledger.enti
 export enum SupplierLedgerType {
   PURCHASE_DEBIT = 'purchase_debit',
   PAYMENT_SENT = 'payment_sent',
+  PAYMENT_RECEIVED = 'payment_received',
   PURCHASE_RETURN_CREDIT = 'purchase_return_credit',
   ADJUSTMENT = 'adjustment',
 }

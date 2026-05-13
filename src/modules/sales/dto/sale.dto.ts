@@ -111,6 +111,27 @@ export class CreateCustomerPaymentDto {
   notes?: string;
 }
 
+export class RefundToCustomerDto {
+  @ApiProperty()
+  @IsUUID()
+  customerId: string;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @ApiPropertyOptional({ enum: PaymentMethod })
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
 export class CreateCustomerDto {
   @ApiProperty()
   @IsString()

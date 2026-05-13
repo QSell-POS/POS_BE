@@ -5,6 +5,7 @@ import { Customer } from './customer.entity';
 export enum CustomerLedgerType {
   SALE_CREDIT = 'sale_credit',
   PAYMENT_RECEIVED = 'payment_received',
+  PAYMENT_SENT = 'payment_sent',
   SALE_RETURN_CREDIT = 'sale_return_credit',
   ADJUSTMENT = 'adjustment',
 }
