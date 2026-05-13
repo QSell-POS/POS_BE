@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Supplier } from '../purchases/entities/supplier.entity';
-import { SupplierLedger, SupplierLedgerType } from '../purchases/entities/supplier-ledger.entity';
+import { SupplierLedger, SupplierLedgerType, LedgerDirection } from '../purchases/entities/supplier-ledger.entity';
 import { SupplierPayment } from '../purchases/entities/supplier-payment.entity';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { ExpensesService } from '../expenses/expenses.service';
@@ -67,16 +67,14 @@ export class SuppliersService {
   async getStatement(supplierId: string, shopId: string) {
     const supplier = await this.findOne(supplierId, shopId);
     const ledger = await this.ledgerRepository.find({ where: { supplierId, shopId }, order: { createdAt: 'ASC' } });
-    const balance = ledger.length > 0 ? Number(ledger[ledger.length - 1].balanceAfter) : 0;
+    const balance = ledger.length > 0 ? Number(ledger[ledger.length - 1].runningBalance) : 0;
     return { data: { supplier, balance, transactions: ledger } };
   }
 
   async recordPayment(dto: CreateSupplierPaymentDto, shopId: string, userId: string) {
     const supplier = await this.findOne(dto.supplierId, shopId);
-    const balance = await this.getBalance(dto.supplierId, shopId);
-
-
-    const balanceAfter = balance - dto.amount;
+    const prevBalance = await this.getBalance(dto.supplierId, shopId);
+    const runningBalance = prevBalance - dto.amount;
 
     const payment = await this.paymentRepository.save(
       this.paymentRepository.create({
@@ -93,8 +91,9 @@ export class SuppliersService {
       this.ledgerRepository.create({
         supplierId: dto.supplierId,
         type: SupplierLedgerType.PAYMENT_SENT,
+        direction: LedgerDirection.CREDIT,
         amount: dto.amount,
-        balanceAfter,
+        runningBalance,
         referenceType: 'supplier_payment',
         referenceId: payment.id,
         description: `Payment to supplier: ${supplier.name}`,
@@ -103,7 +102,7 @@ export class SuppliersService {
       }),
     );
 
-    await this.supplierRepository.update(dto.supplierId, { totalDue: balanceAfter });
+    await this.supplierRepository.update(dto.supplierId, { totalDue: runningBalance });
 
     await this.expensesService.recordSystemExpense(
       {
@@ -125,15 +124,16 @@ export class SuppliersService {
       where: { supplierId, shopId },
       order: { createdAt: 'DESC' },
     });
-    return last ? Number(last.balanceAfter) : 0;
+    return last ? Number(last.runningBalance) : 0;
   }
 
   async addLedgerEntry(
     entry: {
       supplierId: string;
       type: SupplierLedgerType;
+      direction: LedgerDirection;
       amount: number;
-      balanceAfter: number;
+      runningBalance: number;
       referenceType: string;
       referenceId: string;
       description: string;
@@ -144,22 +144,10 @@ export class SuppliersService {
     return this.ledgerRepository.save(this.ledgerRepository.create({ ...entry, shopId }));
   }
 
-  async incrementTotalDue(supplierId: string, amount: number) {
-    await this.supplierRepository.increment({ id: supplierId }, 'totalDue', amount);
-  }
-
-  async decrementTotalDue(supplierId: string, amount: number) {
-    await this.supplierRepository.decrement({ id: supplierId }, 'totalDue', amount);
-  }
-
   async incrementTotalPurchased(supplierId: string, amount: number) {
     await this.supplierRepository.increment({ id: supplierId }, 'totalPurchased', amount);
   }
 
-  /**
-   * Record a debit (money owed to supplier) in one atomic call.
-   * Replaces the 3-call pattern: getBalance → addLedgerEntry → incrementTotalDue.
-   */
   async recordDebit(
     supplierId: string,
     shopId: string,
@@ -167,16 +155,12 @@ export class SuppliersService {
     entry: { type: SupplierLedgerType; referenceType: string; referenceId: string; description: string; createdBy: string },
   ) {
     const prevBalance = await this.getBalance(supplierId, shopId);
-    const balanceAfter = prevBalance + amount;
-    await this.addLedgerEntry({ supplierId, ...entry, amount, balanceAfter }, shopId);
-    await this.incrementTotalDue(supplierId, amount);
-    return balanceAfter;
+    const runningBalance = prevBalance + amount;
+    await this.addLedgerEntry({ supplierId, ...entry, direction: LedgerDirection.DEBIT, amount, runningBalance }, shopId);
+    await this.supplierRepository.update(supplierId, { totalDue: runningBalance });
+    return runningBalance;
   }
 
-  /**
-   * Record a credit (money owed to supplier reduced) in one atomic call.
-   * Replaces the 3-call pattern: getBalance → addLedgerEntry → decrementTotalDue.
-   */
   async recordCredit(
     supplierId: string,
     shopId: string,
@@ -184,9 +168,9 @@ export class SuppliersService {
     entry: { type: SupplierLedgerType; referenceType: string; referenceId: string; description: string; createdBy: string },
   ) {
     const prevBalance = await this.getBalance(supplierId, shopId);
-    const balanceAfter = prevBalance - amount;
-    await this.addLedgerEntry({ supplierId, ...entry, amount, balanceAfter }, shopId);
-    await this.supplierRepository.update(supplierId, { totalDue: balanceAfter });
-    return balanceAfter;
+    const runningBalance = prevBalance - amount;
+    await this.addLedgerEntry({ supplierId, ...entry, direction: LedgerDirection.CREDIT, amount, runningBalance }, shopId);
+    await this.supplierRepository.update(supplierId, { totalDue: runningBalance });
+    return runningBalance;
   }
 }

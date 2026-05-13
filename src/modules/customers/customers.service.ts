@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Customer } from '../sales/entities/customer.entity';
-import { CustomerLedger, CustomerLedgerType } from '../sales/entities/customer-ledger.entity';
+import { CustomerLedger, CustomerLedgerType, LedgerDirection } from '../sales/entities/customer-ledger.entity';
 import { CustomerPayment } from '../sales/entities/customer-payment.entity';
 import { PaymentMethod } from '../sales/entities/sale.entity';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
@@ -66,16 +66,14 @@ export class CustomersService {
   async getStatement(customerId: string, shopId: string) {
     const customer = await this.findOne(customerId, shopId);
     const ledger = await this.ledgerRepository.find({ where: { customerId, shopId }, order: { createdAt: 'ASC' } });
-    const balance = ledger.length > 0 ? Number(ledger[ledger.length - 1].balanceAfter) : 0;
+    const balance = ledger.length > 0 ? Number(ledger[ledger.length - 1].runningBalance) : 0;
     return { data: { customer, balance, transactions: ledger } };
   }
 
   async recordPayment(dto: CreateCustomerPaymentDto, shopId: string, userId: string) {
     const customer = await this.findOne(dto.customerId, shopId);
-    const balance = await this.getBalance(dto.customerId, shopId);
-
-
-    const balanceAfter = balance - dto.amount;
+    const prevBalance = await this.getBalance(dto.customerId, shopId);
+    const runningBalance = prevBalance - dto.amount;
 
     const payment = await this.paymentRepository.save(
       this.paymentRepository.create({
@@ -92,8 +90,9 @@ export class CustomersService {
       this.ledgerRepository.create({
         customerId: dto.customerId,
         type: CustomerLedgerType.PAYMENT_RECEIVED,
+        direction: LedgerDirection.CREDIT,
         amount: dto.amount,
-        balanceAfter,
+        runningBalance,
         referenceType: 'customer_payment',
         referenceId: payment.id,
         description: `Payment received`,
@@ -102,7 +101,7 @@ export class CustomersService {
       }),
     );
 
-    await this.customerRepository.update(dto.customerId, { totalDue: balanceAfter });
+    await this.customerRepository.update(dto.customerId, { totalDue: runningBalance });
 
     await this.expensesService.recordSystemExpense(
       {
@@ -125,15 +124,16 @@ export class CustomersService {
       where: { customerId, shopId },
       order: { createdAt: 'DESC' },
     });
-    return last ? Number(last.balanceAfter) : 0;
+    return last ? Number(last.runningBalance) : 0;
   }
 
   async addLedgerEntry(
     entry: {
       customerId: string;
       type: CustomerLedgerType;
+      direction: LedgerDirection;
       amount: number;
-      balanceAfter: number;
+      runningBalance: number;
       referenceType: string;
       referenceId: string;
       description: string;
@@ -144,22 +144,10 @@ export class CustomersService {
     return this.ledgerRepository.save(this.ledgerRepository.create({ ...entry, shopId }));
   }
 
-  async incrementTotalDue(customerId: string, amount: number) {
-    await this.customerRepository.increment({ id: customerId }, 'totalDue', amount);
-  }
-
-  async decrementTotalDue(customerId: string, amount: number) {
-    await this.customerRepository.decrement({ id: customerId }, 'totalDue', amount);
-  }
-
   async incrementTotalPurchased(customerId: string, amount: number) {
     await this.customerRepository.increment({ id: customerId }, 'totalPurchased', amount);
   }
 
-  /**
-   * Record a debit (money owed by customer) in one atomic call.
-   * Replaces the 3-call pattern: getBalance → addLedgerEntry → incrementTotalDue.
-   */
   async recordDebit(
     customerId: string,
     shopId: string,
@@ -167,16 +155,12 @@ export class CustomersService {
     entry: { type: CustomerLedgerType; referenceType: string; referenceId: string; description: string; createdBy: string },
   ) {
     const prevBalance = await this.getBalance(customerId, shopId);
-    const balanceAfter = prevBalance + amount;
-    await this.addLedgerEntry({ customerId, ...entry, amount, balanceAfter }, shopId);
-    await this.incrementTotalDue(customerId, amount);
-    return balanceAfter;
+    const runningBalance = prevBalance + amount;
+    await this.addLedgerEntry({ customerId, ...entry, direction: LedgerDirection.DEBIT, amount, runningBalance }, shopId);
+    await this.customerRepository.update(customerId, { totalDue: runningBalance });
+    return runningBalance;
   }
 
-  /**
-   * Record a credit (money owed reduced) in one atomic call.
-   * Replaces the 3-call pattern: getBalance → addLedgerEntry → decrementTotalDue.
-   */
   async recordCredit(
     customerId: string,
     shopId: string,
@@ -184,9 +168,9 @@ export class CustomersService {
     entry: { type: CustomerLedgerType; referenceType: string; referenceId: string; description: string; createdBy: string },
   ) {
     const prevBalance = await this.getBalance(customerId, shopId);
-    const balanceAfter = prevBalance - amount;
-    await this.addLedgerEntry({ customerId, ...entry, amount, balanceAfter }, shopId);
-    await this.customerRepository.update(customerId, { totalDue: balanceAfter });
-    return balanceAfter;
+    const runningBalance = prevBalance - amount;
+    await this.addLedgerEntry({ customerId, ...entry, direction: LedgerDirection.CREDIT, amount, runningBalance }, shopId);
+    await this.customerRepository.update(customerId, { totalDue: runningBalance });
+    return runningBalance;
   }
 }
