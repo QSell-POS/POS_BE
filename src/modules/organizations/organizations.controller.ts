@@ -1,9 +1,11 @@
-import { Controller, Get, Put, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard, CurrentUser, Roles } from 'src/common/guards/auth.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
+import { OrgStatus } from './entities/organization.entity';
 import { OrganizationsService } from './organizations.service';
 import { UpdateOrganizationDto, UpgradePlanDto } from './dto/organization.dto';
+import { ShopPlan } from 'src/common/modules/plans/plan.config';
 
 @ApiTags('Organizations')
 @ApiBearerAuth()
@@ -11,6 +13,33 @@ import { UpdateOrganizationDto, UpgradePlanDto } from './dto/organization.dto';
 @Controller('organizations')
 export class OrganizationsController {
   constructor(private readonly orgsService: OrganizationsService) {}
+
+  @Get()
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'List all organizations (super admin)' })
+  findAll(
+    @Query('search') search: string,
+    @Query('plan') plan: ShopPlan,
+    @Query('status') status: OrgStatus,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+  ) {
+    return this.orgsService.findAll({ search, plan, status, page, limit });
+  }
+
+  @Get(':id')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get a single organization by ID (super admin)' })
+  async findOne(@Param('id') id: string) {
+    return this.orgsService.findOne(id);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Activate or suspend an organization (super admin)' })
+  updateStatus(@Param('id') id: string, @Body('status') status: OrgStatus) {
+    return this.orgsService.updateStatus(id, status);
+  }
 
   @Get('me')
   @ApiOperation({ summary: 'Get my organization with all shops' })
