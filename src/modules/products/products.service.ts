@@ -20,6 +20,7 @@ import {
 } from './dto/product.dto';
 import { BulkImportResult, ProductImportRow, VariantImportRow } from './dto/bulk-import.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
+import { CatalogService } from '../catalog/catalog.service';
 
 @Injectable()
 export class ProductsService {
@@ -36,6 +37,7 @@ export class ProductsService {
     private batchRepository: Repository<InventoryBatch>,
     private dataSource: DataSource,
     private readonly storage: StorageService,
+    private readonly catalogService: CatalogService,
   ) {}
 
   async findAll(filters: ProductFilterDto, shopId: string) {
@@ -284,6 +286,23 @@ export class ProductsService {
       }
 
       await queryRunner.commitTransaction();
+
+      // Auto-suggest to catalog if manually created (not imported from catalog)
+      if (!saved.catalogProductId) {
+        this.catalogService.suggest(
+          {
+            name:        dto.name,
+            description: dto.description,
+            image:       dto.image,
+            barcode:     dto.variants[0]?.barcode,
+            categoryId:  dto.categoryId,
+            brandId:     dto.brandId,
+            unitId:      dto.unitId,
+          },
+          userId,
+        ).catch(() => null); // fire-and-forget, don't fail product creation
+      }
+
       return {
         data: await this.findOne(saved.id, shopId),
         message: 'Product created successfully',

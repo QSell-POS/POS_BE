@@ -13,6 +13,7 @@ import { Product } from './entities/product.entity';
 import { ProductVariant } from './entities/product-variant.entity';
 import { PlanModule } from 'src/common/modules/plans/plan.module';
 import { CommonModule } from 'src/common/common.module';
+import { CatalogModule } from '../catalog/catalog.module';
 
 @Module({
   controllers: [ProductsController],
@@ -23,6 +24,7 @@ import { CommonModule } from 'src/common/common.module';
     InventoryModule,
     PlanModule,
     CommonModule,
+    CatalogModule,
     MulterModule.register({
       storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
