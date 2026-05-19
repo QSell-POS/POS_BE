@@ -14,6 +14,12 @@ export enum ProductType {
   DIGITAL = 'digital',
 }
 
+export enum ProductSource {
+  MANUAL = 'manual',
+  CATALOG = 'catalog',
+  SUGGESTION = 'suggestion',
+}
+
 @Entity('products')
 @Index(['shopId', 'categoryId'])
 @Index(['shopId', 'brandId'])
@@ -41,6 +47,12 @@ export class Product extends TenantBaseEntity {
 
   @Column({ name: 'has_variants', default: false })
   hasVariants: boolean;
+
+  @Column({ name: 'catalog_product_id', nullable: true })
+  catalogProductId: string;
+
+  @Column({ type: 'enum', enum: ProductSource, default: ProductSource.MANUAL })
+  source: ProductSource;
 
   // Relations
   @ManyToOne(() => Brand, (brand) => brand.products, { nullable: true })

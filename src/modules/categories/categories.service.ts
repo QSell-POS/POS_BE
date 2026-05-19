@@ -15,7 +15,7 @@ export class CategoriesService {
   async findAll(shopId: string) {
     const categories = await this.categories
       .createQueryBuilder('c')
-      .where('c.shopId = :shopId', { shopId })
+      .where('(c.shopId = :shopId OR c.isGlobal = true)', { shopId })
       .andWhere('c.deletedAt IS NULL')
       .getMany();
 
@@ -52,7 +52,7 @@ export class CategoriesService {
     const qb = this.categories
       .createQueryBuilder('c')
       .leftJoinAndSelect('c.parent', 'parent')
-      .where('c.shopId = :shopId', { shopId });
+      .where('(c.shopId = :shopId OR c.isGlobal = true)', { shopId });
     if (search) qb.andWhere('c.name ILIKE :search', { search: `%${search}%` });
 
     const total = await qb.getCount();

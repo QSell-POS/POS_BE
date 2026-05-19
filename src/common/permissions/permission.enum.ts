@@ -90,6 +90,12 @@ export enum Permission {
 
   // ── Audit Log ────────────────────────────────────────────
   AUDIT_VIEW           = 'audit:view',
+
+  // ── Catalog ──────────────────────────────────────────────
+  CATALOG_VIEW         = 'catalog:view',
+  CATALOG_MANAGE       = 'catalog:manage',
+  CATALOG_SUGGEST      = 'catalog:suggest',
+  CATALOG_REVIEW       = 'catalog:review',
 }
 
 // ── Default permissions per role ──────────────────────────────────────────────
@@ -261,4 +267,9 @@ export const PERMISSION_META: Record<Permission, { label: string; group: string 
   [Permission.SETTINGS_MANAGE]:     { label: 'Manage Settings',       group: 'Settings' },
   // Audit
   [Permission.AUDIT_VIEW]:          { label: 'View Audit Log',        group: 'Audit' },
+  // Catalog
+  [Permission.CATALOG_VIEW]:        { label: 'View Catalog',          group: 'Catalog' },
+  [Permission.CATALOG_MANAGE]:      { label: 'Manage Catalog',        group: 'Catalog' },
+  [Permission.CATALOG_SUGGEST]:     { label: 'Suggest Products',      group: 'Catalog' },
+  [Permission.CATALOG_REVIEW]:      { label: 'Review Suggestions',    group: 'Catalog' },
 };

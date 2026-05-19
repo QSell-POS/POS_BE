@@ -19,6 +19,9 @@ export class Brand extends TenantBaseEntity {
   @Column({ default: true, name: "is_active" })
   isActive: boolean;
 
+  @Column({ default: false, name: "is_global" })
+  isGlobal: boolean;
+
   @OneToMany(() => Product, (product) => product.brand)
   products: Product[];
 }
