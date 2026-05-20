@@ -7,6 +7,7 @@ import {
   CatalogFilterDto,
   CreateCatalogProductDto,
   ImportCatalogProductDto,
+  LinkSuggestionDto,
   ReviewCatalogProductDto,
   SuggestCatalogProductDto,
   UpdateCatalogProductDto,
@@ -59,6 +60,20 @@ export class CatalogController {
   @ApiOperation({ summary: 'Approve or reject a suggested catalog product (super admin)' })
   review(@Param('id') id: string, @Body() dto: ReviewCatalogProductDto, @CurrentUser() user: any) {
     return this.catalogService.review(id, dto, user.id);
+  }
+
+  @Get('similar')
+  @Permissions(Permission.CATALOG_VIEW)
+  @ApiOperation({ summary: 'Find similar approved catalog products by name' })
+  getSimilar(@Query('name') name: string) {
+    return this.catalogService.getSimilar(name);
+  }
+
+  @Patch(':id/link')
+  @Permissions(Permission.CATALOG_REVIEW)
+  @ApiOperation({ summary: 'Link a pending suggestion to an existing catalog product instead of approving it as new' })
+  linkSuggestion(@Param('id') id: string, @Body() dto: LinkSuggestionDto) {
+    return this.catalogService.linkSuggestion(id, dto.catalogProductId);
   }
 
   @Post('import')

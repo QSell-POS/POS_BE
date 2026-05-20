@@ -110,11 +110,107 @@ export class CatalogService {
     return this.catalogProductRepo.save(product);
   }
 
+  // ── Fuzzy name match against approved catalog products ───────────────────────
+  // How it works:
+  //   1. Exact match first          — "Dal Masuro" === "Dal Masuro"
+  //   2. Substring match            — catalog has "Dal Masuro (Lentils)", shop typed "Dal Masuro"
+  //   3. Token overlap              — split both names into words, count shared words
+  //      e.g. "Coca Cola 330ml Can" vs "coke can 330" → tokens: [cola, 330, can] = 3 shared → high score
+  //   Returns up to 5 approved products sorted by descending similarity score (0–1).
+  //   Only results with score >= 0.3 are returned to avoid noise.
+  async getSimilar(name: string): Promise<any[]> {
+    const candidates = await this.catalogProductRepo.find({
+      where: { status: CatalogProductStatus.APPROVED },
+      select: ['id', 'name', 'description', 'barcode', 'categoryId', 'brandId', 'unitId'],
+    });
+
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    const tokenize  = (s: string) => normalize(s).split(/\s+/).filter(t => t.length > 1);
+
+    const input       = normalize(name);
+    const inputTokens = new Set(tokenize(name));
+
+    const scored = candidates
+      .map(cp => {
+        const cpNorm   = normalize(cp.name);
+        const cpTokens = tokenize(cp.name);
+
+        // Exact match
+        if (input === cpNorm) return { cp, score: 1.0 };
+
+        // Substring match either way
+        if (input.includes(cpNorm) || cpNorm.includes(input)) return { cp, score: 0.85 };
+
+        // Token overlap: shared tokens / union of both token sets
+        const shared = cpTokens.filter(t => inputTokens.has(t)).length;
+        const union  = new Set([...inputTokens, ...cpTokens]).size;
+        const score  = union > 0 ? shared / union : 0;
+
+        return { cp, score };
+      })
+      .filter(r => r.score >= 0.3)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    return await this.attachFlatFields(scored.map(r => r.cp));
+  }
+
+  // ── Auto-link or suggest when a shop creates a product manually ──────────────
+  // Called from ProductsService after product creation.
+  // Returns the catalogProductId if an exact/close match was found (so the caller
+  // can update the product row), otherwise returns null after creating a suggestion.
+  async autoLinkOrSuggest(
+    dto: SuggestCatalogProductDto,
+    userId: string,
+    shopId: string,
+    productId: string,
+  ): Promise<string | null> {
+    const similar = await this.getSimilar(dto.name);
+
+    // First result with score 1.0 or very high confidence (exact / substring) → auto-link
+    const candidates = await this.catalogProductRepo.find({
+      where: { status: CatalogProductStatus.APPROVED },
+      select: ['id', 'name'],
+    });
+
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    const input = normalize(dto.name);
+
+    const exactMatch = candidates.find(cp => {
+      const cpNorm = normalize(cp.name);
+      return input === cpNorm || input.includes(cpNorm) || cpNorm.includes(input);
+    });
+
+    if (exactMatch) {
+      // Link the shop product to the existing catalog product
+      await this.productRepo.update(productId, {
+        catalogProductId: exactMatch.id,
+        source: ProductSource.CATALOG,
+      });
+      // Create ShopProduct link if not already there
+      const existing = await this.shopProductRepo.findOne({
+        where: { shopId, catalogProductId: exactMatch.id },
+      });
+      if (!existing) {
+        await this.shopProductRepo.save(
+          this.shopProductRepo.create({ shopId, catalogProductId: exactMatch.id, productId }),
+        );
+      }
+      return exactMatch.id;
+    }
+
+    // No match → create a pending suggestion
+    await this.suggest(dto, userId);
+    return null;
+  }
+
   async review(id: string, dto: ReviewCatalogProductDto, userId: string) {
     const product = await this.findOne(id);
     if (product.status !== CatalogProductStatus.PENDING) {
       throw new BadRequestException('Only pending products can be reviewed');
     }
+    // Attach similar products so super admin sees them in the response
+    const similar = await this.getSimilar(product.name);
     product.status = dto.status;
     if (dto.status === CatalogProductStatus.APPROVED) {
       product.approvedBy = userId;
@@ -122,7 +218,44 @@ export class CatalogService {
     } else {
       product.rejectionReason = dto.rejectionReason;
     }
-    return this.catalogProductRepo.save(product);
+    const saved = await this.catalogProductRepo.save(product);
+    return { data: saved, similar, message: `Product ${dto.status}` };
+  }
+
+  // Super admin links a pending suggestion to an existing catalog product instead
+  // of approving it as a new one. All shop products that referenced the suggestion
+  // are re-pointed to the existing catalog product and the suggestion is deleted.
+  async linkSuggestion(suggestionId: string, catalogProductId: string) {
+    const suggestion = await this.catalogProductRepo.findOne({ where: { id: suggestionId } });
+    if (!suggestion) throw new NotFoundException('Suggestion not found');
+    if (suggestion.status !== CatalogProductStatus.PENDING) {
+      throw new BadRequestException('Only pending suggestions can be linked');
+    }
+
+    const target = await this.catalogProductRepo.findOne({ where: { id: catalogProductId, status: CatalogProductStatus.APPROVED } });
+    if (!target) throw new NotFoundException('Target catalog product not found or not approved');
+
+    // Re-point all shop products that were linked to this suggestion
+    await this.productRepo.update(
+      { catalogProductId: suggestionId },
+      { catalogProductId, source: ProductSource.CATALOG },
+    );
+
+    // Create ShopProduct entries for any products now linked
+    const linkedProducts = await this.productRepo.find({ where: { catalogProductId } });
+    for (const p of linkedProducts) {
+      const exists = await this.shopProductRepo.findOne({ where: { shopId: p.shopId, catalogProductId } });
+      if (!exists) {
+        await this.shopProductRepo.save(
+          this.shopProductRepo.create({ shopId: p.shopId, catalogProductId, productId: p.id }),
+        );
+      }
+    }
+
+    // Delete the duplicate suggestion
+    await this.catalogProductRepo.delete(suggestionId);
+
+    return { data: target, message: `Suggestion linked to "${target.name}" and removed` };
   }
 
   async importToShop(dto: ImportCatalogProductDto, shopId: string, userId: string) {

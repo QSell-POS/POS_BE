@@ -65,6 +65,12 @@ export class ImportCatalogProductDto {
   catalogProductId: string;
 }
 
+export class LinkSuggestionDto {
+  @ApiProperty({ description: 'Existing approved catalog product to link this suggestion to' })
+  @IsUUID()
+  catalogProductId: string;
+}
+
 export class CatalogFilterDto {
   @ApiPropertyOptional()
   @IsOptional()

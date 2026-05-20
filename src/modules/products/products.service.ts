@@ -287,9 +287,9 @@ export class ProductsService {
 
       await queryRunner.commitTransaction();
 
-      // Auto-suggest to catalog if manually created (not imported from catalog)
+      // Auto-link to existing catalog product or create a pending suggestion
       if (!saved.catalogProductId) {
-        this.catalogService.suggest(
+        this.catalogService.autoLinkOrSuggest(
           {
             name:        dto.name,
             description: dto.description,
@@ -300,6 +300,8 @@ export class ProductsService {
             unitId:      dto.unitId,
           },
           userId,
+          shopId,
+          saved.id,
         ).catch(() => null); // fire-and-forget, don't fail product creation
       }
 
