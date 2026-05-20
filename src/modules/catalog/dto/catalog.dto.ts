@@ -71,6 +71,16 @@ export class LinkSuggestionDto {
   catalogProductId: string;
 }
 
+export class LinkProductToCatalogDto {
+  @ApiProperty()
+  @IsUUID()
+  productId: string;
+
+  @ApiProperty()
+  @IsUUID()
+  catalogProductId: string;
+}
+
 export class CatalogFilterDto {
   @ApiPropertyOptional()
   @IsOptional()

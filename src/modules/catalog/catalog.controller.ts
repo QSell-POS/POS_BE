@@ -7,6 +7,7 @@ import {
   CatalogFilterDto,
   CreateCatalogProductDto,
   ImportCatalogProductDto,
+  LinkProductToCatalogDto,
   LinkSuggestionDto,
   ReviewCatalogProductDto,
   SuggestCatalogProductDto,
@@ -27,6 +28,24 @@ export class CatalogController {
   @ApiOperation({ summary: 'Get catalog products (default: approved, pass ?status=pending for suggestions)' })
   findAll(@Query() filters: CatalogFilterDto) {
     return this.catalogService.findAll(filters);
+  }
+
+  @Get('unlinked')
+  @Permissions(Permission.CATALOG_MANAGE)
+  @ApiOperation({ summary: 'List all shop products not linked to any catalog product (super admin)' })
+  getUnlinkedProducts(
+    @Query('search') search: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+  ) {
+    return this.catalogService.getUnlinkedProducts({ search, page, limit });
+  }
+
+  @Patch('link-product')
+  @Permissions(Permission.CATALOG_MANAGE)
+  @ApiOperation({ summary: 'Manually link a shop product to a catalog product (super admin)' })
+  linkProductToCatalog(@Body() dto: LinkProductToCatalogDto) {
+    return this.catalogService.linkProductToCatalog(dto.productId, dto.catalogProductId);
   }
 
   @Get('similar')

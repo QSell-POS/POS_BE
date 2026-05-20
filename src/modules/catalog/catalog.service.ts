@@ -313,6 +313,73 @@ export class CatalogService {
     return { data: shopProducts, message: 'Shop products fetched successfully' };
   }
 
+  // Super admin: list all shop products not linked to any catalog product
+  async getUnlinkedProducts(filters: { search?: string; page?: number; limit?: number }) {
+    const { search, page = 1, limit = 20 } = filters;
+
+    const qb = this.productRepo
+      .createQueryBuilder('p')
+      .where('p.catalogProductId IS NULL')
+      .andWhere('p.deletedAt IS NULL');
+
+    if (search) qb.andWhere('p.name ILIKE :search', { search: `%${search}%` });
+
+    const total = await qb.getCount();
+    const products = await qb
+      .select(['p.id', 'p.name', 'p.description', 'p.shopId', 'p.source', 'p.createdAt'])
+      .orderBy('p.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    if (!products.length) {
+      return { data: [], message: 'Unlinked products fetched', meta: buildPaginationMeta(total, page, limit) };
+    }
+
+    // Attach shopName and similar catalog suggestions for each product
+    const shopIds = [...new Set(products.map(p => p.shopId).filter(Boolean))];
+    const shops   = shopIds.length ? await this.dataSource.getRepository('Shop').find({ where: shopIds.map(id => ({ id })) }) : [];
+    const shopMap = Object.fromEntries((shops as any[]).map(s => [s.id, s.name]));
+
+    const data = await Promise.all(
+      products.map(async p => ({
+        ...p,
+        shopName: shopMap[p.shopId] ?? null,
+        similar:  await this.getSimilar(p.name),
+      })),
+    );
+
+    return { data, message: 'Unlinked products fetched', meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  // Super admin: manually link any shop product to a catalog product
+  async linkProductToCatalog(productId: string, catalogProductId: string) {
+    const product = await this.productRepo.findOne({ where: { id: productId } });
+    if (!product) throw new NotFoundException('Product not found');
+
+    const catalogProduct = await this.catalogProductRepo.findOne({
+      where: { id: catalogProductId, status: CatalogProductStatus.APPROVED },
+    });
+    if (!catalogProduct) throw new NotFoundException('Catalog product not found or not approved');
+
+    await this.productRepo.update(productId, {
+      catalogProductId,
+      source: ProductSource.CATALOG,
+    });
+
+    // Create ShopProduct link if not already there
+    const existing = await this.shopProductRepo.findOne({
+      where: { shopId: product.shopId, catalogProductId },
+    });
+    if (!existing) {
+      await this.shopProductRepo.save(
+        this.shopProductRepo.create({ shopId: product.shopId, catalogProductId, productId }),
+      );
+    }
+
+    return { data: { productId, catalogProductId }, message: `Product linked to "${catalogProduct.name}"` };
+  }
+
   async getCatalogProductSalesStats(catalogProductId: string) {
     const result = await this.productRepo
       .createQueryBuilder('p')
