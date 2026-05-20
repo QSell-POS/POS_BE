@@ -7,6 +7,7 @@ import { Product, ProductSource } from '../products/entities/product.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Unit } from '../units/entities/unit.entity';
+import { Shop } from '../shops/entities/shop.entity';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import {
   CatalogFilterDto,
@@ -34,6 +35,8 @@ export class CatalogService {
     private categoryRepo: Repository<Category>,
     @InjectRepository(Unit)
     private unitRepo: Repository<Unit>,
+    @InjectRepository(Shop)
+    private shopRepo: Repository<Shop>,
     private dataSource: DataSource,
   ) {}
 
@@ -396,5 +399,77 @@ export class CatalogService {
       .getRawMany();
 
     return { data: result, message: 'Catalog product sales stats fetched successfully' };
+  }
+
+  // Returns approved catalog products for the given shopType, grouped by category
+  async getOnboardingProducts(shopType: string) {
+    const products = await this.catalogProductRepo.find({
+      where: { status: CatalogProductStatus.APPROVED, shopType },
+      relations: ['variants'],
+      order: { name: 'ASC' },
+    });
+
+    const withFields = await this.attachFlatFields(products);
+
+    // Group by categoryName
+    const grouped: Record<string, any[]> = {};
+    for (const p of withFields) {
+      const cat = p.categoryName ?? 'General';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(p);
+    }
+
+    const data = Object.entries(grouped).map(([category, products]) => ({ category, products }));
+    return { data, message: 'Onboarding products fetched successfully' };
+  }
+
+  // Bulk import: import multiple catalog products in one call
+  // Skips already-imported products silently
+  async bulkImport(catalogProductIds: string[], shopId: string, userId: string) {
+    const results = { imported: [] as string[], skipped: [] as string[], failed: [] as string[] };
+
+    for (const catalogProductId of catalogProductIds) {
+      try {
+        const catalogProduct = await this.catalogProductRepo.findOne({
+          where: { id: catalogProductId, status: CatalogProductStatus.APPROVED },
+          relations: ['variants'],
+        });
+        if (!catalogProduct) { results.failed.push(catalogProductId); continue; }
+
+        const existing = await this.shopProductRepo.findOne({ where: { shopId, catalogProductId } });
+        if (existing) { results.skipped.push(catalogProduct.name); continue; }
+
+        const product = await this.productRepo.save(
+          this.productRepo.create({
+            name:             catalogProduct.name,
+            description:      catalogProduct.description,
+            image:            catalogProduct.image,
+            categoryId:       catalogProduct.categoryId,
+            brandId:          catalogProduct.brandId,
+            unitId:           catalogProduct.unitId,
+            shopId,
+            catalogProductId: catalogProduct.id,
+            source:           ProductSource.CATALOG,
+            hasVariants:      catalogProduct.variants?.length > 0,
+          }),
+        );
+
+        await this.shopProductRepo.save(
+          this.shopProductRepo.create({ shopId, catalogProductId, productId: product.id }),
+        );
+
+        results.imported.push(catalogProduct.name);
+      } catch {
+        results.failed.push(catalogProductId);
+      }
+    }
+
+    return { data: results, message: `Imported ${results.imported.length} products` };
+  }
+
+  // Called after bulk import to mark onboarding as done
+  async completeOnboarding(shopId: string) {
+    await this.shopRepo.update(shopId, { onboardingCompleted: true });
+    return { message: 'Onboarding completed' };
   }
 }

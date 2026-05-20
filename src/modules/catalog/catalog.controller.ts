@@ -4,6 +4,7 @@ import { CurrentUser, JwtAuthGuard, Permissions, RolesGuard } from 'src/common/g
 import { Permission } from 'src/common/permissions/permission.enum';
 import { CatalogService } from './catalog.service';
 import {
+  BulkImportDto,
   CatalogFilterDto,
   CreateCatalogProductDto,
   ImportCatalogProductDto,
@@ -76,11 +77,32 @@ export class CatalogController {
     return this.catalogService.suggest(dto, user.id);
   }
 
+  @Get('onboarding')
+  @Permissions(Permission.CATALOG_VIEW)
+  @ApiOperation({ summary: 'Get catalog products grouped by category for a given shopType (onboarding)' })
+  getOnboardingProducts(@Query('shopType') shopType: string) {
+    return this.catalogService.getOnboardingProducts(shopType);
+  }
+
   @Post('import')
   @Permissions(Permission.CATALOG_VIEW)
-  @ApiOperation({ summary: 'Import a catalog product into your shop inventory' })
+  @ApiOperation({ summary: 'Import a single catalog product into your shop inventory' })
   importToShop(@Body() dto: ImportCatalogProductDto, @CurrentUser() user: any) {
     return this.catalogService.importToShop(dto, user.shopId, user.id);
+  }
+
+  @Post('import/bulk')
+  @Permissions(Permission.CATALOG_VIEW)
+  @ApiOperation({ summary: 'Bulk import catalog products into your shop (used during onboarding)' })
+  bulkImport(@Body() dto: BulkImportDto, @CurrentUser() user: any) {
+    return this.catalogService.bulkImport(dto.catalogProductIds, user.shopId, user.id);
+  }
+
+  @Post('onboarding/complete')
+  @Permissions(Permission.CATALOG_VIEW)
+  @ApiOperation({ summary: 'Mark onboarding as completed for this shop' })
+  completeOnboarding(@CurrentUser() user: any) {
+    return this.catalogService.completeOnboarding(user.shopId);
   }
 
   // ── Parameterized routes ──────────────────────────────────────────────────────

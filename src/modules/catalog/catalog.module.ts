@@ -6,11 +6,12 @@ import { Product } from '../products/entities/product.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Unit } from '../units/entities/unit.entity';
+import { Shop } from '../shops/entities/shop.entity';
 import { CatalogService } from './catalog.service';
 import { CatalogController } from './catalog.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CatalogProduct, CatalogVariant, ShopProduct, Product, Brand, Category, Unit])],
+  imports: [TypeOrmModule.forFeature([CatalogProduct, CatalogVariant, ShopProduct, Product, Brand, Category, Unit, Shop])],
   providers: [CatalogService],
   controllers: [CatalogController],
   exports: [CatalogService],

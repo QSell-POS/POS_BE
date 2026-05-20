@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { CatalogProductStatus } from '../entities/catalog-product.entity';
 
 export class CreateCatalogProductDto {
@@ -79,6 +79,13 @@ export class LinkProductToCatalogDto {
   @ApiProperty()
   @IsUUID()
   catalogProductId: string;
+}
+
+export class BulkImportDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  catalogProductIds: string[];
 }
 
 export class CatalogFilterDto {
