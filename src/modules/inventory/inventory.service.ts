@@ -174,7 +174,7 @@ export class InventoryService {
       // Record history
       const history = queryRunner.manager.create(InventoryHistory, {
         inventoryItemId: inventoryItem.id,
-        productId: dto.productId,
+        productId: inventoryItem.productId,
         variantId: dto.variantId,
         movementType: dto.movementType,
         quantity: dto.quantity,
@@ -203,7 +203,7 @@ export class InventoryService {
       ];
       if (batchInboundTypes.includes(dto.movementType) && dto.unitCost) {
         const batch = queryRunner.manager.create(InventoryBatch, {
-          productId: dto.productId,
+          productId: inventoryItem.productId,
           variantId: dto.variantId,
           purchasePrice: dto.unitCost,
           quantityReceived: dto.quantity,
