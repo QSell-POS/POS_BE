@@ -14,6 +14,8 @@ import { ShopPlan } from 'src/common/modules/plans/plan.config';
 export class OrganizationsController {
   constructor(private readonly orgsService: OrganizationsService) {}
 
+  // ── Static routes first (must be before :id) ─────────────────────────────────
+
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'List all organizations (super admin)' })
@@ -25,20 +27,6 @@ export class OrganizationsController {
     @Query('limit') limit: number,
   ) {
     return this.orgsService.findAll({ search, plan, status, page, limit });
-  }
-
-  @Get(':id')
-  @Roles(UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get a single organization by ID (super admin)' })
-  async findOne(@Param('id') id: string) {
-    return this.orgsService.findOne(id);
-  }
-
-  @Patch(':id/status')
-  @Roles(UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Activate or suspend an organization (super admin)' })
-  updateStatus(@Param('id') id: string, @Body('status') status: OrgStatus) {
-    return this.orgsService.updateStatus(id, status);
   }
 
   @Get('me')
@@ -60,9 +48,25 @@ export class OrganizationsController {
     return this.orgsService.update(user.organizationId, dto, user.id);
   }
 
-  @Patch(':id/plan')
-  @ApiOperation({ summary: 'Upgrade organization plan (super admin only)' })
+  // ── Parameterized routes ──────────────────────────────────────────────────────
+
+  @Get(':id')
   @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get a single organization by ID (super admin)' })
+  findOne(@Param('id') id: string) {
+    return this.orgsService.findOne(id);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Activate or suspend an organization (super admin)' })
+  updateStatus(@Param('id') id: string, @Body('status') status: OrgStatus) {
+    return this.orgsService.updateStatus(id, status);
+  }
+
+  @Patch(':id/plan')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Upgrade organization plan (super admin only)' })
   upgradePlan(@Param('id') id: string, @Body() dto: UpgradePlanDto) {
     const expiresAt = dto.planExpiresAt ? new Date(dto.planExpiresAt) : undefined;
     return this.orgsService.upgradePlan(id, dto.plan, expiresAt);

@@ -20,46 +20,13 @@ import {
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
+  // ── Static routes first (must be before :id) ─────────────────────────────────
+
   @Get()
   @Permissions(Permission.CATALOG_VIEW)
-  @ApiOperation({ summary: 'Get all approved catalog products' })
+  @ApiOperation({ summary: 'Get catalog products (default: approved, pass ?status=pending for suggestions)' })
   findAll(@Query() filters: CatalogFilterDto) {
     return this.catalogService.findAll(filters);
-  }
-
-  @Get(':id')
-  @Permissions(Permission.CATALOG_VIEW)
-  @ApiOperation({ summary: 'Get a catalog product by ID' })
-  async findOne(@Param('id') id: string) {
-    return { data: await this.catalogService.findOne(id) };
-  }
-
-  @Post()
-  @Permissions(Permission.CATALOG_MANAGE)
-  @ApiOperation({ summary: 'Create a catalog product (super admin)' })
-  create(@Body() dto: CreateCatalogProductDto, @CurrentUser() user: any) {
-    return this.catalogService.create(dto, user.id);
-  }
-
-  @Put(':id')
-  @Permissions(Permission.CATALOG_MANAGE)
-  @ApiOperation({ summary: 'Update a catalog product (super admin)' })
-  update(@Param('id') id: string, @Body() dto: UpdateCatalogProductDto) {
-    return this.catalogService.update(id, dto);
-  }
-
-  @Post('suggest')
-  @Permissions(Permission.CATALOG_SUGGEST)
-  @ApiOperation({ summary: 'Suggest a new product to be added to the catalog' })
-  suggest(@Body() dto: SuggestCatalogProductDto, @CurrentUser() user: any) {
-    return this.catalogService.suggest(dto, user.id);
-  }
-
-  @Patch(':id/review')
-  @Permissions(Permission.CATALOG_REVIEW)
-  @ApiOperation({ summary: 'Approve or reject a suggested catalog product (super admin)' })
-  review(@Param('id') id: string, @Body() dto: ReviewCatalogProductDto, @CurrentUser() user: any) {
-    return this.catalogService.review(id, dto, user.id);
   }
 
   @Get('similar')
@@ -69,11 +36,25 @@ export class CatalogController {
     return this.catalogService.getSimilar(name);
   }
 
-  @Patch(':id/link')
-  @Permissions(Permission.CATALOG_REVIEW)
-  @ApiOperation({ summary: 'Link a pending suggestion to an existing catalog product instead of approving it as new' })
-  linkSuggestion(@Param('id') id: string, @Body() dto: LinkSuggestionDto) {
-    return this.catalogService.linkSuggestion(id, dto.catalogProductId);
+  @Get('shop/products')
+  @Permissions(Permission.CATALOG_VIEW)
+  @ApiOperation({ summary: 'Get list of catalog products imported to this shop' })
+  getShopProducts(@CurrentUser() user: any) {
+    return this.catalogService.getShopProducts(user.shopId);
+  }
+
+  @Post()
+  @Permissions(Permission.CATALOG_MANAGE)
+  @ApiOperation({ summary: 'Create a catalog product (super admin)' })
+  create(@Body() dto: CreateCatalogProductDto, @CurrentUser() user: any) {
+    return this.catalogService.create(dto, user.id);
+  }
+
+  @Post('suggest')
+  @Permissions(Permission.CATALOG_SUGGEST)
+  @ApiOperation({ summary: 'Suggest a new product to be added to the catalog' })
+  suggest(@Body() dto: SuggestCatalogProductDto, @CurrentUser() user: any) {
+    return this.catalogService.suggest(dto, user.id);
   }
 
   @Post('import')
@@ -83,11 +64,34 @@ export class CatalogController {
     return this.catalogService.importToShop(dto, user.shopId, user.id);
   }
 
-  @Get('shop/products')
+  // ── Parameterized routes ──────────────────────────────────────────────────────
+
+  @Get(':id')
   @Permissions(Permission.CATALOG_VIEW)
-  @ApiOperation({ summary: 'Get list of catalog products imported to this shop' })
-  getShopProducts(@CurrentUser() user: any) {
-    return this.catalogService.getShopProducts(user.shopId);
+  @ApiOperation({ summary: 'Get a catalog product by ID' })
+  async findOne(@Param('id') id: string) {
+    return { data: await this.catalogService.findOne(id) };
+  }
+
+  @Put(':id')
+  @Permissions(Permission.CATALOG_MANAGE)
+  @ApiOperation({ summary: 'Update a catalog product (super admin)' })
+  update(@Param('id') id: string, @Body() dto: UpdateCatalogProductDto) {
+    return this.catalogService.update(id, dto);
+  }
+
+  @Patch(':id/review')
+  @Permissions(Permission.CATALOG_REVIEW)
+  @ApiOperation({ summary: 'Approve or reject a suggested catalog product (super admin)' })
+  review(@Param('id') id: string, @Body() dto: ReviewCatalogProductDto, @CurrentUser() user: any) {
+    return this.catalogService.review(id, dto, user.id);
+  }
+
+  @Patch(':id/link')
+  @Permissions(Permission.CATALOG_REVIEW)
+  @ApiOperation({ summary: 'Link a pending suggestion to an existing catalog product instead of approving it as new' })
+  linkSuggestion(@Param('id') id: string, @Body() dto: LinkSuggestionDto) {
+    return this.catalogService.linkSuggestion(id, dto.catalogProductId);
   }
 
   @Get(':id/sales-stats')
