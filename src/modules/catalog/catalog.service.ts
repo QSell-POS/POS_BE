@@ -124,8 +124,13 @@ export class CatalogService {
       select: ['id', 'name', 'description', 'barcode', 'categoryId', 'brandId', 'unitId'],
     });
 
-    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-    const tokenize  = (s: string) => normalize(s).split(/\s+/).filter(t => t.length > 1);
+    const normalize = (s: string) =>
+      s.toLowerCase()
+       .replace(/[-_/\\]/g, ' ')   // hyphens/underscores → space so "Coca-Cola" → "coca cola"
+       .replace(/[^a-z0-9\s]/g, '') // strip remaining special chars
+       .replace(/\s+/g, ' ')
+       .trim();
+    const tokenize  = (s: string) => normalize(s).split(' ').filter(t => t.length > 1);
 
     const input       = normalize(name);
     const inputTokens = new Set(tokenize(name));
@@ -173,7 +178,8 @@ export class CatalogService {
       select: ['id', 'name'],
     });
 
-    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/[-_/\\]/g, ' ').replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
     const input = normalize(dto.name);
 
     const exactMatch = candidates.find(cp => {
