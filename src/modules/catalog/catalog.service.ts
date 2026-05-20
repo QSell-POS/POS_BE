@@ -4,6 +4,8 @@ import { DataSource, Repository } from 'typeorm';
 import { CatalogProduct, CatalogProductStatus, CatalogVariant } from './entities/catalog-product.entity';
 import { ShopProduct } from './entities/shop-product.entity';
 import { Product, ProductSource } from '../products/entities/product.entity';
+import { ProductVariant, ProductStatus } from '../products/entities/product-variant.entity';
+import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Unit } from '../units/entities/unit.entity';
@@ -37,6 +39,10 @@ export class CatalogService {
     private unitRepo: Repository<Unit>,
     @InjectRepository(Shop)
     private shopRepo: Repository<Shop>,
+    @InjectRepository(ProductVariant)
+    private variantRepo: Repository<ProductVariant>,
+    @InjectRepository(InventoryItem)
+    private inventoryRepo: Repository<InventoryItem>,
     private dataSource: DataSource,
   ) {}
 
@@ -294,9 +300,39 @@ export class CatalogService {
         shopId,
         catalogProductId: catalogProduct.id,
         source: ProductSource.CATALOG,
-        hasVariants: catalogProduct.variants?.length > 0,
+        hasVariants: false,
       });
       const savedProduct = await qr.manager.save(product);
+
+      const sku = catalogProduct.barcode
+        ?? `${catalogProduct.name.toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 20)}-${Date.now()}`;
+
+      const variant = await qr.manager.save(
+        this.variantRepo.create({
+          shopId,
+          productId:     savedProduct.id,
+          name:          catalogProduct.name,
+          sku,
+          barcode:       catalogProduct.barcode ?? null,
+          status:        ProductStatus.ACTIVE,
+          isDefault:     true,
+          isActive:      true,
+          minStockLevel: 0,
+          trackInventory: true,
+        }),
+      );
+
+      await qr.manager.save(
+        this.inventoryRepo.create({
+          shopId,
+          productId:         savedProduct.id,
+          variantId:         variant.id,
+          quantityOnHand:    0,
+          quantityAvailable: 0,
+          quantityReserved:  0,
+          averageCost:       0,
+        }),
+      );
 
       const shopProduct = this.shopProductRepo.create({ shopId, catalogProductId: catalogProduct.id, productId: savedProduct.id });
       const savedShopProduct = await qr.manager.save(shopProduct);
@@ -450,7 +486,39 @@ export class CatalogService {
             shopId,
             catalogProductId: catalogProduct.id,
             source:           ProductSource.CATALOG,
-            hasVariants:      catalogProduct.variants?.length > 0,
+            hasVariants:      false,
+          }),
+        );
+
+        // Create default variant so product appears in /products/variants
+        const sku = catalogProduct.barcode
+          ?? `${catalogProduct.name.toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 20)}-${Date.now()}`;
+
+        const variant = await this.variantRepo.save(
+          this.variantRepo.create({
+            shopId,
+            productId:  product.id,
+            name:       catalogProduct.name,
+            sku,
+            barcode:    catalogProduct.barcode ?? null,
+            status:     ProductStatus.ACTIVE,
+            isDefault:  true,
+            isActive:   true,
+            minStockLevel: 0,
+            trackInventory: true,
+          }),
+        );
+
+        // Create inventory item with zero stock — shop sets opening stock later
+        await this.inventoryRepo.save(
+          this.inventoryRepo.create({
+            shopId,
+            productId:         product.id,
+            variantId:         variant.id,
+            quantityOnHand:    0,
+            quantityAvailable: 0,
+            quantityReserved:  0,
+            averageCost:       0,
           }),
         );
 
