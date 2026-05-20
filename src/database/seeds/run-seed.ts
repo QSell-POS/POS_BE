@@ -320,13 +320,7 @@ async function seed() {
       console.log('⏭  Shop already exists');
     }
 
-    // ── 4. Link super admin to org + shop ────────────────────────────────────
-    if (!superAdmin.organizationId || !superAdmin.shopId) {
-      superAdmin.organizationId = org.id;
-      superAdmin.shopId         = shop.id;
-      await m.save(superAdmin);
-      console.log('✅ Super Admin linked to org + shop');
-    }
+    // ── 4. Super admin is system-level — no org or shop ─────────────────────
 
     // ── 5. Demo ADMIN ────────────────────────────────────────────────────────
     let admin = await m.findOne(User, { where: { email: DEMO_ADMIN_CREDS.email } });
