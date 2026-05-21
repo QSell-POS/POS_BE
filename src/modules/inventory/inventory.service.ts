@@ -174,7 +174,7 @@ export class InventoryService {
       // Record history
       const history = queryRunner.manager.create(InventoryHistory, {
         inventoryItemId: inventoryItem.id,
-        productId: dto.productId,
+        productId: inventoryItem.productId,
         variantId: dto.variantId,
         movementType: dto.movementType,
         quantity: dto.quantity,
@@ -203,7 +203,7 @@ export class InventoryService {
       ];
       if (batchInboundTypes.includes(dto.movementType) && dto.unitCost) {
         const batch = queryRunner.manager.create(InventoryBatch, {
-          productId: dto.productId,
+          productId: inventoryItem.productId,
           variantId: dto.variantId,
           purchasePrice: dto.unitCost,
           quantityReceived: dto.quantity,
@@ -264,19 +264,59 @@ export class InventoryService {
   async getBatches(shopId: string, productId?: string, variantId?: string, page = 1, limit = 20) {
     const qb = this.batchRepository
       .createQueryBuilder('b')
-      .leftJoinAndSelect('b.product', 'product')
-      .leftJoinAndSelect('b.variant', 'variant')
-      .where('b.shopId = :shopId', { shopId });
+      .leftJoin('b.product', 'product')
+      .leftJoin('b.variant', 'variant')
+      .leftJoin('product.brand', 'brand')
+      .leftJoin('product.category', 'category')
+      .leftJoin('product.unit', 'unit')
+      .where('b.shopId = :shopId', { shopId })
+      .select([
+        'b.id', 'b.createdAt', 'b.shopId', 'b.productId', 'b.variantId',
+        'b.purchasePrice', 'b.quantityReceived', 'b.quantityRemaining',
+        'b.referenceId', 'b.referenceType',
+        'product.name', 'product.description', 'product.image', 'product.type', 'product.source',
+        'product.brandId', 'product.categoryId', 'product.unitId',
+        'brand.name', 'brand.id',
+        'category.name', 'category.id',
+        'unit.symbol', 'unit.id',
+        'variant.name', 'variant.sku', 'variant.barcode',
+      ]);
 
     if (productId) qb.andWhere('b.productId = :productId', { productId });
     if (variantId) qb.andWhere('b.variantId = :variantId', { variantId });
 
     const total = await qb.getCount();
-    const data = await qb
+    const raw = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .orderBy('b.createdAt', 'ASC')
       .getMany();
+
+    const data = raw.map((b: any) => ({
+      id:                b.id,
+      createdAt:         b.createdAt,
+      shopId:            b.shopId,
+      productId:         b.productId,
+      variantId:         b.variantId,
+      purchasePrice:     b.purchasePrice,
+      quantityReceived:  b.quantityReceived,
+      quantityRemaining: b.quantityRemaining,
+      referenceId:       b.referenceId,
+      referenceType:     b.referenceType,
+      productName:   b.product?.name,
+      productImage:  b.product?.image,
+      productType:   b.product?.type,
+      productSource: b.product?.source,
+      brandId:       b.product?.brandId,
+      brandName:     b.product?.brand?.name ?? null,
+      categoryId:    b.product?.categoryId,
+      categoryName:  b.product?.category?.name ?? null,
+      unitId:        b.product?.unitId,
+      unitSymbol:    b.product?.unit?.symbol ?? null,
+      variantName:   b.variant?.name,
+      sku:           b.variant?.sku,
+      barcode:       b.variant?.barcode,
+    }));
 
     return {
       data,

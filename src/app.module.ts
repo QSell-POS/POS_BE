@@ -79,6 +79,9 @@ import { SupplierLedger } from './modules/purchases/entities/supplier-ledger.ent
 import { CustomerLedger } from './modules/sales/entities/customer-ledger.entity';
 import { CustomerPayment } from './modules/sales/entities/customer-payment.entity';
 import { SupplierPayment } from './modules/purchases/entities/supplier-payment.entity';
+import { CatalogProduct, CatalogVariant } from './modules/catalog/entities/catalog-product.entity';
+import { ShopProduct } from './modules/catalog/entities/shop-product.entity';
+import { CatalogModule } from './modules/catalog/catalog.module';
 
 @Module({
   imports: [
@@ -162,6 +165,9 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
           LoyaltySettings,
           AuditLog,
           Subscription,
+          CatalogProduct,
+          CatalogVariant,
+          ShopProduct,
         ],
       }),
     }),
@@ -196,6 +202,7 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
     StaffModule,
     SubscriptionsModule,
     NotificationsModule,
+    CatalogModule,
   ],
   controllers: [AppController],
   providers: [

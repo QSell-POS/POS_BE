@@ -30,6 +30,10 @@ export class Category extends TenantBaseEntity {
   @Column({ default: 0 })
   sortOrder: number;
 
+  @ApiProperty()
+  @Column({ default: false, name: 'is_global' })
+  isGlobal: boolean;
+
   @TreeParent()
   @JoinColumn({ name: 'parent_id' })
   parent: Category;

@@ -1,0 +1,21 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { CatalogProduct, CatalogVariant } from './entities/catalog-product.entity';
+import { ShopProduct } from './entities/shop-product.entity';
+import { Product } from '../products/entities/product.entity';
+import { ProductVariant } from '../products/entities/product-variant.entity';
+import { InventoryItem } from '../inventory/entities/inventory-item.entity';
+import { Brand } from '../brands/entities/brand.entity';
+import { Category } from '../categories/entities/category.entity';
+import { Unit } from '../units/entities/unit.entity';
+import { Shop } from '../shops/entities/shop.entity';
+import { CatalogService } from './catalog.service';
+import { CatalogController } from './catalog.controller';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([CatalogProduct, CatalogVariant, ShopProduct, Product, ProductVariant, InventoryItem, Brand, Category, Unit, Shop])],
+  providers: [CatalogService],
+  controllers: [CatalogController],
+  exports: [CatalogService],
+})
+export class CatalogModule {}

@@ -11,7 +11,7 @@ export class UnitsService {
 
   async findAll(shopId: string, filters: UnitFilterDto) {
     const { search, page = 1, limit = 20 } = filters;
-    const qb = this.repo.createQueryBuilder('u').where('u.shopId = :shopId', { shopId });
+    const qb = this.repo.createQueryBuilder('u').where('(u.shopId = :shopId OR u.isGlobal = true)', { shopId });
     if (search) {
       qb.andWhere('(u.name ILIKE :search OR u.symbol ILIKE :search)', { search: `%${search}%` });
     }

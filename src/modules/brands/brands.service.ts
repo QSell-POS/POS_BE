@@ -15,7 +15,7 @@ export class BrandsService {
 
   async findAll(shopId: string, filters: BrandFilterDto) {
     const { search, page = 1, limit = 20 } = filters;
-    const qb = this.brands.createQueryBuilder('b').where('b.shopId = :shopId', { shopId });
+    const qb = this.brands.createQueryBuilder('b').where('(b.shopId = :shopId OR b.isGlobal = true)', { shopId });
     if (search) qb.andWhere('b.name ILIKE :search', { search: `%${search}%` });
 
     const total = await qb.getCount();

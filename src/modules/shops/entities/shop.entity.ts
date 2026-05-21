@@ -8,6 +8,16 @@ export enum ShopStatus {
   SUSPENDED = 'suspended',
 }
 
+export enum ShopType {
+  GROCERY     = 'grocery',
+  ELECTRONICS = 'electronics',
+  RESTAURANT  = 'restaurant',
+  PHARMACY    = 'pharmacy',
+  CLOTHING    = 'clothing',
+  STATIONERY  = 'stationery',
+  GENERAL     = 'general',
+}
+
 @Entity('shops')
 export class Shop extends BaseEntity {
   @Column({ length: 100 })
@@ -39,6 +49,12 @@ export class Shop extends BaseEntity {
 
   @Column({ nullable: true, type: 'text' })
   settings: string;
+
+  @Column({ type: 'enum', enum: ShopType, nullable: true, name: 'shop_type' })
+  shopType: ShopType;
+
+  @Column({ default: false, name: 'onboarding_completed' })
+  onboardingCompleted: boolean;
 
   @Column({ name: 'owner_id', nullable: true })
   ownerId: string;
