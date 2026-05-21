@@ -82,6 +82,9 @@ import { SupplierPayment } from './modules/purchases/entities/supplier-payment.e
 import { CatalogProduct, CatalogVariant } from './modules/catalog/entities/catalog-product.entity';
 import { ShopProduct } from './modules/catalog/entities/shop-product.entity';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { InvoiceModule } from './modules/invoices/invoice.module';
+import { DemoModule } from './modules/demo/demo.module';
+import { DemoRequest } from './modules/demo/entities/demo-request.entity';
 
 @Module({
   imports: [
@@ -168,6 +171,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
           CatalogProduct,
           CatalogVariant,
           ShopProduct,
+          DemoRequest,
         ],
       }),
     }),
@@ -203,6 +207,8 @@ import { CatalogModule } from './modules/catalog/catalog.module';
     SubscriptionsModule,
     NotificationsModule,
     CatalogModule,
+    InvoiceModule,
+    DemoModule,
   ],
   controllers: [AppController],
   providers: [

@@ -68,4 +68,37 @@ export class PlanService {
     await this.orgs.update(organizationId, { plan, planExpiresAt: expiresAt ?? null });
     return { plan, features: PLAN_FEATURES[plan] };
   }
+
+  async isFeatureAllowed(feature: PlanFeatureKey, organizationId: string): Promise<boolean> {
+    const org = await this.orgs.findOne({
+      where: { id: organizationId },
+      select: ['id', 'plan', 'planExpiresAt', 'trialEndsAt'],
+    });
+    if (!org) return false;
+
+    // Check active trial — grants PRO-level access
+    if (org.trialEndsAt && org.trialEndsAt > new Date()) {
+      const trialFeatures = PLAN_FEATURES[ShopPlan.PRO];
+      const val = trialFeatures[feature];
+      if (val === true) return true;
+    }
+
+    let plan = org.plan;
+    if (org.planExpiresAt && org.planExpiresAt < new Date() && plan !== ShopPlan.FREE) {
+      plan = ShopPlan.FREE;
+    }
+
+    const value = PLAN_FEATURES[plan][feature];
+    return value === true;
+  }
+
+  async startTrial(organizationId: string): Promise<void> {
+    const org = await this.orgs.findOne({ where: { id: organizationId }, select: ['id', 'plan', 'trialEndsAt'] });
+    if (!org) throw new NotFoundException('Organization not found');
+    if (org.trialEndsAt || org.plan !== ShopPlan.FREE) return; // already used or on paid plan
+    const trialDays = PLAN_FEATURES[ShopPlan.FREE].trialDays;
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+    await this.orgs.update(organizationId, { trialEndsAt });
+  }
 }

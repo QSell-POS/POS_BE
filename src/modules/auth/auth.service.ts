@@ -45,8 +45,10 @@ export class AuthService {
 
       // 2. Create org with user as owner
       const orgName = `${user.firstName}'s Organization`;
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
       const org = await manager.save(
-        manager.create(Organization, { name: orgName, ownerId: user.id }),
+        manager.create(Organization, { name: orgName, ownerId: user.id, trialEndsAt }),
       );
 
       // 3. Create default shop under that org

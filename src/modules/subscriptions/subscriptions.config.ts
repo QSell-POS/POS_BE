@@ -15,6 +15,10 @@ export const SUBSCRIPTION_PRICING: Record<ShopPlan, Record<SubscriptionDuration,
     [SubscriptionDuration.MONTHLY]: 4999,
     [SubscriptionDuration.YEARLY]: 49990,
   },
+  [ShopPlan.CUSTOM]: {
+    [SubscriptionDuration.MONTHLY]: 0,
+    [SubscriptionDuration.YEARLY]: 0,
+  },
 };
 
 export const DURATION_MONTHS: Record<SubscriptionDuration, number> = {
