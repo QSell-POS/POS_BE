@@ -85,6 +85,11 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { InvoiceModule } from './modules/invoices/invoice.module';
 import { DemoModule } from './modules/demo/demo.module';
 import { DemoRequest } from './modules/demo/entities/demo-request.entity';
+import { AdminModule } from './modules/admin/admin.module';
+import { ShopCategoriesModule } from './modules/shop-categories/shop-categories.module';
+import { ShopCategory } from './modules/shop-categories/entities/shop-category.entity';
+import { SupportModule } from './modules/support/support.module';
+import { SupportTicket, SupportTicketReply } from './modules/support/entities/support-ticket.entity';
 
 @Module({
   imports: [
@@ -172,6 +177,9 @@ import { DemoRequest } from './modules/demo/entities/demo-request.entity';
           CatalogVariant,
           ShopProduct,
           DemoRequest,
+          ShopCategory,
+          SupportTicket,
+          SupportTicketReply,
         ],
       }),
     }),
@@ -209,6 +217,9 @@ import { DemoRequest } from './modules/demo/entities/demo-request.entity';
     CatalogModule,
     InvoiceModule,
     DemoModule,
+    AdminModule,
+    ShopCategoriesModule,
+    SupportModule,
   ],
   controllers: [AppController],
   providers: [
