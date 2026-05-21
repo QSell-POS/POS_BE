@@ -10,6 +10,9 @@ import { ProductVariant, ProductStatus } from './entities/product-variant.entity
 import { InventoryItem } from '../inventory/entities/inventory-item.entity';
 import { InventoryHistory, InventoryMovementType } from '../inventory/entities/inventory-history.entity';
 import { InventoryBatch } from '../inventory/entities/inventory-batch.entity';
+import { Category } from '../categories/entities/category.entity';
+import { Brand } from '../brands/entities/brand.entity';
+import { Unit } from '../units/entities/unit.entity';
 import {
   CreateProductDto,
   CreateVariantDto,
@@ -35,6 +38,12 @@ export class ProductsService {
     private inventoryRepository: Repository<InventoryItem>,
     @InjectRepository(InventoryBatch)
     private batchRepository: Repository<InventoryBatch>,
+    @InjectRepository(Category)
+    private categoryRepo: Repository<Category>,
+    @InjectRepository(Brand)
+    private brandRepo: Repository<Brand>,
+    @InjectRepository(Unit)
+    private unitRepo: Repository<Unit>,
     private dataSource: DataSource,
     private readonly storage: StorageService,
     private readonly catalogService: CatalogService,
@@ -604,6 +613,51 @@ export class ProductsService {
    *                   First row of each number = base product
    *                   Subsequent rows with same number = variants of that product
    */
+
+  /**
+   * Lookup an entity by name (case-insensitive). If not found, create it under this shop.
+   * Returns the UUID, or null if input is blank.
+   */
+  private async resolveOrCreateCategory(name: string, shopId: string): Promise<string | null> {
+    const n = name.trim();
+    if (!n) return null;
+    const existing = await this.categoryRepo
+      .createQueryBuilder('c')
+      .where('LOWER(c.name) = LOWER(:n)', { n })
+      .andWhere('(c.shopId = :shopId OR c.isGlobal = true)', { shopId })
+      .getOne();
+    if (existing) return existing.id;
+    const created = await this.categoryRepo.save(this.categoryRepo.create({ name: n, shopId, isGlobal: false }));
+    return created.id;
+  }
+
+  private async resolveOrCreateBrand(name: string, shopId: string): Promise<string | null> {
+    const n = name.trim();
+    if (!n) return null;
+    const existing = await this.brandRepo
+      .createQueryBuilder('b')
+      .where('LOWER(b.name) = LOWER(:n)', { n })
+      .andWhere('(b.shopId = :shopId OR b.isGlobal = true)', { shopId })
+      .getOne();
+    if (existing) return existing.id;
+    const created = await this.brandRepo.save(this.brandRepo.create({ name: n, shopId, isGlobal: false }));
+    return created.id;
+  }
+
+  private async resolveOrCreateUnit(name: string, shopId: string): Promise<string | null> {
+    const n = name.trim();
+    if (!n) return null;
+    // Match by name OR symbol
+    const existing = await this.unitRepo
+      .createQueryBuilder('u')
+      .where('(LOWER(u.name) = LOWER(:n) OR LOWER(u.symbol) = LOWER(:n))', { n })
+      .andWhere('(u.shopId = :shopId OR u.isGlobal = true)', { shopId })
+      .getOne();
+    if (existing) return existing.id;
+    const created = await this.unitRepo.save(this.unitRepo.create({ name: n, symbol: n, shopId, isGlobal: false }));
+    return created.id;
+  }
+
   async getImportTemplate(): Promise<Buffer> {
     const wb = XLSX.utils.book_new();
 
@@ -637,7 +691,8 @@ export class ProductsService {
       ['attributes     : valid JSON  e.g.  {"color":"Red","size":"M"}'],
       [''],
       ['NOTES'],
-      ['- categoryId / brandId / unitId must be valid UUIDs already in the system.'],
+      ['- category / brand / unit : type the NAME (e.g. "Electronics", "Apple", "Piece").'],
+      ['  If it already exists it will be reused. If not, it will be created automatically.'],
       ['- Leave optional fields blank to use system defaults.'],
       ['- Invalid rows are skipped and reported in the API response.'],
       ['- Duplicate SKUs or barcodes within the file will be skipped with a warning.'],
@@ -658,9 +713,9 @@ export class ProductsService {
       'variantName',
       'attributes',
       'taxRate',
-      'categoryId',
-      'brandId',
-      'unitId',
+      'category',
+      'brand',
+      'unit',
       'status',
       'minStockLevel',
       'maxStockLevel',
@@ -669,17 +724,17 @@ export class ProductsService {
       'initialQuantity',
     ];
     // Row format: #, name, description, type, sku, barcode, retailPrice, purchasePrice, wholesalePrice,
-    //             variantName, attributes, taxRate, categoryId, brandId, unitId,
+    //             variantName, attributes, taxRate, category, brand, unit,
     //             status, minStockLevel, maxStockLevel, reorderPoint, trackInventory, initialQuantity
     const ex = (...vals: any[]) => vals;
     const rows = [
       productHeaders,
-      // Product 1 base (single variant)
-      ex(1, 'Laptop Stand', '', 'standard', 'LSTND-001', '8000000001', 1200, 800, '', '', '', 13, '', '', '', 'active', 2, 50, 5, true, 10),
+      // Product 1 base (single variant)                                          #  name          desc  type       sku         barcode      retail  purchase  wholesale  variantName  attributes  tax  category     brand   unit   status  min  max  reorder  track  qty
+      ex(1, 'Laptop Stand',  '', 'standard', 'LSTND-001',  '8000000001', 1200,  800,    '',  '',                '',                  13,  'Accessories',  '',       'Piece', 'active', 2, 50, 5, true, 10),
       // Product 2 base + 2 variants (iPhone example)
-      ex(2, 'iPhone 15', '', 'standard', 'IPH15', '1942534134', 155000, 120000, '', '', '', 13, '', '', '', 'active', 2, 50, 5, true, 0),
-      ex(2, 'iPhone 15', '', '', 'IPH15-128', '1942534135', 150000, 115000, '', 'iPhone 15 128GB', '{"storage":"128GB"}', '', '', '', '', 'active', 2, 50, 5, true, 5),
-      ex(2, 'iPhone 15', '', '', 'IPH15-256', '1942534136', 170000, 130000, '', 'iPhone 15 256GB', '{"storage":"256GB"}', '', '', '', '', 'active', 2, 50, 5, true, 3),
+      ex(2, 'iPhone 15',     '', 'standard', 'IPH15',      '1942534134', 155000, 120000, '',  '',                '',                  13,  'Electronics',  'Apple',  'Piece', 'active', 2, 50, 5, true, 0),
+      ex(2, 'iPhone 15',     '', '',          'IPH15-128',  '1942534135', 150000, 115000, '',  'iPhone 15 128GB', '{"storage":"128GB"}', '',  '',             '',       '',      'active', 2, 50, 5, true, 5),
+      ex(2, 'iPhone 15',     '', '',          'IPH15-256',  '1942534136', 170000, 130000, '',  'iPhone 15 256GB', '{"storage":"256GB"}', '',  '',             '',       '',      'active', 2, 50, 5, true, 3),
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Products');
 
@@ -726,9 +781,9 @@ export class ProductsService {
       variantName?: string;
       attributes?: string;
       taxRate?: string | number;
-      categoryId?: string;
-      brandId?: string;
-      unitId?: string;
+      category?: string;
+      brand?: string;
+      unit?: string;
       status?: string;
       minStockLevel?: string | number;
       maxStockLevel?: string | number;
@@ -780,10 +835,14 @@ export class ProductsService {
       const purchasePrice  = baseRow.purchasePrice  ? parseFloat(String(baseRow.purchasePrice))  : null;
       const wholesalePrice = baseRow.wholesalePrice ? parseFloat(String(baseRow.wholesalePrice)) : null;
       const taxRate        = baseRow.taxRate        ? parseFloat(String(baseRow.taxRate))        : 0;
-      const categoryId     = String(baseRow.categoryId ?? '').trim() || null;
-      const brandId        = String(baseRow.brandId    ?? '').trim() || null;
-      const unitId         = String(baseRow.unitId     ?? '').trim() || null;
       const description    = String(baseRow.description ?? '').trim() || null;
+
+      // Resolve category / brand / unit by name — create if not found
+      const [categoryId, brandId, unitId] = await Promise.all([
+        this.resolveOrCreateCategory(String(baseRow.category ?? ''), shopId),
+        this.resolveOrCreateBrand(String(baseRow.brand ?? ''), shopId),
+        this.resolveOrCreateUnit(String(baseRow.unit ?? ''), shopId),
+      ]);
 
       const qr = this.dataSource.createQueryRunner();
       await qr.connect();

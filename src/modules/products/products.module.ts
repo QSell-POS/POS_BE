@@ -14,13 +14,16 @@ import { ProductVariant } from './entities/product-variant.entity';
 import { PlanModule } from 'src/common/modules/plans/plan.module';
 import { CommonModule } from 'src/common/common.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { Category } from '../categories/entities/category.entity';
+import { Brand } from '../brands/entities/brand.entity';
+import { Unit } from '../units/entities/unit.entity';
 
 @Module({
   controllers: [ProductsController],
   providers: [ProductsService],
   exports: [ProductsService],
   imports: [
-    TypeOrmModule.forFeature([Product, ProductPrice, InventoryItem, ProductVariant, InventoryBatch]),
+    TypeOrmModule.forFeature([Product, ProductPrice, InventoryItem, ProductVariant, InventoryBatch, Category, Brand, Unit]),
     InventoryModule,
     PlanModule,
     CommonModule,
