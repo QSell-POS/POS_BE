@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as PDFDocument from 'pdfkit';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PDFDocument = require('pdfkit');
 import { Sale } from '../sales/entities/sale.entity';
 import { Shop } from '../shops/entities/shop.entity';
 import { Organization } from '../organizations/entities/organization.entity';
@@ -57,7 +58,7 @@ export class InvoiceService {
 
   private generatePdf(sale: any, shop: any): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc    = new (PDFDocument as any)({ margin: 50, size: 'A4' });
+      const doc    = new PDFDocument({ margin: 50, size: 'A4' });
       const chunks: Buffer[] = [];
 
       doc.on('data',  chunk => chunks.push(chunk));
