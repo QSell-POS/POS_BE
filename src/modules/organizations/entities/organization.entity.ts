@@ -25,6 +25,9 @@ export class Organization extends BaseEntity {
   @Column({ name: 'plan_expires_at', nullable: true })
   planExpiresAt: Date;
 
+  @Column({ name: 'trial_ends_at', nullable: true })
+  trialEndsAt: Date;
+
   @Column({ nullable: true, length: 255 })
   logo: string;
 

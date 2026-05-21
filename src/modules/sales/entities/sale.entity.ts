@@ -66,6 +66,9 @@ export class Sale extends TenantBaseEntity {
   @Column({ nullable: true, type: 'text' })
   notes: string;
 
+  @Column({ nullable: true, name: 'invoice_pdf_url', type: 'text' })
+  invoicePdfUrl: string;
+
   @ManyToOne(() => Customer)
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
