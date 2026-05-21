@@ -24,7 +24,16 @@ export class PlanGuard {
     const { user } = context.switchToHttp().getRequest();
     if (!user?.shopId) return false;
 
-    await this.planService.assertFeature(user.shopId, feature);
+    const shop = await this.planService['shops'].findOne({ where: { id: user.shopId }, select: ['id', 'organizationId'] });
+    if (!shop?.organizationId) {
+      await this.planService.assertFeature(user.shopId, feature);
+      return true;
+    }
+
+    const allowed = await this.planService.isFeatureAllowed(feature, shop.organizationId);
+    if (!allowed) {
+      throw new ForbiddenException(PLAN_UPGRADE_MESSAGE[feature] ?? 'Your plan does not include this feature.');
+    }
     return true;
   }
 }
