@@ -18,7 +18,7 @@ import {
   UpdateProductPriceDto,
   UpdateVariantDto,
 } from './dto/product.dto';
-import { BulkImportResult, ProductImportRow, VariantImportRow } from './dto/bulk-import.dto';
+import { BulkImportResult } from './dto/bulk-import.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { CatalogService } from '../catalog/catalog.service';
 
@@ -598,10 +598,11 @@ export class ProductsService {
   // --- Bulk Import -----------------------------------------------------------
 
   /**
-   * Generate a pre-formatted Excel template (.xlsx) with three sheets:
+   * Generate a pre-formatted Excel template (.xlsx) with two sheets:
    *   - Instructions: field descriptions and allowed values
-   *   - Products:     one row per product (creates product + default variant)
-   *   - Variants:     one row per extra variant linked via productSku
+   *   - Products:     single sheet, rows grouped by "#" column number
+   *                   First row of each number = base product
+   *                   Subsequent rows with same number = variants of that product
    */
   async getImportTemplate(): Promise<Buffer> {
     const wb = XLSX.utils.book_new();
@@ -611,30 +612,41 @@ export class ProductsService {
       ['QSell POS - Bulk Product Import Template'],
       [''],
       ['HOW TO USE'],
-      ['1. Fill the "Products" sheet: each row creates one product with its default variant.'],
-      ['2. Fill the "Variants" sheet (optional): each row adds an extra variant to a product.'],
-      ['   productSku must match the "sku" of a product in the Products sheet.'],
+      ['1. Use the "#" column to group rows. Same number = same product.'],
+      ['2. First row of each number = the base product (name, category, brand, unit, price).'],
+      ['3. Subsequent rows with the same number = extra variants of that product.'],
+      ['4. If a number appears only once = product with a single default variant.'],
       [''],
-      ['REQUIRED FIELDS (must not be left blank)'],
-      ['Products sheet : name, retailPrice'],
-      ['Variants sheet : productSku, name'],
+      ['EXAMPLE'],
+      ['# | name              | sku        | barcode    | retailPrice | variantName       | attributes        | initialQty'],
+      ['1 | iPhone 15         | IPH15      | 1942534134 | 155000      |                   |                   | 10        '],
+      ['1 | iPhone 15         | IPH15-128  | 1942534135 | 150000      | iPhone 15 128GB   | {"storage":"128GB"}| 5        '],
+      ['1 | iPhone 15         | IPH15-256  | 1942534136 | 170000      | iPhone 15 256GB   | {"storage":"256GB"}| 3        '],
+      ['2 | Samsung Galaxy S24| SGS24      | 8872767299 | 110000      |                   |                   | 8        '],
+      [''],
+      ['REQUIRED FIELDS'],
+      ['# (group number), name, retailPrice'],
+      [''],
+      ['VARIANT ROWS (same # as base)'],
+      ['sku, barcode, retailPrice, variantName, attributes, initialQty — override base values per variant'],
       [''],
       ['ALLOWED VALUES'],
       ['type           : standard | service | digital   (default: standard)'],
       ['status         : active | inactive | discontinued   (default: active)'],
       ['trackInventory : true | false   (default: true)'],
-      ['attributes     : valid JSON string e.g.  {"color":"Red","size":"M"}'],
+      ['attributes     : valid JSON  e.g.  {"color":"Red","size":"M"}'],
       [''],
       ['NOTES'],
       ['- categoryId / brandId / unitId must be valid UUIDs already in the system.'],
       ['- Leave optional fields blank to use system defaults.'],
       ['- Invalid rows are skipped and reported in the API response.'],
-      ['- Duplicate SKUs or barcodes within the file will be reported as errors.'],
+      ['- Duplicate SKUs or barcodes within the file will be skipped with a warning.'],
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(instructions), 'Instructions');
 
-    // Products sheet
+    // Products sheet — single sheet, rows grouped by "#"
     const productHeaders = [
+      '#',
       'name',
       'description',
       'type',
@@ -643,6 +655,8 @@ export class ProductsService {
       'retailPrice',
       'purchasePrice',
       'wholesalePrice',
+      'variantName',
+      'attributes',
       'taxRate',
       'categoryId',
       'brandId',
@@ -654,77 +668,27 @@ export class ProductsService {
       'trackInventory',
       'initialQuantity',
     ];
-    const productExample1 = [
-      'T-Shirt Blue',
-      'A comfortable cotton t-shirt',
-      'standard',
-      'TSH-BLUE-001',
-      '1234567890128',
-      500,
-      300,
-      450,
-      13,
-      '',
-      '',
-      '',
-      'active',
-      5,
-      200,
-      10,
-      true,
-      50,
+    // Row format: #, name, description, type, sku, barcode, retailPrice, purchasePrice, wholesalePrice,
+    //             variantName, attributes, taxRate, categoryId, brandId, unitId,
+    //             status, minStockLevel, maxStockLevel, reorderPoint, trackInventory, initialQuantity
+    const ex = (...vals: any[]) => vals;
+    const rows = [
+      productHeaders,
+      // Product 1 base (single variant)
+      ex(1, 'Laptop Stand', '', 'standard', 'LSTND-001', '8000000001', 1200, 800, '', '', '', 13, '', '', '', 'active', 2, 50, 5, true, 10),
+      // Product 2 base + 2 variants (iPhone example)
+      ex(2, 'iPhone 15', '', 'standard', 'IPH15', '1942534134', 155000, 120000, '', '', '', 13, '', '', '', 'active', 2, 50, 5, true, 0),
+      ex(2, 'iPhone 15', '', '', 'IPH15-128', '1942534135', 150000, 115000, '', 'iPhone 15 128GB', '{"storage":"128GB"}', '', '', '', '', 'active', 2, 50, 5, true, 5),
+      ex(2, 'iPhone 15', '', '', 'IPH15-256', '1942534136', 170000, 130000, '', 'iPhone 15 256GB', '{"storage":"256GB"}', '', '', '', '', 'active', 2, 50, 5, true, 3),
     ];
-    const productExample2 = ['Laptop Stand', '', 'standard', 'LSTND-001', '', 1200, 800, '', 13, '', '', '', 'active', 2, 50, 5, true, 10];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([productHeaders, productExample1, productExample2]), 'Products');
-
-    // Variants sheet
-    const variantHeaders = [
-      'productSku',
-      'name',
-      'sku',
-      'barcode',
-      'status',
-      'minStockLevel',
-      'maxStockLevel',
-      'reorderPoint',
-      'trackInventory',
-      'attributes',
-      'initialQuantity',
-    ];
-    const variantExample1 = [
-      'TSH-BLUE-001',
-      'T-Shirt Blue - Large',
-      'TSH-BLUE-001-L',
-      '1234567890135',
-      'active',
-      5,
-      200,
-      10,
-      true,
-      '{"color":"Blue","size":"L"}',
-      20,
-    ];
-    const variantExample2 = [
-      'TSH-BLUE-001',
-      'T-Shirt Blue - XL',
-      'TSH-BLUE-001-XL',
-      '1234567890142',
-      'active',
-      5,
-      200,
-      10,
-      true,
-      '{"color":"Blue","size":"XL"}',
-      15,
-    ];
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([variantHeaders, variantExample1, variantExample2]), 'Variants');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Products');
 
     return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 
   /**
-   * Parse an uploaded Excel file and bulk-create products + variants.
-   * Uses per-row transactions so a bad row never rolls back successful ones.
+   * Parse an uploaded Excel file (single "Products" sheet, rows grouped by "#" column).
+   * Same "#" value = same product. First row = base product, subsequent = variants.
    */
   async bulkImport(fileBuffer: Buffer, shopId: string, userId: string): Promise<BulkImportResult> {
     let wb: XLSX.WorkBook;
@@ -742,360 +706,199 @@ export class ProductsService {
     let imported = 0;
     let skipped = 0;
 
-    // Track sku -> productId for variants sheet linkage
-    const skuToProductId: Record<string, string> = {};
-    // Detect intra-file duplicates before hitting the DB unique index
-    const seenSkus = new Set<string>();
+    const seenSkus     = new Set<string>();
     const seenBarcodes = new Set<string>();
 
-    const VALID_TYPES = Object.values(ProductType) as string[];
+    const VALID_TYPES    = Object.values(ProductType) as string[];
     const VALID_STATUSES = Object.values(ProductStatus) as string[];
 
-    // Products sheet
-    const productRows = XLSX.utils.sheet_to_json<ProductImportRow>(wb.Sheets['Products'], {
-      defval: '',
-      raw: false,
-    });
+    // Single "Products" sheet — rows with same "#" value belong to the same product
+    interface GroupedRow {
+      '#'?: string | number;
+      name?: string;
+      description?: string;
+      type?: string;
+      sku?: string;
+      barcode?: string;
+      retailPrice?: string | number;
+      purchasePrice?: string | number;
+      wholesalePrice?: string | number;
+      variantName?: string;
+      attributes?: string;
+      taxRate?: string | number;
+      categoryId?: string;
+      brandId?: string;
+      unitId?: string;
+      status?: string;
+      minStockLevel?: string | number;
+      maxStockLevel?: string | number;
+      reorderPoint?: string | number;
+      trackInventory?: string | boolean;
+      initialQuantity?: string | number;
+    }
 
-    for (let i = 0; i < productRows.length; i++) {
-      const row = productRows[i];
-      const rowNum = i + 2; // row 1 = header
-      console.log(row);
+    const allRows = XLSX.utils.sheet_to_json<GroupedRow>(wb.Sheets['Products'], { defval: '', raw: false });
 
-      const name = String(row.name ?? '').trim();
+    // Group rows by "#" value, preserving insertion order
+    const groups = new Map<string, { rows: GroupedRow[]; startLine: number }>();
+    for (let i = 0; i < allRows.length; i++) {
+      const row = allRows[i];
+      const key = String(row['#'] ?? '').trim();
+      if (!key) {
+        errors.push({ sheet: 'Products', row: i + 2, error: '"#" (group number) is required' });
+        skipped++;
+        continue;
+      }
+      if (!groups.has(key)) groups.set(key, { rows: [], startLine: i + 2 });
+      groups.get(key)!.rows.push(row);
+    }
+
+    for (const [groupKey, { rows, startLine }] of groups) {
+      const baseRow  = rows[0];
+      const rowNum   = startLine;
+      const name     = String(baseRow.name ?? '').trim();
       if (!name) {
         errors.push({ sheet: 'Products', row: rowNum, error: 'name is required' });
         skipped++;
         continue;
       }
 
-      const retailPrice = parseFloat(String(row.retailPrice));
+      const retailPrice = parseFloat(String(baseRow.retailPrice));
       if (isNaN(retailPrice) || retailPrice < 0) {
         errors.push({ sheet: 'Products', row: rowNum, error: 'retailPrice must be a valid non-negative number' });
         skipped++;
         continue;
       }
 
-      const type = String(row.type || 'standard')
-        .toLowerCase()
-        .trim();
+      const type = String(baseRow.type || 'standard').toLowerCase().trim();
       if (!VALID_TYPES.includes(type)) {
         errors.push({ sheet: 'Products', row: rowNum, error: `type must be one of: ${VALID_TYPES.join(', ')}` });
         skipped++;
         continue;
       }
 
-      const status = String(row.status || 'active')
-        .toLowerCase()
-        .trim();
-      if (!VALID_STATUSES.includes(status)) {
-        errors.push({ sheet: 'Products', row: rowNum, error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
-        skipped++;
-        continue;
-      }
-
-      const sku = row.sku ? String(row.sku).trim() : null;
-      if (sku) {
-        if (seenSkus.has(sku)) {
-          errors.push({ sheet: 'Products', row: rowNum, error: `Duplicate SKU '${sku}' within the import file` });
-          skipped++;
-          continue;
-        }
-        seenSkus.add(sku);
-      }
-
-      const barcode = row.barcode ? String(row.barcode).trim() : null;
-      if (barcode) {
-        if (seenBarcodes.has(barcode)) {
-          errors.push({ sheet: 'Products', row: rowNum, error: `Duplicate barcode '${barcode}' within the import file` });
-          skipped++;
-          continue;
-        }
-        seenBarcodes.add(barcode);
-      }
-
-      const purchasePrice = row.purchasePrice ? parseFloat(String(row.purchasePrice)) : null;
-      const wholesalePrice = row.wholesalePrice ? parseFloat(String(row.wholesalePrice)) : null;
-      const taxRate = row.taxRate ? parseFloat(String(row.taxRate)) : 0;
-      const minStockLevel = row.minStockLevel ? parseFloat(String(row.minStockLevel)) : 0;
-      const maxStockLevel = row.maxStockLevel ? parseFloat(String(row.maxStockLevel)) : null;
-      const reorderPoint = row.reorderPoint ? parseFloat(String(row.reorderPoint)) : 0;
-      const trackInventory = String(row.trackInventory).toLowerCase() !== 'false';
-      const initialQuantity = row.initialQuantity ? parseFloat(String(row.initialQuantity)) : 0;
-      const categoryId = row.categoryId ? String(row.categoryId).trim() || null : null;
-      const brandId = row.brandId ? String(row.brandId).trim() || null : null;
-      const unitId = row.unitId ? String(row.unitId).trim() || null : null;
+      const purchasePrice  = baseRow.purchasePrice  ? parseFloat(String(baseRow.purchasePrice))  : null;
+      const wholesalePrice = baseRow.wholesalePrice ? parseFloat(String(baseRow.wholesalePrice)) : null;
+      const taxRate        = baseRow.taxRate        ? parseFloat(String(baseRow.taxRate))        : 0;
+      const categoryId     = String(baseRow.categoryId ?? '').trim() || null;
+      const brandId        = String(baseRow.brandId    ?? '').trim() || null;
+      const unitId         = String(baseRow.unitId     ?? '').trim() || null;
+      const description    = String(baseRow.description ?? '').trim() || null;
 
       const qr = this.dataSource.createQueryRunner();
       await qr.connect();
       await qr.startTransaction();
       try {
+        // ── Create base product ───────────────────────────────────────────────
         const product = await qr.manager.save(Product, {
-          name,
-          description: row.description ? String(row.description).trim() : null,
-          type: type as ProductType,
-          categoryId,
-          brandId,
-          unitId,
-          shopId,
+          name, description, type: type as ProductType,
+          categoryId, brandId, unitId, shopId,
+          hasVariants: rows.length > 1,
         });
 
-        const prices: Partial<ProductPrice>[] = [
-          {
-            productId: product.id,
-            priceType: PriceType.RETAIL,
-            price: retailPrice,
-            costPrice: purchasePrice ?? undefined,
-            isCurrent: true,
-            changedBy: userId,
-            shopId,
-          },
-        ];
-        if (purchasePrice !== null && !isNaN(purchasePrice) && purchasePrice > 0) {
-          prices.push({
-            productId: product.id,
-            priceType: PriceType.PURCHASE,
-            price: purchasePrice,
-            isCurrent: true,
-            changedBy: userId,
-            shopId,
-          });
-        }
-        if (wholesalePrice !== null && !isNaN(wholesalePrice) && wholesalePrice > 0) {
-          prices.push({
-            productId: product.id,
-            priceType: PriceType.WHOLESALE,
-            price: wholesalePrice,
-            isCurrent: true,
-            changedBy: userId,
-            shopId,
-          });
-        }
+        const prices: Partial<ProductPrice>[] = [{
+          productId: product.id, priceType: PriceType.RETAIL,
+          price: retailPrice, costPrice: purchasePrice ?? undefined,
+          isCurrent: true, changedBy: userId, shopId,
+        }];
+        if (purchasePrice  !== null && !isNaN(purchasePrice)  && purchasePrice  > 0)
+          prices.push({ productId: product.id, priceType: PriceType.PURCHASE,   price: purchasePrice,  isCurrent: true, changedBy: userId, shopId });
+        if (wholesalePrice !== null && !isNaN(wholesalePrice) && wholesalePrice > 0)
+          prices.push({ productId: product.id, priceType: PriceType.WHOLESALE, price: wholesalePrice, isCurrent: true, changedBy: userId, shopId });
         await qr.manager.save(ProductPrice, prices);
 
-        const defaultVariant = await qr.manager.save(ProductVariant, {
-          productId: product.id,
-          name,
-          sku: sku || null,
-          barcode: barcode || null,
-          taxRate,
-          status: status as ProductStatus,
-          minStockLevel,
-          maxStockLevel: maxStockLevel ?? undefined,
-          reorderPoint,
-          trackInventory,
-          isDefault: true,
-          isActive: true,
-          shopId,
-        });
+        // ── Create variants (first row = default variant) ─────────────────────
+        for (let vi = 0; vi < rows.length; vi++) {
+          const vRow      = rows[vi];
+          const vRowNum   = startLine + vi;
+          const isDefault = vi === 0;
 
-        if (type !== ProductType.SERVICE && type !== ProductType.DIGITAL) {
-          const inventoryItem = await qr.manager.save(InventoryItem, {
-            shopId,
-            productId: product.id,
-            variantId: defaultVariant.id,
-            quantityOnHand: initialQuantity,
-            quantityAvailable: initialQuantity,
-            quantityReserved: 0,
-            averageCost: row.purchasePrice || 0,
-            lastRestockedAt: initialQuantity > 0 ? new Date() : null,
+          const sku     = String(vRow.sku     ?? '').trim() || null;
+          const barcode = String(vRow.barcode ?? '').trim() || null;
+          const variantName = String(vRow.variantName ?? '').trim() || name;
+          const vStatus = String(vRow.status || 'active').toLowerCase().trim();
+          const minStockLevel  = vRow.minStockLevel  ? parseFloat(String(vRow.minStockLevel))  : 0;
+          const maxStockLevel  = vRow.maxStockLevel  ? parseFloat(String(vRow.maxStockLevel))  : null;
+          const reorderPoint   = vRow.reorderPoint   ? parseFloat(String(vRow.reorderPoint))   : 0;
+          const trackInventory = String(vRow.trackInventory).toLowerCase() !== 'false';
+          const initialQty     = vRow.initialQuantity ? parseFloat(String(vRow.initialQuantity)) : 0;
+          const vRetailPrice   = vRow.retailPrice ? parseFloat(String(vRow.retailPrice)) : retailPrice;
+
+          if (sku && seenSkus.has(sku)) {
+            errors.push({ sheet: 'Products', row: vRowNum, error: `Duplicate SKU '${sku}' — skipped this variant` });
+            continue;
+          }
+          if (barcode && seenBarcodes.has(barcode)) {
+            errors.push({ sheet: 'Products', row: vRowNum, error: `Duplicate barcode '${barcode}' — skipped this variant` });
+            continue;
+          }
+          if (sku)     seenSkus.add(sku);
+          if (barcode) seenBarcodes.add(barcode);
+
+          let attributes: Record<string, string> | undefined;
+          const rawAttrs = String(vRow.attributes ?? '').trim();
+          if (rawAttrs) {
+            try { attributes = JSON.parse(rawAttrs); }
+            catch { errors.push({ sheet: 'Products', row: vRowNum, error: 'attributes must be valid JSON e.g. {"color":"Red"}' }); continue; }
+          }
+
+          const variant = await qr.manager.save(ProductVariant, {
+            productId: product.id, name: variantName,
+            sku: sku || null, barcode: barcode || null,
+            taxRate: vi === 0 ? taxRate : (vRow.taxRate ? parseFloat(String(vRow.taxRate)) : taxRate),
+            status: (VALID_STATUSES.includes(vStatus) ? vStatus : 'active') as ProductStatus,
+            minStockLevel, maxStockLevel: maxStockLevel ?? undefined,
+            reorderPoint, trackInventory, isDefault, isActive: true,
+            attributes, shopId,
           });
 
-          if (initialQuantity > 0) {
-            await qr.manager.save(InventoryHistory, {
-              shopId,
-              inventoryItemId: inventoryItem.id,
-              productId: product.id,
-              variantId: defaultVariant.id,
-              movementType: InventoryMovementType.OPENING_STOCK,
-              quantity: initialQuantity,
-              quantityBefore: 0,
-              quantityAfter: initialQuantity,
-              unitCost: row.purchasePrice || 0,
-              referenceType: 'opening_stock',
-              notes: 'Initial stock from bulk import',
+          // Per-variant price override
+          if (!isDefault && vRetailPrice !== retailPrice) {
+            await qr.manager.save(ProductPrice, {
+              productId: product.id, priceType: PriceType.RETAIL,
+              price: vRetailPrice, isCurrent: false, changedBy: userId, shopId,
+            });
+          }
+
+          if (type !== ProductType.SERVICE && type !== ProductType.DIGITAL) {
+            const invItem = await qr.manager.save(InventoryItem, {
+              shopId, productId: product.id, variantId: variant.id,
+              quantityOnHand: initialQty, quantityAvailable: initialQty,
+              quantityReserved: 0, averageCost: purchasePrice || 0,
+              lastRestockedAt: initialQty > 0 ? new Date() : null,
             });
 
-            await qr.manager.save(InventoryBatch, {
-              shopId,
-              productId: product.id,
-              variantId: defaultVariant.id,
-              purchasePrice: row.purchasePrice || 0,
-              quantityReceived: initialQuantity,
-              quantityRemaining: initialQuantity,
-              referenceType: 'opening_stock',
-              referenceId: product.id,
-            });
+            if (initialQty > 0) {
+              await qr.manager.save(InventoryHistory, {
+                shopId, inventoryItemId: invItem.id,
+                productId: product.id, variantId: variant.id,
+                movementType: InventoryMovementType.OPENING_STOCK,
+                quantity: initialQty, quantityBefore: 0, quantityAfter: initialQty,
+                unitCost: purchasePrice || 0, referenceType: 'opening_stock',
+                notes: 'Initial stock from bulk import',
+              });
+              await qr.manager.save(InventoryBatch, {
+                shopId, productId: product.id, variantId: variant.id,
+                purchasePrice: purchasePrice || 0,
+                quantityReceived: initialQty, quantityRemaining: initialQty,
+                referenceType: 'opening_stock', referenceId: product.id,
+              });
+            }
           }
         }
 
         await qr.commitTransaction();
-        if (sku) skuToProductId[sku] = product.id;
         imported++;
       } catch (err: any) {
         await qr.rollbackTransaction();
-        const msg: string = err?.detail ?? err?.message ?? 'Unknown database error';
-        errors.push({ sheet: 'Products', row: rowNum, error: msg });
+        errors.push({ sheet: 'Products', row: rowNum, error: err?.detail ?? err?.message ?? 'Unknown error' });
         skipped++;
       } finally {
         await qr.release();
       }
     }
 
-    // Variants sheet (optional)
-    if (wb.Sheets['Variants']) {
-      const variantRows = XLSX.utils.sheet_to_json<VariantImportRow>(wb.Sheets['Variants'], {
-        defval: '',
-        raw: false,
-      });
-
-      for (let i = 0; i < variantRows.length; i++) {
-        const row = variantRows[i];
-        const rowNum = i + 2;
-
-        if (!row.productSku && !row.name) continue;
-
-        const productSku = String(row.productSku ?? '').trim();
-        if (!productSku) {
-          errors.push({ sheet: 'Variants', row: rowNum, error: 'productSku is required' });
-          skipped++;
-          continue;
-        }
-
-        const name = String(row.name ?? '').trim();
-        if (!name) {
-          errors.push({ sheet: 'Variants', row: rowNum, error: 'name is required' });
-          skipped++;
-          continue;
-        }
-
-        let productId = skuToProductId[productSku];
-        if (!productId) {
-          const existing = await this.variantRepository.findOne({
-            where: { sku: productSku, shopId, isDefault: true },
-          });
-          if (existing) productId = existing.productId;
-        }
-        if (!productId) {
-          errors.push({ sheet: 'Variants', row: rowNum, error: `No product found with SKU '${productSku}'` });
-          skipped++;
-          continue;
-        }
-
-        let attributes: Record<string, string> | undefined;
-        const rawAttrs = String(row.attributes ?? '').trim();
-        if (rawAttrs) {
-          try {
-            attributes = JSON.parse(rawAttrs);
-          } catch {
-            errors.push({ sheet: 'Variants', row: rowNum, error: 'attributes must be valid JSON e.g. {"color":"Red","size":"M"}' });
-            skipped++;
-            continue;
-          }
-        }
-
-        const sku = row.sku ? String(row.sku).trim() : null;
-        if (sku) {
-          if (seenSkus.has(sku)) {
-            errors.push({ sheet: 'Variants', row: rowNum, error: `Duplicate SKU '${sku}' within the import file` });
-            skipped++;
-            continue;
-          }
-          seenSkus.add(sku);
-        }
-
-        const barcode = row.barcode ? String(row.barcode).trim() : null;
-        if (barcode) {
-          if (seenBarcodes.has(barcode)) {
-            errors.push({ sheet: 'Variants', row: rowNum, error: `Duplicate barcode '${barcode}' within the import file` });
-            skipped++;
-            continue;
-          }
-          seenBarcodes.add(barcode);
-        }
-
-        const status = String(row.status || 'active')
-          .toLowerCase()
-          .trim();
-        const minStockLevel = row.minStockLevel ? parseFloat(String(row.minStockLevel)) : 0;
-        const maxStockLevel = row.maxStockLevel ? parseFloat(String(row.maxStockLevel)) : null;
-        const reorderPoint = row.reorderPoint ? parseFloat(String(row.reorderPoint)) : 0;
-        const trackInventory = String(row.trackInventory).toLowerCase() !== 'false';
-        const initialQuantity = row.initialQuantity ? parseFloat(String(row.initialQuantity)) : 0;
-
-        const qr = this.dataSource.createQueryRunner();
-        await qr.connect();
-        await qr.startTransaction();
-        try {
-          await qr.manager.update(Product, { id: productId, shopId }, { hasVariants: true });
-
-          const variant = await qr.manager.save(ProductVariant, {
-            productId,
-            name,
-            sku: sku || null,
-            barcode: barcode || null,
-            status: (VALID_STATUSES.includes(status) ? status : 'active') as ProductStatus,
-            minStockLevel,
-            maxStockLevel: maxStockLevel ?? undefined,
-            reorderPoint,
-            trackInventory,
-            attributes,
-            isDefault: false,
-            isActive: true,
-            shopId,
-          });
-
-          const inventoryItem = await qr.manager.save(InventoryItem, {
-            shopId,
-            productId,
-            variantId: variant.id,
-            quantityOnHand: initialQuantity,
-            quantityAvailable: initialQuantity,
-            quantityReserved: 0,
-            averageCost: 0,
-            lastRestockedAt: initialQuantity > 0 ? new Date() : null,
-          });
-
-          if (initialQuantity > 0) {
-            await qr.manager.save(InventoryHistory, {
-              shopId,
-              inventoryItemId: inventoryItem.id,
-              productId,
-              variantId: variant.id,
-              movementType: InventoryMovementType.OPENING_STOCK,
-              quantity: initialQuantity,
-              quantityBefore: 0,
-              quantityAfter: initialQuantity,
-              unitCost: 0,
-              referenceType: 'opening_stock',
-              notes: 'Initial stock from variant bulk import',
-            });
-
-            await qr.manager.save(InventoryBatch, {
-              shopId,
-              productId,
-              variantId: variant.id,
-              purchasePrice: 0,
-              quantityReceived: initialQuantity,
-              quantityRemaining: initialQuantity,
-              referenceType: 'opening_stock',
-              referenceId: productId,
-            });
-          }
-
-          await qr.commitTransaction();
-          imported++;
-        } catch (err: any) {
-          await qr.rollbackTransaction();
-          const msg: string = err?.detail ?? err?.message ?? 'Unknown database error';
-          errors.push({ sheet: 'Variants', row: rowNum, error: msg });
-          skipped++;
-        } finally {
-          await qr.release();
-        }
-      }
-    }
-
     return { imported, skipped, errors };
   }
+
 }
