@@ -130,6 +130,7 @@ export class ProductsService {
       .leftJoinAndSelect('p.brand', 'brand')
       .leftJoinAndSelect('p.unit', 'unit')
       .leftJoinAndSelect('p.prices', 'price', 'price.isCurrent = true AND price.priceType = :retailType', { retailType: PriceType.RETAIL })
+      .leftJoinAndSelect('v.inventoryItems', 'inv')
       .where('v.barcode = :barcode AND v.shopId = :shopId', { barcode, shopId })
       .getOne();
 
@@ -153,8 +154,9 @@ export class ProductsService {
       brandName:       p?.brand?.name ?? null,
       unitName:        p?.unit?.name ?? null,
       unitSymbol:      p?.unit?.symbol ?? null,
-      price:           p?.prices?.[0]?.price ?? null,
-      costPrice:       p?.prices?.[0]?.costPrice ?? null,
+      price:             p?.prices?.[0]?.price ?? null,
+      costPrice:         p?.prices?.[0]?.costPrice ?? null,
+      quantityAvailable: variant.inventoryItems?.[0]?.quantityAvailable ?? null,
     };
   }
 
