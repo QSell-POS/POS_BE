@@ -7,6 +7,7 @@ import { ChangePasswordDto, LoginDto, RefreshTokenDto, RegisterDto } from './dto
 import { User, UserRole, UserStatus } from 'src/modules/users/entities/user.entity';
 import { Shop } from 'src/modules/shops/entities/shop.entity';
 import { Organization } from 'src/modules/organizations/entities/organization.entity';
+import { StorageService } from 'src/common/services/storage.service';
 import {
   Injectable,
   UnauthorizedException,
@@ -31,6 +32,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailerService: MailerService,
+    private storage: StorageService,
     private dataSource: DataSource,
   ) {}
 
@@ -311,6 +313,6 @@ export class AuthService {
 
   private sanitizeUser(user: User) {
     const { password, refreshToken, ...rest } = user as any;
-    return rest;
+    return { ...rest, avatar: this.storage.resolveUrl(rest.avatar) };
   }
 }
