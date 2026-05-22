@@ -216,15 +216,13 @@ export class InvoiceService {
       ry += 14;
 
       const addDetail = (label: string, val: string) => {
-        doc.fontSize(8.5).font('Helvetica').fillColor(GRAY)
-          .text(`${label} `, midX, ry, { continued: false, width: rightW, align: 'right' });
-        // write again right-aligned as label + bold value
-        const labelW = doc.widthOfString(`${label} `);
-        const valW   = doc.widthOfString(val);
-        const totalW = labelW + valW;
-        const startX = R - totalW;
-        doc.fontSize(8.5).font('Helvetica').fillColor(GRAY).text(label, startX, ry);
-        doc.fontSize(8.5).font('Helvetica-Bold').fillColor(DARK).text(val, startX + labelW, ry);
+        doc.fontSize(8.5);
+        const labelText = label + ' ';
+        const labelW    = doc.font('Helvetica').widthOfString(labelText);
+        const valW      = doc.font('Helvetica-Bold').widthOfString(val);
+        const startX    = R - labelW - valW;
+        doc.font('Helvetica').fillColor(GRAY).text(labelText, startX, ry, { lineBreak: false });
+        doc.font('Helvetica-Bold').fillColor(DARK).text(val, startX + labelW, ry, { lineBreak: false });
         ry += 13;
       };
 
@@ -239,8 +237,8 @@ export class InvoiceService {
       const cols = { sn: L, desc: L + 30, qty: 390, rate: 440, amt: 495 };
       const tableHeaderH = 20;
 
-      doc.rect(L, y, W, tableHeaderH).fill(BLUE);
-      doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff')
+      doc.moveTo(L, y).lineTo(R, y).strokeColor(LGRAY).lineWidth(0.5).stroke();
+      doc.fontSize(8).font('Helvetica-Bold').fillColor(BLUE)
         .text('S.N.',         cols.sn,   y + 6, { width: 25, align: 'center' })
         .text('DESCRIPTION',  cols.desc, y + 6, { width: cols.qty - cols.desc - 5 })
         .text('QTY',          cols.qty,  y + 6, { width: 45, align: 'right' })
@@ -258,7 +256,6 @@ export class InvoiceService {
         const lineTotal = Number(item.subtotal ?? qty * unitPrice);
         const rowH      = 18;
 
-        if (i % 2 === 1) doc.rect(L, y, W, rowH).fill('#f9fafb');
         doc.fillColor(DARK).fontSize(8.5).font('Helvetica')
           .text(String(i + 1),       cols.sn,   y + 4, { width: 25,                            align: 'center' })
           .text(name,                cols.desc, y + 4, { width: cols.qty - cols.desc - 10 })
