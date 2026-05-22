@@ -134,7 +134,23 @@ export class ProductsService {
       .getOne();
 
     if (!variant) throw new NotFoundException('Product not found');
-    return variant;
+
+    const p = variant.product;
+    const { product, ...v } = variant as any;
+    return {
+      ...v,
+      image:           this.storage.resolveUrl(p?.image) ?? null,
+      type:            p?.type ?? null,
+      brandId:         p?.brandId ?? null,
+      categoryId:      p?.categoryId ?? null,
+      unitId:          p?.unitId ?? null,
+      catalogProductId: p?.catalogProductId ?? null,
+      brandName:       p?.brand?.name ?? null,
+      unitName:        p?.unit?.name ?? null,
+      unitSymbol:      p?.unit?.symbol ?? null,
+      price:           p?.prices?.[0]?.price ?? null,
+      costPrice:       p?.prices?.[0]?.costPrice ?? null,
+    };
   }
 
   async getPriceHistory(productId: string, shopId: string) {
