@@ -136,9 +136,14 @@ export class ProductsService {
     if (!variant) throw new NotFoundException('Product not found');
 
     const p = variant.product;
-    const { product, ...v } = variant as any;
     return {
-      ...v,
+      id:              variant.id,
+      createdAt:       variant.createdAt,
+      shopId:          variant.shopId,
+      productId:       variant.productId,
+      name:            variant.name,
+      sku:             variant.sku,
+      barcode:         variant.barcode,
       image:           this.storage.resolveUrl(p?.image) ?? null,
       type:            p?.type ?? null,
       brandId:         p?.brandId ?? null,
