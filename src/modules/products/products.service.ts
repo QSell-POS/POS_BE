@@ -182,7 +182,6 @@ export class ProductsService {
       createdAt: variant.createdAt,
     };
   }
-  }
 
   async getPriceHistory(productId: string, shopId: string) {
     const priceHistory = await this.priceRepository.find({
