@@ -107,13 +107,10 @@ export class StorageService {
   // Always returns a fully-qualified https:// URL, or null if empty.
   resolveUrl(pathOrUrl: string | null | undefined): string | null {
     if (!pathOrUrl) return null;
-    // Already a full URL (legacy data stored as complete URL)
     if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) return pathOrUrl;
-    // Legacy: stored without scheme but with domain (cdn.qsellpos.com/path)
     if (!pathOrUrl.startsWith('/') && pathOrUrl.includes('.') && pathOrUrl.indexOf('/') > 0) {
-      return `https://${pathOrUrl}`;
+      return `${process.env.R2_PUBLIC_URL}/${pathOrUrl}`;
     }
-    // Normal storage key/path — prepend configured public URL
     return this.getPublicUrl(pathOrUrl);
   }
 
