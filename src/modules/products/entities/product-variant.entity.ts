@@ -10,6 +10,12 @@ export enum ProductStatus {
   DISCONTINUED = 'discontinued',
 }
 
+export enum ExciseDutyType {
+  NONE           = 'none',
+  FLAT_PER_UNIT  = 'flat_per_unit',
+  PERCENTAGE     = 'percentage',
+}
+
 @Entity('product_variants')
 @Index(['shopId', 'productId'])
 @Index(['shopId', 'sku'], { unique: true, where: '"sku" IS NOT NULL AND "deleted_at" IS NULL' })
@@ -66,6 +72,19 @@ export class ProductVariant extends TenantBaseEntity {
 
   @Column({ name: 'tax_rate', type: 'decimal', precision: 5, scale: 2, default: 0 })
   taxRate: number;
+
+  // Nepal IRD tax classification
+  @Column({ name: 'is_vat_exempt', default: false })
+  isVatExempt: boolean;
+
+  @Column({ name: 'vat_percentage', type: 'decimal', precision: 5, scale: 2, default: 13 })
+  vatPercentage: number;
+
+  @Column({ type: 'enum', enum: ExciseDutyType, default: ExciseDutyType.NONE, name: 'excise_duty_type' })
+  exciseDutyType: ExciseDutyType;
+
+  @Column({ name: 'excise_duty_rate', type: 'decimal', precision: 10, scale: 4, default: 0 })
+  exciseDutyRate: number;
 
   @Column({ name: 'is_default', default: false })
   isDefault: boolean;

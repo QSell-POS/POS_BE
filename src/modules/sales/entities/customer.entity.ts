@@ -42,6 +42,9 @@ export class Customer extends TenantBaseEntity {
   @Column({ nullable: true, type: 'text' })
   avatar: string;
 
+  @Column({ nullable: true, length: 20 })
+  pan: string;
+
   @Column({ nullable: true, type: 'text' })
   notes: string;
 }

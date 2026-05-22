@@ -45,6 +45,19 @@ export class Sale extends TenantBaseEntity {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'tax_amount' })
   taxAmount: number;
 
+  // IRD-compliant tax breakdown
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'non_taxable_subtotal' })
+  nonTaxableSubtotal: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'taxable_subtotal' })
+  taxableSubtotal: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'excise_duty_amount' })
+  exciseDutyAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'vat_amount' })
+  vatAmount: number;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'discount_amount' })
   discountAmount: number;
 
@@ -106,6 +119,15 @@ export class SaleItem extends TenantBaseEntity {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'tax_amount' })
   taxAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'excise_duty_amount' })
+  exciseDutyAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, name: 'vat_amount' })
+  vatAmount: number;
+
+  @Column({ default: false, name: 'is_vat_exempt' })
+  isVatExempt: boolean;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0, name: 'discount_rate' })
   discountRate: number;

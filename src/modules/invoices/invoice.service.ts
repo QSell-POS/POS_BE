@@ -73,6 +73,7 @@ export class InvoiceService {
       if (shop?.address) doc.fontSize(9).font('Helvetica').text(shop.address, { align: 'center' });
       if (shop?.phone)   doc.fontSize(9).text(`Phone: ${shop.phone}`, { align: 'center' });
       if (shop?.email)   doc.fontSize(9).text(`Email: ${shop.email}`, { align: 'center' });
+      if (shop?.pan)     doc.fontSize(9).font('Helvetica-Bold').text(`PAN: ${shop.pan}`, { align: 'center' });
 
       doc.moveDown(0.5);
       doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
@@ -147,12 +148,36 @@ export class InvoiceService {
         rowY += 16;
       };
 
-      addRow('Subtotal:',       fmt(sale.subtotal));
+      const nonTaxable = Number(sale.nonTaxableSubtotal ?? 0);
+      const taxableSub = Number(sale.taxableSubtotal ?? 0);
+      const exciseDuty = Number(sale.exciseDutyAmount ?? 0);
+      const vatAmt     = Number(sale.vatAmount ?? 0);
+
+      if (nonTaxable > 0 || taxableSub > 0) {
+        if (nonTaxable > 0) addRow('Non-Taxable Amount:', fmt(nonTaxable));
+        if (taxableSub > 0) addRow('Taxable Amount:', fmt(taxableSub));
+        if (exciseDuty > 0) addRow('Excise Duty:', fmt(exciseDuty));
+        if (taxableSub > 0 || exciseDuty > 0) addRow('Total Taxable (Excl. VAT):', fmt(taxableSub + exciseDuty));
+        if (vatAmt > 0) addRow('VAT (13%):', fmt(vatAmt));
+      } else {
+        addRow('Subtotal:', fmt(sale.subtotal));
+        if (Number(sale.taxAmount) > 0) addRow('Tax:', fmt(sale.taxAmount));
+      }
+
       if (Number(sale.discountAmount) > 0) addRow('Discount:', `-${fmt(sale.discountAmount)}`);
-      if (Number(sale.taxAmount) > 0) addRow('Tax:', fmt(sale.taxAmount));
-      addRow('Total:',          fmt(sale.grandTotal), true);
-      if (Number(sale.creditAmount) > 0)  addRow('Credit (due):', fmt(sale.creditAmount));
+      addRow('Grand Total:', fmt(sale.grandTotal), true);
+      if (Number(sale.creditAmount) > 0) addRow('Credit (due):', fmt(sale.creditAmount));
       addRow('Payment Method:', (sale.paymentMethod ?? '').toUpperCase());
+
+      if (shop?.pan) {
+        rowY += 4;
+        doc.fontSize(8).font('Helvetica').text(`Seller PAN: ${shop.pan}`, totalsX, rowY);
+        rowY += 14;
+      }
+      if (sale.customer?.pan) {
+        doc.fontSize(8).font('Helvetica').text(`Buyer PAN: ${sale.customer.pan}`, totalsX, rowY);
+        rowY += 14;
+      }
 
       doc.moveDown(2);
       doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();

@@ -33,9 +33,11 @@ export class SalesService {
 
     try {
       let subtotal = 0;
-      let totalTax = 0;
       let totalProfit = 0;
       let totalCogs = 0;
+      let nonTaxableSubtotal = 0;
+      let taxableSubtotal = 0;
+      let totalExciseDuty = 0;
       const enrichedItems = [];
 
       for (const item of dto.items) {
@@ -53,11 +55,31 @@ export class SalesService {
 
         const discountAmount = (retailPrice * item.quantity * (item.discountRate || 0)) / 100;
         const lineSubtotal = retailPrice * item.quantity - discountAmount;
-        const taxAmount = (lineSubtotal * Number(variant.taxRate)) / 100;
         const lineProfit = lineSubtotal - lineCogs;
 
+        // Nepal IRD tax computation
+        const isVatExempt = variant.isVatExempt ?? false;
+        const exciseDutyType = variant.exciseDutyType ?? 'none';
+        const exciseDutyRate = Number(variant.exciseDutyRate ?? 0);
+
+        let lineExciseDuty = 0;
+        if (!isVatExempt && exciseDutyType !== 'none') {
+          if (exciseDutyType === 'flat_per_unit') {
+            lineExciseDuty = exciseDutyRate * item.quantity;
+          } else if (exciseDutyType === 'percentage') {
+            lineExciseDuty = (lineSubtotal * exciseDutyRate) / 100;
+          }
+        }
+
+        const lineTaxableBase = isVatExempt ? 0 : lineSubtotal + lineExciseDuty;
+
         subtotal += lineSubtotal;
-        totalTax += taxAmount;
+        if (isVatExempt) {
+          nonTaxableSubtotal += lineSubtotal;
+        } else {
+          taxableSubtotal += lineSubtotal;
+        }
+        totalExciseDuty += lineExciseDuty;
         totalProfit += lineProfit;
         totalCogs += lineCogs;
 
@@ -67,16 +89,35 @@ export class SalesService {
           quantity: item.quantity,
           unitPrice: retailPrice,
           costPrice,
-          taxRate: variant.taxRate,
-          taxAmount,
+          taxRate: isVatExempt ? 0 : Number(variant.vatPercentage ?? 13),
+          taxAmount: 0, // filled after aggregation below
+          exciseDutyAmount: lineExciseDuty,
+          vatAmount: 0, // filled after aggregation below
+          isVatExempt,
           discountRate: item.discountRate || 0,
           discountAmount,
           subtotal: lineSubtotal,
           profit: lineProfit,
           shopId,
+          _taxableBase: lineTaxableBase,
         });
       }
 
+      // IRD rule: apply 13% VAT on the aggregated taxable base (not per-line)
+      const vatPercentage = 13;
+      const totalVat = Math.round((taxableSubtotal + totalExciseDuty) * vatPercentage) / 100;
+
+      // Distribute VAT proportionally back to each item for record-keeping
+      const totalTaxableBase = taxableSubtotal + totalExciseDuty;
+      for (const enrichedItem of enrichedItems) {
+        if (!enrichedItem.isVatExempt && totalTaxableBase > 0) {
+          enrichedItem.vatAmount = Math.round((enrichedItem._taxableBase / totalTaxableBase) * totalVat * 100) / 100;
+        }
+        enrichedItem.taxAmount = enrichedItem.exciseDutyAmount + enrichedItem.vatAmount;
+        delete enrichedItem._taxableBase;
+      }
+
+      const totalTax = totalExciseDuty + totalVat;
       const discountAmount = dto.discountAmount || 0;
       const grandTotal = subtotal + totalTax - discountAmount;
       const creditAmount = dto.creditAmount || 0;
@@ -96,6 +137,10 @@ export class SalesService {
         paymentMethod: dto.paymentMethod,
         subtotal,
         taxAmount: totalTax,
+        nonTaxableSubtotal,
+        taxableSubtotal,
+        exciseDutyAmount: totalExciseDuty,
+        vatAmount: totalVat,
         discountAmount,
         grandTotal,
         creditAmount,

@@ -56,6 +56,9 @@ export class Shop extends BaseEntity {
   @Column({ default: false, name: 'onboarding_completed' })
   onboardingCompleted: boolean;
 
+  @Column({ nullable: true, length: 20 })
+  pan: string;
+
   @Column({ name: 'owner_id', nullable: true })
   ownerId: string;
 
