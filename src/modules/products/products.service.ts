@@ -128,8 +128,9 @@ export class ProductsService {
       .createQueryBuilder('v')
       .leftJoinAndSelect('v.product', 'p')
       .leftJoinAndSelect('p.brand', 'brand')
+      .leftJoinAndSelect('p.category', 'category')
       .leftJoinAndSelect('p.unit', 'unit')
-      .leftJoinAndSelect('p.prices', 'price', 'price.isCurrent = true AND price.priceType = :retailType', { retailType: PriceType.RETAIL })
+      .leftJoinAndSelect('p.prices', 'price', 'price.isCurrent = true')
       .leftJoinAndSelect('v.inventoryItems', 'inv')
       .where('v.barcode = :barcode AND v.shopId = :shopId', { barcode, shopId })
       .getOne();
@@ -137,27 +138,50 @@ export class ProductsService {
     if (!variant) throw new NotFoundException('Product not found');
 
     const p = variant.product;
+    const priceMap = (p?.prices ?? []).reduce(
+      (acc, pr) => { acc[pr.priceType] = Number(pr.price); return acc; },
+      {} as Record<string, number>,
+    );
+
+    // FIFO purchase price from batches
+    const batch = await this.batchRepository
+      .createQueryBuilder('b')
+      .where('b.variantId = :vid AND b.quantityRemaining > 0', { vid: variant.id })
+      .orderBy('b.createdAt', 'ASC')
+      .getOne();
+
     return {
-      id:              variant.id,
-      createdAt:       variant.createdAt,
-      shopId:          variant.shopId,
-      productId:       variant.productId,
-      name:            variant.name,
-      sku:             variant.sku,
-      barcode:         variant.barcode,
-      image:           this.storage.resolveUrl(p?.image) ?? null,
-      type:            p?.type ?? null,
-      brandId:         p?.brandId ?? null,
-      categoryId:      p?.categoryId ?? null,
-      unitId:          p?.unitId ?? null,
-      catalogProductId: p?.catalogProductId ?? null,
-      brandName:       p?.brand?.name ?? null,
-      unitName:        p?.unit?.name ?? null,
-      unitSymbol:      p?.unit?.symbol ?? null,
-      price:             p?.prices?.[0]?.price ?? null,
-      costPrice:         p?.prices?.[0]?.costPrice ?? null,
-      quantityAvailable: variant.inventoryItems?.[0]?.quantityAvailable ?? null,
+      id:            variant.id,
+      productId:     variant.productId,
+      productName:   p?.name ?? null,
+      brand:         p?.brand?.name ?? null,
+      category:      p?.category?.name ?? null,
+      unit:          p?.unit?.symbol ?? null,
+      name:          variant.name,
+      sku:           variant.sku,
+      barcode:       variant.barcode,
+      image:         this.storage.resolveUrl(p?.image) ?? null,
+      status:        variant.status,
+      isDefault:     variant.isDefault,
+      isActive:      variant.isActive,
+      minStockLevel: variant.minStockLevel,
+      maxStockLevel: variant.maxStockLevel,
+      reorderPoint:  variant.reorderPoint,
+      trackInventory: variant.trackInventory,
+      attributes:    variant.attributes,
+      retailPrice:   priceMap[PriceType.RETAIL] ?? null,
+      purchasePrice: batch ? Number(batch.purchasePrice) : (priceMap[PriceType.PURCHASE] ?? null),
+      wholesalePrice: priceMap[PriceType.WHOLESALE] ?? null,
+      inventory:     variant.inventoryItems?.[0]
+        ? {
+            quantityOnHand:      variant.inventoryItems[0].quantityOnHand,
+            quantityAvailable:   variant.inventoryItems[0].quantityAvailable,
+            quantityReserved:    variant.inventoryItems[0].quantityReserved,
+          }
+        : null,
+      createdAt: variant.createdAt,
     };
+  }
   }
 
   async getPriceHistory(productId: string, shopId: string) {
