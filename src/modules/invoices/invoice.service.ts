@@ -157,7 +157,7 @@ export class InvoiceService {
         if (nonTaxable > 0) addRow('Non-Taxable Amount:', fmt(nonTaxable));
         if (taxableSub > 0) addRow('Taxable Amount:', fmt(taxableSub));
         if (exciseDuty > 0) addRow('Excise Duty:', fmt(exciseDuty));
-        if (taxableSub > 0 || exciseDuty > 0) addRow('Total Taxable (Excl. VAT):', fmt(taxableSub + exciseDuty));
+        if (taxableSub > 0 || exciseDuty > 0) addRow('Taxable (Excl. VAT):', fmt(taxableSub + exciseDuty));
         if (vatAmt > 0) addRow('VAT (13%):', fmt(vatAmt));
       } else {
         addRow('Subtotal:', fmt(sale.subtotal));
