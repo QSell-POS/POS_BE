@@ -1,27 +1,47 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { SupportTicket, SupportTicketReply, TicketStatus, TicketPriority, TicketCategory } from './entities/support-ticket.entity';
 import { MailerService } from 'src/common/services/mailer.service';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 export class CreateTicketDto {
+  @IsString() @IsNotEmpty()
   subject: string;
+
+  @IsString() @IsNotEmpty()
   message: string;
+
+  @IsOptional() @IsEnum(TicketCategory)
   category?: TicketCategory;
+
+  @IsOptional() @IsEnum(TicketPriority)
   priority?: TicketPriority;
+
+  @IsOptional() @IsString()
   name?: string;
+
+  @IsOptional() @IsEmail()
   email?: string;
 }
 
 export class UpdateTicketDto {
+  @IsOptional() @IsEnum(TicketStatus)
   status?: TicketStatus;
+
+  @IsOptional() @IsEnum(TicketPriority)
   priority?: TicketPriority;
+
+  @IsOptional() @IsString()
   assignedTo?: string;
+
+  @IsOptional() @IsString()
   adminNotes?: string;
 }
 
 export class ReplyDto {
+  @IsString() @IsNotEmpty()
   message: string;
 }
 
