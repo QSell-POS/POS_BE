@@ -9,6 +9,7 @@ import { memoryStorage } from 'multer';
 import { JwtAuthGuard, RolesGuard, CurrentUser, Permissions } from 'src/common/guards/auth.guard';
 import { Permission } from 'src/common/permissions/permission.enum';
 import { StorageService } from 'src/common/services/storage.service';
+import { compressImage } from 'src/common/utils/image-compression.util';
 
 const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_ALL_MIMES   = [...ALLOWED_IMAGE_MIMES, 'application/pdf'];
@@ -44,7 +45,8 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const { key } = await this.storage.upload(file, 'products', user.shopId);
+    const compressed = await compressImage(file, { maxWidth: 1600, maxHeight: 1600, quality: 80, format: 'webp' });
+    const { key } = await this.storage.upload(compressed, 'products', user.shopId);
     return { data: { key }, message: 'Product image uploaded' };
   }
 
@@ -60,7 +62,8 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const { key } = await this.storage.upload(file, 'avatars', user.shopId);
+    const compressed = await compressImage(file, { maxWidth: 512, maxHeight: 512, quality: 80, format: 'webp' });
+    const { key } = await this.storage.upload(compressed, 'avatars', user.shopId);
     return { data: { key }, message: 'Avatar uploaded' };
   }
 
@@ -95,7 +98,8 @@ export class UploadController {
     @CurrentUser() user: any,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const { key } = await this.storage.upload(file, 'attachments', user.shopId);
+    const compressed = await compressImage(file, { maxWidth: 2000, maxHeight: 2000, quality: 82, format: 'jpeg' });
+    const { key } = await this.storage.upload(compressed, 'attachments', user.shopId);
     return { data: { key }, message: 'Attachment uploaded' };
   }
 
