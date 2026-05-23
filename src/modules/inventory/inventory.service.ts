@@ -207,7 +207,7 @@ export class InventoryService {
           variantId: dto.variantId,
           purchasePrice: dto.unitCost,
           retailPrice: dto.retailPrice ?? null,
-          wholesalePrice: dto.wholesalePrice ?? null,
+          wholesalePrice: dto.retailPrice ?? null,
           quantityReceived: dto.quantity,
           quantityRemaining: dto.quantity,
           referenceId: dto.referenceId,
@@ -274,7 +274,7 @@ export class InventoryService {
       .where('b.shopId = :shopId', { shopId })
       .select([
         'b.id', 'b.createdAt', 'b.shopId', 'b.productId', 'b.variantId',
-        'b.purchasePrice', 'b.quantityReceived', 'b.quantityRemaining',
+        'b.purchasePrice', 'b.retailPrice', 'b.quantityReceived', 'b.quantityRemaining',
         'b.referenceId', 'b.referenceType',
         'product.name', 'product.description', 'product.image', 'product.type', 'product.source',
         'product.brandId', 'product.categoryId', 'product.unitId',
@@ -301,6 +301,7 @@ export class InventoryService {
       productId:         b.productId,
       variantId:         b.variantId,
       purchasePrice:     b.purchasePrice,
+      retailPrice:       b.retailPrice,
       quantityReceived:  b.quantityReceived,
       quantityRemaining: b.quantityRemaining,
       referenceId:       b.referenceId,

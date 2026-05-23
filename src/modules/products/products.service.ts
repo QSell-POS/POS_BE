@@ -429,10 +429,11 @@ export class ProductsService {
     sellingPrice?: number,
     wholesalePrice?: number,
   ): Promise<void> {
+    const effectiveWholesale = wholesalePrice ?? sellingPrice;
     const candidates: Array<{ priceType: PriceType; newPrice: number }> = [
       { priceType: PriceType.PURCHASE, newPrice: unitCost },
       ...(sellingPrice !== undefined ? [{ priceType: PriceType.RETAIL, newPrice: sellingPrice }] : []),
-      ...(wholesalePrice !== undefined ? [{ priceType: PriceType.WHOLESALE, newPrice: wholesalePrice }] : []),
+      ...(effectiveWholesale !== undefined ? [{ priceType: PriceType.WHOLESALE, newPrice: effectiveWholesale }] : []),
     ];
 
     for (const { priceType, newPrice } of candidates) {
