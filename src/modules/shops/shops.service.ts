@@ -67,7 +67,11 @@ export class ShopsService {
 
   async update(id: string, dto: UpdateShopDto, organizationId?: string, isSuperAdmin = false) {
     const s = await this.findOne(id, organizationId, undefined, isSuperAdmin);
-    return this.shops.save(Object.assign(s, dto));
+    const patch: Partial<Shop> = { ...dto };
+    if (dto.slug !== undefined && dto.slug !== s.slug) {
+      patch.slug = await this.resolveUniqueSlug(dto.slug, id);
+    }
+    return this.shops.save(Object.assign(s, patch));
   }
 
   async getMyShop(shopId: string) {
@@ -95,18 +99,21 @@ export class ShopsService {
     return { data: shop, message: 'Active shop switched successfully' };
   }
 
-  private async resolveUniqueSlug(base: string): Promise<string> {
+  private async resolveUniqueSlug(base: string, ignoreShopId?: string): Promise<string> {
     const baseSlug = base
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
+    if (!baseSlug) throw new ConflictException('Shop slug cannot be empty');
     let slug = baseSlug;
     let attempt = 0;
-    while (await this.shops.findOne({ where: { slug } })) {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const existing = await this.shops.findOne({ where: { slug } });
+      if (!existing || existing.id === ignoreShopId) return slug;
       attempt++;
       slug = `${baseSlug}-${attempt}`;
       if (attempt > 50) throw new ConflictException('Could not generate a unique shop slug');
     }
-    return slug;
   }
 }

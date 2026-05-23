@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import {
   S3Client,
   PutObjectCommand,
@@ -9,6 +11,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { Shop } from 'src/modules/shops/entities/shop.entity';
 
 export type StorageFolder =
   | 'products'
@@ -24,8 +27,13 @@ export class StorageService {
   private readonly bucket: string;
   private readonly publicUrl: string;
   private readonly configured: boolean;
+  private readonly slugCache = new Map<string, { slug: string; expiresAt: number }>();
+  private readonly SLUG_CACHE_TTL_MS = 5 * 60 * 1000;
 
-  constructor(private config: ConfigService) {
+  constructor(
+    private config: ConfigService,
+    @InjectRepository(Shop) private readonly shops: Repository<Shop>,
+  ) {
     const accountId       = config.get<string>('storage.accountId');
     const accessKeyId     = config.get<string>('storage.accessKeyId');
     const secretAccessKey = config.get<string>('storage.secretAccessKey');
@@ -53,7 +61,8 @@ export class StorageService {
     shopId?: string,
   ): Promise<{ key: string; url: string }> {
     const ext = extname(file.originalname).toLowerCase();
-    const key = this.buildKey(folder, file.originalname, ext, shopId);
+    const shopSlug = await this.resolveShopSlug(shopId);
+    const key = this.buildKey(folder, file.originalname, ext, shopSlug);
 
     if (!this.configured) {
       this.logger.log(`[STORAGE SKIPPED] Would upload: ${key}`);
@@ -116,10 +125,26 @@ export class StorageService {
 
   // ── Key builder ───────────────────────────────────────────────────────────
 
-  private buildKey(folder: StorageFolder, originalName: string, ext = '', shopId?: string): string {
+  private buildKey(folder: StorageFolder, originalName: string, ext = '', shopSlug?: string): string {
     const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, '').replace('T', 'T').slice(0, 15);
     const baseName = originalName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const prefix = shopId ? `${shopId}/${folder}` : folder;
+    const prefix = shopSlug ? `${shopSlug}/${folder}` : folder;
     return `${prefix}/${timestamp}-${baseName}${ext}`;
+  }
+
+  private async resolveShopSlug(shopId?: string): Promise<string | undefined> {
+    if (!shopId) return undefined;
+    const cached = this.slugCache.get(shopId);
+    if (cached && cached.expiresAt > Date.now()) return cached.slug;
+    try {
+      const shop = await this.shops.findOne({ where: { id: shopId }, select: ['id', 'slug'] });
+      if (shop?.slug) {
+        this.slugCache.set(shopId, { slug: shop.slug, expiresAt: Date.now() + this.SLUG_CACHE_TTL_MS });
+        return shop.slug;
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to resolve shop slug for ${shopId}: ${(err as Error).message}`);
+    }
+    return shopId;
   }
 }
