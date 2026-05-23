@@ -54,12 +54,13 @@ export class InventoryService {
       minStockLevel: p.variant?.minStockLevel ?? null,
       maxStockLevel: p.variant?.maxStockLevel ?? null,
       product: {
-        name: p.variant.name,
+        name: p.product?.name ?? null,
+        variantName: p.variant?.name ?? null,
         sku: p.variant?.sku ?? null,
         barcode: p.variant?.barcode ?? null,
-        brand: p.product.brand?.name,
-        category: p.product.category?.name,
-        unit: p.product.unit?.symbol,
+        brand: p.product?.brand?.name ?? null,
+        category: p.product?.category?.name ?? null,
+        unit: p.product?.unit?.symbol ?? null,
       },
     }));
 
@@ -390,8 +391,8 @@ export class InventoryService {
       notes: h.notes,
       performedByUserId: h.performedByUserId,
       productName: h.product?.name ?? null,
-      productDescription: h.product?.description ?? null,
-      name: h.variant?.name ?? null,
+      variantName: h.variant?.name ?? null,
+      sku: h.variant?.sku ?? null,
       image: this.storage?.resolveUrl(h.product?.image) ?? null,
       productType: h.product?.type ?? null,
       brandId: h.product?.brandId ?? null,
