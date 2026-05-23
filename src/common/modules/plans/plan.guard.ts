@@ -1,7 +1,7 @@
 import { Injectable, ExecutionContext, SetMetadata, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PlanService } from './plan.service';
-import { PLAN_FEATURES, PLAN_UPGRADE_MESSAGE, PlanFeatureKey } from './plan.config';
+import { PLAN_UPGRADE_MESSAGE, PlanFeatureKey } from './plan.config';
 
 export const PLAN_FEATURE_KEY = 'planFeature';
 export const RequiresPlan = (feature: PlanFeatureKey) => SetMetadata(PLAN_FEATURE_KEY, feature);

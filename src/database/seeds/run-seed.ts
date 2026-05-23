@@ -5,7 +5,8 @@ import * as dotenv from 'dotenv';
 import { Organization, OrgStatus } from 'src/modules/organizations/entities/organization.entity';
 import { User, UserRole, UserStatus } from 'src/modules/users/entities/user.entity';
 import { Shop, ShopStatus } from 'src/modules/shops/entities/shop.entity';
-import { ShopPlan } from 'src/common/modules/plans/plan.config';
+import { ShopPlan, PLAN_FEATURES } from 'src/common/modules/plans/plan.config';
+import { Plan } from 'src/common/modules/plans/entities/plan.entity';
 import { DEFAULT_PERMISSIONS } from 'src/common/permissions/permission.enum';
 import { Brand } from 'src/modules/brands/entities/brand.entity';
 import { Category } from 'src/modules/categories/entities/category.entity';
@@ -35,6 +36,21 @@ const AppDataSource = new DataSource({
 });
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
+
+const PLAN_SEED: Array<{
+  key: ShopPlan; name: string; description: string;
+  monthlyPrice: number; annualPrice: number | null;
+  isPopular: boolean; sortOrder: number; features: string[];
+}> = [
+  { key: ShopPlan.FREE, name: 'Free', description: 'Get started at no cost.', monthlyPrice: 0, annualPrice: 0, isPopular: false, sortOrder: 1,
+    features: ['1 shop', '2 staff accounts', 'Up to 100 products'] },
+  { key: ShopPlan.PRO, name: 'Pro', description: 'For growing businesses that need more power.', monthlyPrice: 29.99, annualPrice: 287.90, isPopular: true, sortOrder: 2,
+    features: ['5 shops', '15 staff accounts', 'Advanced analytics', 'Bulk import', 'Loyalty & invoices'] },
+  { key: ShopPlan.ENTERPRISE, name: 'Enterprise', description: 'Unlimited scale with API access.', monthlyPrice: 99.99, annualPrice: 959.90, isPopular: false, sortOrder: 3,
+    features: ['Unlimited shops', 'Unlimited staff', 'API access', 'Priority support'] },
+  { key: ShopPlan.CUSTOM, name: 'Custom', description: 'Tailored plan for your organization.', monthlyPrice: 0, annualPrice: null, isPopular: false, sortOrder: 4,
+    features: ['Everything in Enterprise', 'Custom limits', 'Dedicated support'] },
+];
 
 const SUPER_ADMIN_CREDS = { firstName: 'Super', lastName: 'Admin', email: 'superadmin@pos.com', password: 'Super@1234' };
 const DEMO_ADMIN_CREDS  = { firstName: 'Demo',  lastName: 'Admin', email: 'admin@pos.com',      password: 'Admin@1234' };
@@ -261,6 +277,46 @@ async function seed() {
 
   try {
     const m = qr.manager;
+
+    // ── 0. PLANS ─────────────────────────────────────────────────────────────
+    const unlimited = (n: number) => (n === Infinity ? -1 : n);
+    for (const seedPlan of PLAN_SEED) {
+      const f = PLAN_FEATURES[seedPlan.key];
+      const existing = await m.findOne(Plan, { where: { key: seedPlan.key } });
+      if (existing) {
+        console.log(`⏭  Plan already exists: ${seedPlan.key}`);
+        continue;
+      }
+      await m.save(
+        m.create(Plan, {
+          name: seedPlan.name,
+          key: seedPlan.key,
+          description: seedPlan.description,
+          monthlyPrice: seedPlan.monthlyPrice,
+          annualPrice: seedPlan.annualPrice,
+          trialDays: f.trialDays,
+          isActive: true,
+          isPopular: seedPlan.isPopular,
+          sortOrder: seedPlan.sortOrder,
+          limits: {
+            maxShops: unlimited(f.maxShops),
+            maxUsers: unlimited(f.maxStaff),
+            maxProducts: unlimited(f.maxProducts),
+            maxTransactionsPerMonth: -1,
+          },
+          features: seedPlan.features,
+          featureFlags: {
+            reports: f.reports,
+            bulkImport: f.bulkImport,
+            loyalty: f.loyalty,
+            stockTransfer: f.stockTransfer,
+            apiAccess: f.apiAccess,
+            invoiceGen: f.invoiceGen,
+          },
+        }),
+      );
+      console.log(`✅ Plan seeded: ${seedPlan.key}`);
+    }
 
     // ── 1. SUPER ADMIN ───────────────────────────────────────────────────────
     let superAdmin = await m.findOne(User, { where: { email: SUPER_ADMIN_CREDS.email } });

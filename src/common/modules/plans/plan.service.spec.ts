@@ -5,12 +5,14 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { PlanService } from './plan.service';
 import { Shop } from 'src/modules/shops/entities/shop.entity';
 import { Organization } from 'src/modules/organizations/entities/organization.entity';
+import { Plan } from './entities/plan.entity';
 import { ShopPlan } from './plan.config';
 
 describe('PlanService', () => {
   let service: PlanService;
   let shopRepo: any;
   let orgRepo: any;
+  let planRepo: any;
 
   const mockOrg = (plan: ShopPlan, expiresAt: Date | null = null) => ({
     id: 'org-uuid',
@@ -21,12 +23,15 @@ describe('PlanService', () => {
   beforeEach(async () => {
     shopRepo = { findOne: jest.fn(), update: jest.fn() };
     orgRepo  = { findOne: jest.fn(), update: jest.fn() };
+    // Default: no DB-managed plan → resolveFeatures falls back to PLAN_FEATURES config
+    planRepo = { findOne: jest.fn().mockResolvedValue(null) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PlanService,
         { provide: getRepositoryToken(Shop), useValue: shopRepo },
         { provide: getRepositoryToken(Organization), useValue: orgRepo },
+        { provide: getRepositoryToken(Plan), useValue: planRepo },
       ],
     }).compile();
 
