@@ -101,19 +101,24 @@ export class AnalyticsService {
     };
   }
 
-  // ── Sales Chart (weekly = 7 days, monthly = 12 months) ───
-  async getSalesChart(shopId: string, period: 'weekly' | 'monthly' = 'weekly') {
+  // ── Sales Chart (daily = 24 hours, weekly = 7 days, monthly = 12 months) ───
+  async getSalesChart(shopId: string, period: 'daily' | 'weekly' | 'monthly' = 'weekly') {
     const now = new Date();
-    const isWeekly = period === 'weekly';
 
-    const startWindow = isWeekly
-      ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
-      : new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0);
-    const endWindow = isWeekly
-      ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-      : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const startWindow =
+      period === 'daily'
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+        : period === 'weekly'
+          ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
+          : new Date(now.getFullYear(), now.getMonth() - 11, 1, 0, 0, 0, 0);
+    const endWindow =
+      period === 'daily'
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        : period === 'weekly'
+          ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+          : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    const truncate = isWeekly ? 'day' : 'month';
+    const truncate = period === 'daily' ? 'hour' : period === 'weekly' ? 'day' : 'month';
 
     const rows = await this.saleRepository
       .createQueryBuilder('s')
@@ -129,23 +134,35 @@ export class AnalyticsService {
       .groupBy(`DATE_TRUNC('${truncate}', s.saleDate)`)
       .getRawMany();
 
+    const keyFor = (d: Date): string => {
+      if (period === 'daily') return String(d.getHours());
+      if (period === 'weekly') return d.toISOString().split('T')[0];
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    };
+
     const map = new Map<string, { revenue: number; orders: number }>();
     for (const r of rows) {
-      const d = new Date(r.bucket);
-      const key = isWeekly
-        ? d.toISOString().split('T')[0]
-        : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      map.set(key, { revenue: Number(r.revenue), orders: Number(r.orders) });
+      map.set(keyFor(new Date(r.bucket)), { revenue: Number(r.revenue), orders: Number(r.orders) });
     }
 
     const data = [];
-    if (isWeekly) {
+    if (period === 'daily') {
+      for (let h = 0; h < 24; h++) {
+        const entry = map.get(String(h)) ?? { revenue: 0, orders: 0 };
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h);
+        data.push({
+          date: d.toISOString(),
+          label: d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true }),
+          revenue: entry.revenue,
+          orders: entry.orders,
+        });
+      }
+    } else if (period === 'weekly') {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-        const key = d.toISOString().split('T')[0];
-        const entry = map.get(key) ?? { revenue: 0, orders: 0 };
+        const entry = map.get(d.toISOString().split('T')[0]) ?? { revenue: 0, orders: 0 };
         data.push({
-          date: key,
+          date: d.toISOString().split('T')[0],
           label: d.toLocaleDateString('en-US', { weekday: 'short' }),
           revenue: entry.revenue,
           orders: entry.orders,

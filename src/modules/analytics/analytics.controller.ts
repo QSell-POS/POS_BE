@@ -19,9 +19,9 @@ export class AnalyticsController {
   }
 
   @Get('sales-chart')
-  @ApiOperation({ summary: 'Revenue & order count: weekly (7 days) or monthly (12 months) ending now' })
-  @ApiQuery({ name: 'period', enum: ['weekly', 'monthly'], required: false })
-  getSalesChart(@Query('period') period: 'weekly' | 'monthly', @CurrentUser() user: any) {
+  @ApiOperation({ summary: 'Revenue & order count: daily (24 hours), weekly (7 days) or monthly (12 months) ending now' })
+  @ApiQuery({ name: 'period', enum: ['daily', 'weekly', 'monthly'], required: false })
+  getSalesChart(@Query('period') period: 'daily' | 'weekly' | 'monthly', @CurrentUser() user: any) {
     return this.analyticsService.getSalesChart(user.shopId, period || 'weekly');
   }
 
