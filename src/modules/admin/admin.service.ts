@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { customAlphabet } from 'nanoid';
+
+const shopIdSuffix = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 6);
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -87,12 +90,14 @@ export class AdminService {
         }),
       );
 
-      // Generate unique slug from shop name
+      // Generate unique slug from shop name + 6-char nanoid suffix
       const base = dto.shopName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      let slug = base;
-      let attempt = 0;
-      while (await manager.findOne(Shop, { where: { slug } })) {
-        slug = `${base}-${++attempt}`;
+      let slug = `${base}-${shopIdSuffix()}`;
+      if (await manager.findOne(Shop, { where: { slug } })) {
+        slug = `${base}-${shopIdSuffix()}`;
+        if (await manager.findOne(Shop, { where: { slug } })) {
+          throw new ConflictException('Could not generate a unique shop slug');
+        }
       }
 
       const shop = await manager.save(

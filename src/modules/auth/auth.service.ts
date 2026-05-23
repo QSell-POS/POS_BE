@@ -1,6 +1,9 @@
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { DataSource, Repository } from 'typeorm';
+import { customAlphabet } from 'nanoid';
+
+const shopIdSuffix = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 6);
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ChangePasswordDto, LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
@@ -83,13 +86,14 @@ export class AuthService {
   }
 
   private async generateUniqueSlug(base: string): Promise<string> {
-    let slug = base;
-    let attempt = 0;
-    while (await this.shops.findOne({ where: { slug } })) {
-      attempt++;
-      slug = `${base}-${attempt}`;
+    const slug = `${base}-${shopIdSuffix()}`;
+    const existing = await this.shops.findOne({ where: { slug } });
+    if (!existing) return slug;
+    const retry = `${base}-${shopIdSuffix()}`;
+    if (await this.shops.findOne({ where: { slug: retry } })) {
+      throw new ConflictException('Could not generate a unique shop slug');
     }
-    return slug;
+    return retry;
   }
 
   async login(dto: LoginDto) {

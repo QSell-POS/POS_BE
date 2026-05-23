@@ -1,8 +1,11 @@
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { customAlphabet } from 'nanoid';
 import { Shop } from 'src/modules/shops/entities/shop.entity';
 import { User } from 'src/modules/users/entities/user.entity';
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+
+const shopIdSuffix = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 6);
 import { CreateShopDto, ShopFilterDto, UpdateShopDto } from './dto/shop.dto';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 import { PlanService } from 'src/common/modules/plans/plan.service';
@@ -105,15 +108,18 @@ export class ShopsService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
     if (!baseSlug) throw new ConflictException('Shop slug cannot be empty');
-    let slug = baseSlug;
-    let attempt = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const existing = await this.shops.findOne({ where: { slug } });
-      if (!existing || existing.id === ignoreShopId) return slug;
-      attempt++;
-      slug = `${baseSlug}-${attempt}`;
-      if (attempt > 50) throw new ConflictException('Could not generate a unique shop slug');
+
+    const slug = `${baseSlug}-${shopIdSuffix()}`;
+    const existing = await this.shops.findOne({ where: { slug } });
+    if (existing && existing.id !== ignoreShopId) {
+      // 36^6 ≈ 2B combos — collisions are astronomically rare, but retry once just in case.
+      const retry = `${baseSlug}-${shopIdSuffix()}`;
+      const clash = await this.shops.findOne({ where: { slug: retry } });
+      if (clash && clash.id !== ignoreShopId) {
+        throw new ConflictException('Could not generate a unique shop slug');
+      }
+      return retry;
     }
+    return slug;
   }
 }
