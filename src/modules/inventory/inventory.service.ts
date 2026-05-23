@@ -206,6 +206,8 @@ export class InventoryService {
           productId: inventoryItem.productId,
           variantId: dto.variantId,
           purchasePrice: dto.unitCost,
+          retailPrice: dto.retailPrice ?? null,
+          wholesalePrice: dto.wholesalePrice ?? null,
           quantityReceived: dto.quantity,
           quantityRemaining: dto.quantity,
           referenceId: dto.referenceId,

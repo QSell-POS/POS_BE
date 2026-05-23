@@ -90,6 +90,8 @@ export class PurchasesService {
             quantity: item.quantity,
             receivedQuantity: isReceived ? item.quantity : 0,
             unitCost: item.unitCost,
+            sellingPrice: item.sellingPrice ?? null,
+            wholesalePrice: item.wholesalePrice ?? null,
             taxRate: item.taxRate || 0,
             taxAmount: item.taxAmount,
             discountRate: item.discountRate || 0,
@@ -106,10 +108,10 @@ export class PurchasesService {
       if (isReceived) {
         for (const item of itemsWithVariants) {
           await this.inventoryService.adjustStock(
-            { productId: item.productId, variantId: item.variantId, quantity: item.quantity, movementType: InventoryMovementType.PURCHASE, unitCost: item.unitCost, referenceId: refNum, referenceType: 'purchase', performedBy: userId },
+            { productId: item.productId, variantId: item.variantId, quantity: item.quantity, movementType: InventoryMovementType.PURCHASE, unitCost: item.unitCost, retailPrice: item.sellingPrice, wholesalePrice: item.wholesalePrice, referenceId: refNum, referenceType: 'purchase', performedBy: userId },
             shopId,
           );
-          await this.productsService.syncPricesOnPurchase(item.productId, shopId, userId, item.unitCost, item.sellingPrice);
+          await this.productsService.syncPricesOnPurchase(item.productId, shopId, userId, item.unitCost, item.sellingPrice, item.wholesalePrice);
         }
       }
 
@@ -143,10 +145,10 @@ export class PurchasesService {
 
     for (const item of purchase.items) {
       await this.inventoryService.adjustStock(
-        { productId: item.productId, variantId: item.variantId, quantity: Number(item.quantity), movementType: InventoryMovementType.PURCHASE, unitCost: Number(item.unitCost), referenceId: dto.supplierBillNumber || purchase.referenceNumber, referenceType: 'purchase', notes: dto.notes, performedBy: userId },
+        { productId: item.productId, variantId: item.variantId, quantity: Number(item.quantity), movementType: InventoryMovementType.PURCHASE, unitCost: Number(item.unitCost), retailPrice: item.sellingPrice ? Number(item.sellingPrice) : undefined, wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : undefined, referenceId: dto.supplierBillNumber || purchase.referenceNumber, referenceType: 'purchase', notes: dto.notes, performedBy: userId },
         shopId,
       );
-      await this.productsService.syncPricesOnPurchase(item.productId, shopId, userId, Number(item.unitCost));
+      await this.productsService.syncPricesOnPurchase(item.productId, shopId, userId, Number(item.unitCost), item.sellingPrice ? Number(item.sellingPrice) : undefined, item.wholesalePrice ? Number(item.wholesalePrice) : undefined);
     }
 
     await this.purchaseRepository.update(id, {
@@ -194,6 +196,8 @@ export class PurchasesService {
         quantity: item.quantity,
         receivedQuantity: item.receivedQuantity,
         unitCost: item.unitCost,
+        sellingPrice: item.sellingPrice,
+        wholesalePrice: item.wholesalePrice,
         taxRate: item.taxRate,
         taxAmount: item.taxAmount,
         discountRate: item.discountRate,

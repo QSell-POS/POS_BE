@@ -28,6 +28,12 @@ export class CreatePurchaseItemDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  wholesalePrice?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   taxRate?: number;
 
   @ApiPropertyOptional()

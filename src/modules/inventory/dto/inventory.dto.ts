@@ -36,5 +36,7 @@ export interface StockAdjustmentDto {
   referenceId?: string;
   referenceType?: string;
   unitCost?: number;
+  retailPrice?: number;
+  wholesalePrice?: number;
   performedBy?: string;
 }

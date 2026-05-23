@@ -427,26 +427,22 @@ export class ProductsService {
     userId: string,
     unitCost: number,
     sellingPrice?: number,
+    wholesalePrice?: number,
   ): Promise<void> {
-    const updates: Array<{ priceType: PriceType; newPrice: number }> = [];
+    const candidates: Array<{ priceType: PriceType; newPrice: number }> = [
+      { priceType: PriceType.PURCHASE, newPrice: unitCost },
+      ...(sellingPrice !== undefined ? [{ priceType: PriceType.RETAIL, newPrice: sellingPrice }] : []),
+      ...(wholesalePrice !== undefined ? [{ priceType: PriceType.WHOLESALE, newPrice: wholesalePrice }] : []),
+    ];
 
-    const currentPurchase = await this.priceRepository.findOne({ where: { productId, priceType: PriceType.PURCHASE, isCurrent: true, shopId } });
-    if (!currentPurchase || Number(currentPurchase.price) !== unitCost) {
-      updates.push({ priceType: PriceType.PURCHASE, newPrice: unitCost });
-    }
-
-    if (sellingPrice !== undefined) {
-      const currentRetail = await this.priceRepository.findOne({ where: { productId, priceType: PriceType.RETAIL, isCurrent: true, shopId } });
-      if (!currentRetail || Number(currentRetail.price) !== sellingPrice) {
-        updates.push({ priceType: PriceType.RETAIL, newPrice: sellingPrice });
+    for (const { priceType, newPrice } of candidates) {
+      const current = await this.priceRepository.findOne({ where: { productId, priceType, isCurrent: true, shopId } });
+      if (!current || Number(current.price) !== newPrice) {
+        await this.priceRepository.update({ productId, priceType, isCurrent: true, shopId }, { isCurrent: false, effectiveTo: new Date() });
+        await this.priceRepository.save(
+          this.priceRepository.create({ productId, priceType, price: newPrice, isCurrent: true, changedBy: userId, reason: 'Updated via purchase', shopId }),
+        );
       }
-    }
-
-    for (const { priceType, newPrice } of updates) {
-      await this.priceRepository.update({ productId, priceType, isCurrent: true, shopId }, { isCurrent: false, effectiveTo: new Date() });
-      await this.priceRepository.save(
-        this.priceRepository.create({ productId, priceType, price: newPrice, isCurrent: true, changedBy: userId, reason: 'Updated via purchase', shopId }),
-      );
     }
   }
 

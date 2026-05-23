@@ -16,6 +16,12 @@ export class InventoryBatch extends TenantBaseEntity {
   @Column({ type: 'decimal', precision: 12, scale: 2, name: 'purchase_price' })
   purchasePrice: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true, name: 'retail_price' })
+  retailPrice: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true, name: 'wholesale_price' })
+  wholesalePrice: number;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, name: 'quantity_received' })
   quantityReceived: number;
 

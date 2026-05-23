@@ -24,6 +24,12 @@ export class PurchaseItem extends TenantBaseEntity {
   @Column({ type: 'decimal', precision: 12, scale: 2, name: 'unit_cost' })
   unitCost: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true, name: 'selling_price' })
+  sellingPrice: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true, name: 'wholesale_price' })
+  wholesalePrice: number;
+
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0, name: 'tax_rate' })
   taxRate: number;
 
