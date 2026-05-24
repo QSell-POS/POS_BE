@@ -5,7 +5,6 @@ import { UserRole } from 'src/modules/users/entities/user.entity';
 import { OrgStatus } from './entities/organization.entity';
 import { OrganizationsService } from './organizations.service';
 import { UpdateOrganizationDto, UpgradePlanDto } from './dto/organization.dto';
-import { ShopPlan } from 'src/common/modules/plans/plan.config';
 
 @ApiTags('Organizations')
 @ApiBearerAuth()
@@ -21,7 +20,7 @@ export class OrganizationsController {
   @ApiOperation({ summary: 'List all organizations (super admin)' })
   findAll(
     @Query('search') search: string,
-    @Query('plan') plan: ShopPlan,
+    @Query('plan') plan: string,
     @Query('status') status: OrgStatus,
     @Query('page') page: number,
     @Query('limit') limit: number,

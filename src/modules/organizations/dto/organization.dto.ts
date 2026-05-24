@@ -1,6 +1,5 @@
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { ShopPlan } from 'src/common/modules/plans/plan.config';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class UpdateOrganizationDto {
   @ApiPropertyOptional()
@@ -30,9 +29,10 @@ export class UpdateOrganizationDto {
 }
 
 export class UpgradePlanDto {
-  @ApiProperty({ enum: ShopPlan })
-  @IsEnum(ShopPlan)
-  plan: ShopPlan;
+  @ApiProperty({ description: 'Plan key (plans.key), e.g. free / pro / enterprise or any custom plan' })
+  @IsString()
+  @IsNotEmpty()
+  plan: string;
 
   @ApiPropertyOptional({ description: 'Plan expiry date. Omit for no expiry.' })
   @IsOptional()

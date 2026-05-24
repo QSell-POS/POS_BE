@@ -39,7 +39,7 @@ export class PlanService {
     return PLAN_FEATURES[planKey as ShopPlan] ?? PLAN_FEATURES[ShopPlan.FREE];
   }
 
-  async getOrgPlan(organizationId: string): Promise<ShopPlan> {
+  async getOrgPlan(organizationId: string): Promise<string> {
     const org = await this.orgs.findOne({
       where: { id: organizationId },
       select: ['id', 'plan', 'planExpiresAt'],
@@ -52,7 +52,7 @@ export class PlanService {
     return org.plan;
   }
 
-  async getShopPlan(shopId: string): Promise<ShopPlan> {
+  async getShopPlan(shopId: string): Promise<string> {
     const shop = await this.shops.findOne({
       where: { id: shopId },
       select: ['id', 'organizationId'],
@@ -91,7 +91,7 @@ export class PlanService {
     return { plan, features: await this.resolveFeatures(plan) };
   }
 
-  async upgradePlan(organizationId: string, plan: ShopPlan, expiresAt?: Date) {
+  async upgradePlan(organizationId: string, plan: string, expiresAt?: Date) {
     await this.orgs.update(organizationId, { plan, planExpiresAt: expiresAt ?? null });
     return { plan, features: await this.resolveFeatures(plan) };
   }

@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Organization, OrgStatus } from './entities/organization.entity';
 import { Shop } from 'src/modules/shops/entities/shop.entity';
 import { User } from 'src/modules/users/entities/user.entity';
-import { ShopPlan } from 'src/common/modules/plans/plan.config';
+import { Plan } from 'src/common/modules/plans/entities/plan.entity';
 import { buildPaginationMeta } from 'src/common/dto/pagination.dto';
 
 @Injectable()
@@ -13,9 +13,10 @@ export class OrganizationsService {
     @InjectRepository(Organization) private orgs: Repository<Organization>,
     @InjectRepository(Shop) private shops: Repository<Shop>,
     @InjectRepository(User) private users: Repository<User>,
+    @InjectRepository(Plan) private plans: Repository<Plan>,
   ) {}
 
-  async findAll(filters: { search?: string; plan?: ShopPlan; status?: OrgStatus; page?: number; limit?: number }) {
+  async findAll(filters: { search?: string; plan?: string; status?: OrgStatus; page?: number; limit?: number }) {
     const { search, plan, status, page = 1, limit = 20 } = filters;
 
     const qb = this.orgs.createQueryBuilder('o');
@@ -96,14 +97,19 @@ export class OrganizationsService {
     return { data: saved, message: 'Organization updated successfully' };
   }
 
-  /** Super admin only — upgrade a shop's org plan */
-  async upgradePlan(organizationId: string, plan: ShopPlan, planExpiresAt?: Date) {
+  /** Super admin only — assign/upgrade a shop's org plan (any plan key from the plans table) */
+  async upgradePlan(organizationId: string, plan: string, planExpiresAt?: Date) {
     const org = await this.orgs.findOne({ where: { id: organizationId } });
     if (!org) throw new NotFoundException('Organization not found');
-    org.plan = plan;
+
+    const target = await this.plans.findOne({ where: { key: plan } });
+    if (!target) throw new BadRequestException(`Unknown plan "${plan}"`);
+    if (!target.isActive) throw new BadRequestException(`Plan "${plan}" is inactive`);
+
+    org.plan = target.key;
     org.planExpiresAt = planExpiresAt ?? null;
     const saved = await this.orgs.save(org);
-    return { data: saved, message: `Plan upgraded to ${plan}` };
+    return { data: saved, message: `Plan changed to ${target.name}` };
   }
 
   async getShops(organizationId: string) {

@@ -19,8 +19,10 @@ export class Organization extends BaseEntity {
   @Column({ type: 'enum', enum: OrgStatus, default: OrgStatus.ACTIVE })
   status: OrgStatus;
 
-  @Column({ type: 'enum', enum: ShopPlan, default: ShopPlan.FREE })
-  plan: ShopPlan;
+  // Plan key referencing plans.key. Free-form string so super admins can
+  // assign any plan created via the /plans API (not limited to the ShopPlan enum).
+  @Column({ default: ShopPlan.FREE, length: 50 })
+  plan: string;
 
   @Column({ name: 'plan_expires_at', nullable: true })
   planExpiresAt: Date;
