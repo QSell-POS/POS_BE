@@ -91,6 +91,8 @@ import { ShopCategory } from './modules/shop-categories/entities/shop-category.e
 import { SupportModule } from './modules/support/support.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { SupportTicket, SupportTicketReply } from './modules/support/entities/support-ticket.entity';
+import { ChatConversation } from './modules/chat/entities/chat-conversation.entity';
+import { ChatMessage } from './modules/chat/entities/chat-message.entity';
 
 @Module({
   imports: [
@@ -181,6 +183,8 @@ import { SupportTicket, SupportTicketReply } from './modules/support/entities/su
           ShopCategory,
           SupportTicket,
           SupportTicketReply,
+          ChatConversation,
+          ChatMessage,
         ],
       }),
     }),
