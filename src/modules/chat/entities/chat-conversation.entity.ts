@@ -8,6 +8,11 @@ export enum ChatConversationStatus {
   CLOSED = 'closed',
 }
 
+export enum ChatConversationMode {
+  AI = 'ai',
+  HUMAN = 'human',
+}
+
 @Entity('chat_conversations')
 export class ChatConversation extends TenantBaseEntity {
   @Index()
@@ -19,6 +24,14 @@ export class ChatConversation extends TenantBaseEntity {
 
   @Column({ type: 'enum', enum: ChatConversationStatus, default: ChatConversationStatus.ACTIVE })
   status: ChatConversationStatus;
+
+  // ai = answered by the assistant; human = live chat with a superadmin agent
+  @Column({ type: 'enum', enum: ChatConversationMode, default: ChatConversationMode.AI })
+  mode: ChatConversationMode;
+
+  // Superadmin currently handling this conversation (human mode)
+  @Column({ name: 'assigned_agent_id', nullable: true })
+  assignedAgentId: string;
 
   // Set when the conversation is handed off to a human support ticket
   @Column({ name: 'escalated_ticket_id', nullable: true })

@@ -1,10 +1,12 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard, RolesGuard, CurrentUser } from 'src/common/guards/auth.guard';
+import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from 'src/common/guards/auth.guard';
+import { UserRole } from 'src/modules/users/entities/user.entity';
 import { ChatService } from './chat.service';
 import { ChatAiService } from './chat-ai.service';
-import { SendMessageDto } from './dto/chat.dto';
+import { ChatGateway } from './chat.gateway';
+import { SendMessageDto, AgentReplyDto } from './dto/chat.dto';
 
 @ApiTags('Chat')
 @ApiBearerAuth()
@@ -14,6 +16,7 @@ export class ChatController {
   constructor(
     private readonly chat: ChatService,
     private readonly ai: ChatAiService,
+    private readonly gateway: ChatGateway,
   ) {}
 
   @Get('status')
@@ -31,13 +34,46 @@ export class ChatController {
   @Get('conversations/:id')
   @ApiOperation({ summary: 'Get a conversation with its messages' })
   get(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.chat.getConversation(id, user.id);
+    const isAgent = user.role === UserRole.SUPER_ADMIN;
+    return this.chat.getConversation(id, user.id, isAgent);
   }
 
   @Post('messages')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Send a message to the assistant (creates a conversation if none given)' })
-  send(@Body() dto: SendMessageDto, @CurrentUser() user: any) {
-    return this.chat.sendMessage(dto, user.id, user.shopId);
+  async send(@Body() dto: SendMessageDto, @CurrentUser() user: any) {
+    const result = await this.chat.sendMessage(dto, user.id, user.shopId);
+    // Push live to anyone watching the conversation room (e.g. a superadmin observing).
+    if (result.data.reply) {
+      this.gateway.emitMessage(result.data.conversationId, result.data.reply);
+    }
+    return result;
+  }
+
+  @Post('conversations/:id/escalate')
+  @ApiOperation({ summary: 'Hand this conversation off to a human support agent' })
+  async escalate(@Param('id') id: string, @CurrentUser() user: any) {
+    const result = await this.chat.escalateToHuman(id, user.id);
+    this.gateway.emitAgentActivity(id, { mode: 'human', escalated: true });
+    return result;
+  }
+
+  // ── Superadmin support inbox ────────────────────────────────────────────
+
+  @Get('support/inbox')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'List conversations in human/live-support mode (super admin)' })
+  inbox() {
+    return this.chat.listSupportInbox();
+  }
+
+  @Post('conversations/:id/agent-reply')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Reply to a conversation as a support agent (super admin)' })
+  async agentReply(@Param('id') id: string, @Body() dto: AgentReplyDto, @CurrentUser() user: any) {
+    const { message } = await this.chat.recordAgentReply(id, user.id, dto.message);
+    const view = this.chat.toMessageView(message);
+    this.gateway.emitMessage(id, view);
+    return { data: { conversationId: id, reply: view }, message: 'Reply sent' };
   }
 }

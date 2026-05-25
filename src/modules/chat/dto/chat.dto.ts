@@ -13,3 +13,11 @@ export class SendMessageDto {
   @IsUUID()
   conversationId?: string;
 }
+
+export class AgentReplyDto {
+  @ApiProperty({ description: 'Support agent reply text' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(4000)
+  message: string;
+}

@@ -7,6 +7,12 @@ export enum ChatRole {
   ASSISTANT = 'assistant',
 }
 
+export enum ChatSenderType {
+  USER = 'user',       // the shop staff/owner
+  ASSISTANT = 'assistant', // the AI
+  AGENT = 'agent',     // a human superadmin
+}
+
 @Entity('chat_messages')
 export class ChatMessage extends TenantBaseEntity {
   @Index()
@@ -19,6 +25,13 @@ export class ChatMessage extends TenantBaseEntity {
 
   @Column({ type: 'enum', enum: ChatRole })
   role: ChatRole;
+
+  @Column({ type: 'enum', enum: ChatSenderType, default: ChatSenderType.USER, name: 'sender_type' })
+  senderType: ChatSenderType;
+
+  // User id of the sender for USER and AGENT messages (null for the AI)
+  @Column({ name: 'sender_id', nullable: true })
+  senderId: string;
 
   @Column({ type: 'text' })
   content: string;
