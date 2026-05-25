@@ -26,6 +26,7 @@
     "migration:show": "cross-env TS_NODE_PROJECT=tsconfig.migration.json typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@aws-sdk/client-s3": "^3.1045.0",
     "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@clerk/backend": "^3.2.0",

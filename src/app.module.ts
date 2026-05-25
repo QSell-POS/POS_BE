@@ -68,7 +68,7 @@ import { LoyaltyTransaction, LoyaltySettings } from './modules/loyalty/entities/
 import { AuditLog } from './modules/audit/entities/audit-log.entity';
 import { Subscription } from './modules/subscriptions/entities/subscription.entity';
 
-import { appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, redisConfig, storageConfig, uploadConfig } from './config/app.config';
+import { appConfig, authConfig, chatConfig, databaseConfig, jwtConfig, mailerConfig, redisConfig, storageConfig, uploadConfig } from './config/app.config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './common/guards/auth.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -89,6 +89,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { ShopCategoriesModule } from './modules/shop-categories/shop-categories.module';
 import { ShopCategory } from './modules/shop-categories/entities/shop-category.entity';
 import { SupportModule } from './modules/support/support.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { SupportTicket, SupportTicketReply } from './modules/support/entities/support-ticket.entity';
 
 @Module({
@@ -96,7 +97,7 @@ import { SupportTicket, SupportTicketReply } from './modules/support/entities/su
     // Config
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, authConfig, databaseConfig, jwtConfig, mailerConfig, redisConfig, storageConfig, uploadConfig],
+      load: [appConfig, authConfig, chatConfig, databaseConfig, jwtConfig, mailerConfig, redisConfig, storageConfig, uploadConfig],
       envFilePath: ['.env', '.env.example'],
     }),
 
@@ -220,6 +221,7 @@ import { SupportTicket, SupportTicketReply } from './modules/support/entities/su
     AdminModule,
     ShopCategoriesModule,
     SupportModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

@@ -59,3 +59,10 @@ export const authConfig = registerAs('auth', () => ({
   passwordResetExpiryHours: parseInt(process.env.AUTH_PASSWORD_RESET_EXPIRY_HOURS, 10) || 1,
   emailVerifyExpiryHours: parseInt(process.env.AUTH_EMAIL_VERIFY_EXPIRY_HOURS, 10) || 24,
 }));
+
+export const chatConfig = registerAs('chat', () => ({
+  apiKey: process.env.ANTHROPIC_API_KEY || '',
+  model: process.env.CHAT_MODEL || 'claude-opus-4-7',
+  maxTokens: parseInt(process.env.CHAT_MAX_TOKENS, 10) || 1024,
+  maxHistoryMessages: parseInt(process.env.CHAT_MAX_HISTORY, 10) || 20,
+}));
