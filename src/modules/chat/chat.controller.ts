@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from 'src/common/guards/auth.guard';
 import { UserRole } from 'src/modules/users/entities/user.entity';
+import { ChatConversationMode, ChatConversationStatus } from './entities/chat-conversation.entity';
 import { ChatService } from './chat.service';
 import { ChatAiService } from './chat-ai.service';
 import { ChatGateway } from './chat.gateway';
@@ -65,6 +66,25 @@ export class ChatController {
   @ApiOperation({ summary: 'List conversations in human/live-support mode (super admin)' })
   inbox() {
     return this.chat.listSupportInbox();
+  }
+
+  @Get('support/conversations')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'List ALL conversations incl. AI-only, with filters (super admin)' })
+  allConversations(
+    @Query('mode') mode?: ChatConversationMode,
+    @Query('status') status?: ChatConversationStatus,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.chat.listAllConversations({
+      mode,
+      status,
+      search,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
   }
 
   @Post('conversations/:id/agent-reply')
