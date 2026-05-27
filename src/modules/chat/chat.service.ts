@@ -46,6 +46,23 @@ export class ChatService {
     return { data, message: 'Support inbox fetched successfully' };
   }
 
+  /** Superadmin: list ALL conversations (incl. AI-only), with optional filters + paging. */
+  async listAllConversations(opts: { mode?: ChatConversationMode; status?: ChatConversationStatus; search?: string; page?: number; limit?: number }) {
+    const page = Math.max(1, opts.page || 1);
+    const limit = Math.min(100, Math.max(1, opts.limit || 20));
+    const qb = this.conversations.createQueryBuilder('c');
+    if (opts.mode) qb.andWhere('c.mode = :mode', { mode: opts.mode });
+    if (opts.status) qb.andWhere('c.status = :status', { status: opts.status });
+    if (opts.search) qb.andWhere('c.title ILIKE :s', { s: `%${opts.search}%` });
+    qb.orderBy('c.updatedAt', 'DESC').skip((page - 1) * limit).take(limit);
+    const [data, total] = await qb.getManyAndCount();
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      message: 'Conversations fetched successfully',
+    };
+  }
+
   // ── AI path (REST) ────────────────────────────────────────────────────────
 
   async sendMessage(dto: SendMessageDto, userId: string, shopId: string) {
